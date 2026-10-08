@@ -49,6 +49,43 @@ Supabase (`supabase/tests/00_stub_supabase.sql`) y corre `supabase/tests/*.test.
 aislamiento entre clínicas, permisos por rol, catálogo NTS 188, inalterabilidad,
 pagos sin sobreaplicar y reglas 1, 3 y 4.
 
+Después de las pruebas, `test:db` carga `supabase/seed.sql` y verifica con
+`supabase/tests/seed.check.sql` que estén los casos que necesita el tablero.
+
+## Datos de demo (`supabase/seed.sql`)
+
+Crea **Clínica Dental Demo – Trujillo** con 3 odontólogos, recepción y 120 pacientes
+ficticios. Las fechas se calculan desde hoy, así el tablero siempre tiene casos vigentes:
+ortodoncias con cuotas atrasadas, presupuestos de implantes sin respuesta, tratamientos
+detenidos, controles vencidos y no-shows del mes. Todo es inventado: nunca usar datos
+reales de pacientes.
+
+- Local: `npx supabase db reset` lo carga después de las migraciones.
+- Proyecto remoto: se carga una sola vez sobre la base vacía (si la clínica demo ya
+  existe, se detiene).
+
+| Usuario | Rol |
+| --- | --- |
+| `valverde@clinica-demo.example` | admin y odontóloga (rehabilitación e implantes) |
+| `alvarado@clinica-demo.example` | odontólogo (ortodoncia) |
+| `mendoza@clinica-demo.example` | odontóloga (general y endodoncia) |
+| `recepcion@clinica-demo.example` | recepción |
+
+Contraseña de demo para todos: `DemoTrujillo2026`.
+
+> Los teléfonos son números al azar con formato peruano y pueden pertenecer a
+> personas reales. En una demo en vivo, cambia el teléfono del paciente que vayas a
+> usar por el tuyo antes de pulsar «enviar mensaje».
+
+## Pruebas
+
+- `npm test`: Vitest (lógica en `src/**/*.test.ts`)
+- `npm run test:e2e`: Playwright (`e2e/`). Compila y levanta la app en el puerto 3100.
+  Si ya hay un Chromium instalado, `PLAYWRIGHT_CHROMIUM_PATH=/ruta/a/chromium` evita
+  descargarlo; si no, `npx playwright install chromium`.
+- `npm run test:db`: migraciones, RLS, reglas y seed sobre un Postgres efímero
+
 ## Scripts
 
-`npm run dev` · `npm run build` · `npm run lint` · `npm run typecheck` · `npm run test:db`
+`npm run dev` · `npm run build` · `npm run lint` · `npm run typecheck` · `npm test` ·
+`npm run test:e2e` · `npm run test:db`

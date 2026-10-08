@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Aplica supabase/migrations en un Postgres efímero y corre supabase/tests/*.test.sql.
+# Aplica supabase/migrations en un Postgres efímero, corre supabase/tests/*.test.sql
+# y luego carga supabase/seed.sql y verifica los casos de la demo.
 # Requiere los binarios de Postgres 15+ (PGBIN, por defecto /usr/lib/postgresql/16/bin).
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -25,4 +26,8 @@ for f in supabase/tests/*.test.sql; do
   echo "test: $(basename "$f")"
   psql_ -o /dev/null -f "$f"
 done
+echo "seed: supabase/seed.sql"
+psql_ -o /dev/null -f supabase/seed.sql
+psql_ -o /dev/null -f supabase/tests/seed.check.sql
+echo "seed: verificaciones OK"
 echo "OK"
