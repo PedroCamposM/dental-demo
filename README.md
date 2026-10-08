@@ -14,6 +14,17 @@ cp .env.example .env.local   # completar URL y publishable key de Supabase
 npm run dev
 ```
 
+## Despliegue en Vercel
+
+1. Importar el repo en Vercel (Framework Preset: Next.js, sin cambios de build).
+2. En **Environments → Production → Branch Tracking**, apuntar a la rama que se quiere publicar.
+3. Variables de entorno para **Production and Preview**, de tipo **Config** (no Secret:
+   el prefijo `NEXT_PUBLIC_` las envía al navegador y Vercel no permite que sean secretas):
+   - `NEXT_PUBLIC_SUPABASE_URL`
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
+4. Cada push a la rama vuelve a desplegar. Las pruebas no corren en Vercel: correr
+   `npm run lint`, `npm test`, `npm run test:db` y `npm run test:e2e` antes de subir.
+
 ## Supabase CLI (vía npx)
 
 ```bash
