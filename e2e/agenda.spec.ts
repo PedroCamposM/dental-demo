@@ -42,7 +42,11 @@ test("recepción agenda desde la ficha, la agenda evita choques y días sin aten
   await expect(page).toHaveURL(new RegExp(`/agenda\\?fecha=${LUNES}&creada=1`));
   await expect(page.getByText("Cita agendada.")).toBeVisible();
   const columna = page.getByRole("region", { name: MENDOZA });
-  const cita = columna.getByRole("listitem").filter({ hasText: paciente });
+  // La cita recién creada (por su id: puede haber otras canceladas del mismo paciente)
+  const nueva = columna.getByRole("listitem").filter({ hasText: paciente }).filter({ hasText: "Programada" })
+    .filter({ hasText: "10:00 – 10:45" });
+  const id = await nueva.getAttribute("data-cita");
+  const cita = page.locator(`[data-cita="${id}"]`);
   await expect(cita).toContainText("10:00 – 10:45");
   await expect(cita).toContainText("Profilaxis y destartraje");
   await expect(cita).toContainText("Sillón 2");
@@ -86,10 +90,17 @@ test("el admin agenda fuera del horario con un motivo que queda a la vista", asy
   await page.getByRole("button", { name: "Agendar cita" }).click();
 
   await expect(page).toHaveURL(new RegExp(`/agenda\\?fecha=${DOMINGO}&creada=1`));
-  const cita = page.getByRole("region", { name: MENDOZA }).getByRole("listitem").filter({ hasText: paciente });
+  const cita = page.getByRole("region", { name: MENDOZA }).getByRole("listitem").filter({ hasText: paciente })
+    .filter({ hasText: "Programada" });
   await expect(cita).toContainText("11:00 – 11:30");
   await expect(cita).toContainText("Fuera del horario (autorizado): Urgencia por dolor");
   await expect(page.getByRole("region", { name: MENDOZA })).toContainText("No atiende este día");
+
+  // Deja la agenda como estaba (la prueba se puede repetir)
+  page.once("dialog", (d) => void d.accept());
+  await cita.getByRole("button", { name: /^Cancelar la cita/ }).click();
+  await expect(page.getByRole("region", { name: MENDOZA }).getByRole("listitem").filter({ hasText: paciente })
+    .filter({ hasText: "Programada" })).toHaveCount(0);
 });
 
 test("toda la clínica ve la agenda; el día sin atención lo explica", async ({ page }) => {

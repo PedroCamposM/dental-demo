@@ -1,6 +1,6 @@
 // Citas: validación del servidor al agendar. La base vuelve a exigir horario,
 // bloqueos, choques y quién puede forzar.
-import { instanteLima } from "@/lib/fechas";
+import { fechaLima, instanteLima } from "@/lib/fechas";
 import { minutos } from "./horario";
 
 export type EstadoCita = "programada" | "confirmada" | "atendida" | "no_asistio" | "cancelada";
@@ -53,9 +53,9 @@ export function validarCita(entrada: EntradaCita, ahora: Date):
   if (!e.fecha && !e.hora && !e.duracion) {
     inicio = instanteLima(fecha, hora);
     fin = new Date(inicio.getTime() + duracion * 60_000);
-    if (Number.isNaN(inicio.getTime())) e.fecha = "Fecha inválida.";
+    if (Number.isNaN(inicio.getTime()) || fechaLima(inicio) !== fecha) e.fecha = "Fecha inválida.";
     else if (inicio.getTime() < ahora.getTime() - 5 * 60_000) e.hora = "Esa hora ya pasó.";
-    else if (mh !== null && mh + duracion > 24 * 60) e.duracion = "La cita debe terminar el mismo día.";
+    else if (mh !== null && mh + duracion >= 24 * 60) e.duracion = "La cita debe terminar el mismo día.";
   }
   if (Object.keys(e).length > 0 || !inicio || !fin) return { ok: false, errores: e };
   return {

@@ -70,6 +70,16 @@ where c.clinica_id = 'c0000000-0000-4000-8000-000000000001' and c.sillon_id is n
   and h.profesional_id = c.odontologo_id and h.activo
   and h.dia_semana = extract(isodow from c.inicio at time zone 'America/Lima');
 
+-- El seed v1 agendaba citas de 45 min en turnos de 30: las futuras que se superponen
+-- (por profesional, sillón o paciente) se acortan a 30 min, como la agenda exige.
+update public.cita c set fin = c.inicio + interval '30 minutes'
+where c.clinica_id = 'c0000000-0000-4000-8000-000000000001'
+  and c.estado in ('programada', 'confirmada') and c.inicio > now() and c.fin - c.inicio > interval '30 minutes'
+  and exists (select 1 from public.cita o
+              where o.clinica_id = c.clinica_id and o.id <> c.id and o.estado in ('programada', 'confirmada')
+                and (o.odontologo_id = c.odontologo_id or o.sillon_id = c.sillon_id or o.paciente_id = c.paciente_id)
+                and tstzrange(o.inicio, o.fin) && tstzrange(c.inicio, c.fin));
+
 -- Feriado nacional del 8 de diciembre (Inmaculada Concepción), si no choca con citas
 insert into public.bloqueo_agenda (clinica_id, tipo, motivo, inicio, fin, creado_por)
 select 'c0000000-0000-4000-8000-000000000001', 'feriado', 'Feriado: Inmaculada Concepción',

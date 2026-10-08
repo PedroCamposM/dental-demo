@@ -32,6 +32,7 @@ function sumarMinutos(hora: string, mas: number): string {
   const m = minutos(hora);
   if (m === null) return "";
   const t = m + mas;
+  if (t >= 24 * 60) return "";   // terminaría al día siguiente
   return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
 }
 
@@ -52,6 +53,7 @@ export function FormularioCita({ paciente, profesionales, horarios, procedimient
   const dia = diaIso(fecha);
   const horario = horarios.find((h) => h.profesional_id === profesional && h.dia_semana === dia);
   const fin = hora ? sumarMinutos(hora, Number(duracion)) : "";
+  const pasaMedianoche = Boolean(hora && minutos(hora) !== null && !fin);
   const fuera = Boolean(profesional && dia && hora && fin && (!horario || !dentroDeHorario(hora, fin, horario.hora_inicio, horario.hora_fin)));
   const duraciones = DURACIONES_CITA.includes(Number(duracion)) ? DURACIONES_CITA
     : [...DURACIONES_CITA, Number(duracion)].sort((a, b) => a - b);
@@ -125,6 +127,7 @@ export function FormularioCita({ paciente, profesionales, horarios, procedimient
             ? `Los ${DIAS_PLURAL[dia]} atiende de ${horario.hora_inicio} a ${horario.hora_fin} (${horario.sillon}).`
             : `No atiende los ${DIAS_PLURAL[dia]}.`}
           {fuera && hora && " La hora elegida queda fuera de su horario."}
+          {pasaMedianoche && " La cita debe terminar el mismo día."}
           {!fuera && hora && fin && ` La cita sería de ${hora} a ${fin}.`}
         </p>
       )}

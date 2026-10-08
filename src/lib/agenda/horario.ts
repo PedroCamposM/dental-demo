@@ -1,6 +1,6 @@
 // Horario semanal de los profesionales y bloqueos de agenda. Validación del
 // servidor; la base vuelve a exigir horas coherentes, sillón libre y permisos.
-import { instanteLima } from "@/lib/fechas";
+import { fechaLima, instanteLima } from "@/lib/fechas";
 
 /** Índice ISO: 1 = lunes … 7 = domingo. */
 export const DIAS = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"] as const;
@@ -39,6 +39,7 @@ export function validarSemana(leer: (campo: string) => string):
     else if (mi === null || mf === null) errores[dia] = "Indica la hora de inicio y de fin.";
     else if (mi % 5 !== 0 || mf % 5 !== 0) errores[dia] = "Usa horas en múltiplos de 5 minutos.";
     else if (mf <= mi) errores[dia] = "La hora de fin debe ser posterior a la de inicio.";
+    else if (mf > 23 * 60 + 55) errores[dia] = "El horario termina como máximo a las 23:55.";
     else dias.push({ dia, activo: true, sillon_id: sillon, hora_inicio: inicio, hora_fin: fin });
   }
   return Object.keys(errores).length > 0 ? { ok: false, errores } : { ok: true, dias };
@@ -87,7 +88,8 @@ export function validarBloqueo(entrada: EntradaBloqueo, ahora: Date):
   if (!e.desde && !e.hasta && !e.desde_hora && !e.hasta_hora && FECHA.test(hasta)) {
     inicio = instanteLima(desde, desdeHora);
     fin = hastaHora ? instanteLima(hasta, hastaHora) : new Date(instanteLima(hasta, "00:00").getTime() + 86_400_000);
-    if (Number.isNaN(inicio.getTime()) || Number.isNaN(fin.getTime())) e.desde = "Fecha inválida.";
+    if (Number.isNaN(inicio.getTime()) || Number.isNaN(fin.getTime()) || fechaLima(inicio) !== desde
+        || fechaLima(instanteLima(hasta, "12:00")) !== hasta) e.desde = "Fecha inválida.";
     else if (fin <= inicio) e.hasta = "El fin debe ser posterior al inicio.";
     else if (fin <= ahora) e.hasta = "El bloqueo ya terminó: indica fechas futuras.";
   }

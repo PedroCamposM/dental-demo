@@ -145,7 +145,7 @@ function Cita({ c, sillon }: { c: CitaDia; sillon?: string }) {
   const activa = c.estado === "programada" || c.estado === "confirmada";
   const descripcion = `la cita de ${nombre} a las ${horaLima(c.inicio)}`;
   return (
-    <li className={`px-4 py-3 ${activa ? "" : "opacity-70"}`}>
+    <li data-cita={c.id} className={`px-4 py-3 ${activa ? "" : "opacity-70"}`}>
       <div className="flex items-start justify-between gap-2">
         <p className="font-medium tabular-nums">{horaLima(c.inicio)} – {horaLima(c.fin)}</p>
         <span className={`rounded px-1.5 py-0.5 text-xs ${COLOR[c.estado]}`}>{ESTADOS_CITA[c.estado]}</span>

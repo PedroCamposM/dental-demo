@@ -5,34 +5,33 @@ test.skip(!conSupabaseLocal || !conEtapa2, "Cambia la configuración: solo contr
 // Comparten la configuración de la clínica demo: una tras otra.
 test.describe.configure({ mode: "serial" });
 
+// Usa el sábado del Dr. Alvarado: agenda.spec trabaja con la Dra. Mendoza (lunes y domingos).
 test("el admin configura el horario de un odontólogo y lo deja como estaba", async ({ page }) => {
   await entrar(page, "valverde@clinica-demo.example");
   await page.goto("/configuracion/horarios");
   await expect(page.getByRole("heading", { name: "Sillones", exact: true })).toBeVisible();
-  const horario = page.getByRole("form", { name: "Horario de Dra. Carla Mendoza Paredes" });
-  await expect(horario.getByLabel("Lunes: desde")).toHaveValue("09:00");
+  const nombre = "Horario de Dr. Martín Alvarado Cruz";
+  const horario = page.getByRole("form", { name: nombre });
+  await expect(horario.getByLabel("Sábado: hasta")).toHaveValue("19:00");
   await expect(horario.getByLabel("Domingo: desde")).toBeDisabled();
 
-  // Activar el domingo sin sillón: el servidor lo explica y no se pierde lo editado
-  await horario.getByLabel("Domingo", { exact: true }).check();
-  await horario.getByLabel("Domingo: desde").fill("09:00");
-  await horario.getByLabel("Domingo: hasta").fill("13:00");
+  // Sin sillón: el servidor lo explica y no se pierde lo editado
+  await horario.getByLabel("Sábado: hasta").fill("13:00");
+  await horario.getByLabel("Sábado: sillón").selectOption("");
   await horario.getByRole("button", { name: /Guardar horario/ }).click();
   await expect(horario.getByText("Elige el sillón.")).toBeVisible();
-  await expect(horario.getByLabel("Domingo: hasta")).toHaveValue("13:00");
+  await expect(horario.getByLabel("Sábado: hasta")).toHaveValue("13:00");
 
-  // Con su sillón, se guarda
-  await horario.getByLabel("Domingo: sillón").selectOption({ label: "Sillón 2" });
+  await horario.getByLabel("Sábado: sillón").selectOption({ label: "Sillón 3" });
   await horario.getByRole("button", { name: /Guardar horario/ }).click();
   await expect(horario.getByText("Horario guardado.")).toBeVisible();
 
   await page.reload();
-  const recargado = page.getByRole("form", { name: "Horario de Dra. Carla Mendoza Paredes" });
-  await expect(recargado.getByLabel("Domingo", { exact: true })).toBeChecked();
-  await expect(recargado.getByLabel("Domingo: hasta")).toHaveValue("13:00");
+  const recargado = page.getByRole("form", { name: nombre });
+  await expect(recargado.getByLabel("Sábado: hasta")).toHaveValue("13:00");
 
   // Lo deja como estaba
-  await recargado.getByLabel("Domingo", { exact: true }).uncheck();
+  await recargado.getByLabel("Sábado: hasta").fill("19:00");
   await recargado.getByRole("button", { name: /Guardar horario/ }).click();
   await expect(recargado.getByText("Horario guardado.")).toBeVisible();
 });

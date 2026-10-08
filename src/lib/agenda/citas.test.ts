@@ -26,6 +26,10 @@ describe("validarCita", () => {
     expect(pasada.ok === false && pasada.errores.hora).toBe("Esa hora ya pasó.");
     const noche = validarCita({ paciente_id: P, profesional_id: D, fecha: "2026-10-12", hora: "23:45", duracion: "30" }, AHORA);
     expect(noche.ok === false && noche.errores.duracion).toBe("La cita debe terminar el mismo día.");
+    const media = validarCita({ paciente_id: P, profesional_id: D, fecha: "2026-10-12", hora: "23:30", duracion: "30" }, AHORA);
+    expect(media.ok === false && media.errores.duracion).toBe("La cita debe terminar el mismo día.");
+    const imposible = validarCita({ paciente_id: P, profesional_id: D, fecha: "2026-02-30", hora: "10:00", duracion: "30" }, AHORA);
+    expect(imposible.ok === false && imposible.errores.fecha).toBe("Fecha inválida.");
     const rara = validarCita({ paciente_id: P, profesional_id: D, fecha: "2026-10-12", hora: "09:32", duracion: "7" }, AHORA);
     expect(rara.ok === false && Object.keys(rara.errores).sort()).toEqual(["duracion", "hora"]);
   });

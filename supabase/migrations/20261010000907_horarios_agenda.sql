@@ -40,6 +40,7 @@ create table public.horario_profesional (
   updated_at      timestamptz not null default now(),
   unique (clinica_id, id),
   unique (profesional_id, dia_semana),
+  check (hora_fin <= time '23:55'),
   foreign key (clinica_id, profesional_id) references public.usuario (clinica_id, id),
   foreign key (clinica_id, sillon_id)      references public.sillon (clinica_id, id),
   check (hora_fin > hora_inicio)
@@ -102,7 +103,8 @@ create table public.bloqueo_agenda (
   foreign key (clinica_id, profesional_id) references public.usuario (clinica_id, id),
   foreign key (clinica_id, creado_por)     references public.usuario (clinica_id, id),
   check (fin > inicio),
-  constraint bloqueo_anulacion_completa check ((anulado_at is null) = (motivo_anulacion is null))
+  constraint bloqueo_anulacion_completa check ((anulado_at is null) = (motivo_anulacion is null)),
+  check (motivo_anulacion is null or char_length(btrim(motivo_anulacion)) >= 3)
 );
 alter table public.bloqueo_agenda enable row level security;
 create index bloqueo_agenda_rango_idx on public.bloqueo_agenda (clinica_id, inicio, fin) where anulado_at is null;
@@ -135,22 +137,50 @@ create function privado.validar_agenda() returns trigger
 language plpgsql set search_path = '' as $$
 declare
   c_dias constant text[] := array['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábados', 'domingos'];
+  c_activos constant public.estado_cita[] := array['programada', 'confirmada']::public.estado_cita[];
+  v_admin boolean;
   v_tz text;
   v_ini timestamp;
   v_fin timestamp;
   v_dia int;
-  v_nombre text;
+  v_profesional public.usuario;
   v_horario public.horario_profesional;
   v_bloqueo public.bloqueo_agenda;
   v_problema text;
 begin
-  if current_user <> 'authenticated' or new.estado not in ('programada', 'confirmada') then
+  if current_user <> 'authenticated' then
     return new;
   end if;
+  v_admin := privado.rol_actual() is not distinct from 'admin';
+
+  -- Quién forzó una cita lo pone solo esta función (nunca el cliente).
+  if tg_op = 'INSERT' then
+    new.forzada_por := null;
+  elsif new.forzada_por is distinct from old.forzada_por then
+    raise exception 'El autor de una cita forzada no se modifica' using hint = 'agenda';
+  end if;
+
+  -- Estados no activos (atendida, no asistió, cancelada): no se crean así ni se mueven.
+  if not (new.estado = any (c_activos)) then
+    if tg_op = 'INSERT' then
+      raise exception 'Una cita nueva se agenda como programada o confirmada' using hint = 'agenda';
+    end if;
+    if new.inicio <> old.inicio or new.fin <> old.fin or new.odontologo_id <> old.odontologo_id
+       or new.paciente_id <> old.paciente_id or new.sillon_id is distinct from old.sillon_id
+       or new.forzada_motivo is distinct from old.forzada_motivo then
+      raise exception 'Una cita atendida, cancelada o sin asistencia no cambia de fecha, profesional, paciente ni sillón'
+        using hint = 'agenda';
+    end if;
+    if new.estado in ('atendida', 'no_asistio') and new.estado is distinct from old.estado and new.inicio > now() then
+      raise exception 'No se marca como atendida o sin asistencia una cita que aún no empieza' using hint = 'agenda';
+    end if;
+    return new;
+  end if;
+
   -- Confirmar o editar la nota de una cita activa no la vuelve a validar.
-  if tg_op = 'UPDATE' and old.estado in ('programada', 'confirmada')
+  if tg_op = 'UPDATE' and old.estado = any (c_activos)
      and new.inicio = old.inicio and new.fin = old.fin and new.odontologo_id = old.odontologo_id
-     and new.sillon_id is not distinct from old.sillon_id
+     and new.paciente_id = old.paciente_id and new.sillon_id is not distinct from old.sillon_id
      and new.forzada_motivo is not distinct from old.forzada_motivo then
     return new;
   end if;
@@ -165,34 +195,48 @@ begin
     raise exception 'La cita debe empezar y terminar el mismo día' using hint = 'agenda';
   end if;
 
+  select * into v_profesional from public.usuario where id = new.odontologo_id;
+  if not (v_profesional.activo and v_profesional.rol in ('admin', 'odontologo') and v_profesional.cop is not null) then
+    raise exception 'Solo se agendan citas con odontólogos activos' using hint = 'agenda';
+  end if;
   v_dia := extract(isodow from v_ini)::int;
-  select nombre into v_nombre from public.usuario where id = new.odontologo_id;
   select * into v_horario from public.horario_profesional
    where profesional_id = new.odontologo_id and dia_semana = v_dia and activo;
-  if new.sillon_id is null and v_horario.id is not null then
-    new.sillon_id := v_horario.sillon_id;   -- su sillón de ese día
+
+  -- Sillón: el de su horario de ese día. Otro sillón solo lo elige el administrador.
+  if v_horario.id is not null and (new.sillon_id is null or not v_admin) then
+    new.sillon_id := v_horario.sillon_id;
+  end if;
+  if new.sillon_id is not null and not exists (select 1 from public.sillon where id = new.sillon_id and activo) then
+    raise exception 'El sillón elegido no está activo' using hint = 'agenda';
   end if;
 
   -- Choques: nunca se fuerzan
   if exists (select 1 from public.cita c
-              where c.clinica_id = new.clinica_id and c.id <> new.id and c.estado in ('programada', 'confirmada')
+              where c.clinica_id = new.clinica_id and c.id <> new.id and c.estado = any (c_activos)
                 and c.odontologo_id = new.odontologo_id
                 and tstzrange(c.inicio, c.fin) && tstzrange(new.inicio, new.fin)) then
-    raise exception '% ya tiene otra cita en ese horario', v_nombre using hint = 'agenda';
+    raise exception '% ya tiene otra cita en ese horario', v_profesional.nombre using hint = 'agenda';
   end if;
   if new.sillon_id is not null and exists (
        select 1 from public.cita c
-        where c.clinica_id = new.clinica_id and c.id <> new.id and c.estado in ('programada', 'confirmada')
+        where c.clinica_id = new.clinica_id and c.id <> new.id and c.estado = any (c_activos)
           and c.sillon_id = new.sillon_id
           and tstzrange(c.inicio, c.fin) && tstzrange(new.inicio, new.fin)) then
     raise exception 'El sillón ya está ocupado en ese horario' using hint = 'agenda';
   end if;
+  if exists (select 1 from public.cita c
+              where c.clinica_id = new.clinica_id and c.id <> new.id and c.estado = any (c_activos)
+                and c.paciente_id = new.paciente_id
+                and tstzrange(c.inicio, c.fin) && tstzrange(new.inicio, new.fin)) then
+    raise exception 'El paciente ya tiene otra cita en ese horario' using hint = 'agenda';
+  end if;
 
   -- Horario y bloqueos: el administrador los puede forzar con motivo
   if v_horario.id is null then
-    v_problema := format('%s no atiende los %s', v_nombre, c_dias[v_dia]);
+    v_problema := format('%s no atiende los %s', v_profesional.nombre, c_dias[v_dia]);
   elsif v_ini::time < v_horario.hora_inicio or v_fin::time > v_horario.hora_fin then
-    v_problema := format('Fuera del horario de %s: los %s atiende de %s a %s', v_nombre, c_dias[v_dia],
+    v_problema := format('Fuera del horario de %s: los %s atiende de %s a %s', v_profesional.nombre, c_dias[v_dia],
                          to_char(v_horario.hora_inicio, 'HH24:MI'), to_char(v_horario.hora_fin, 'HH24:MI'));
   end if;
   if v_problema is null then
@@ -214,7 +258,7 @@ begin
     new.forzada_por := null;
   elsif coalesce(btrim(new.forzada_motivo), '') = '' then
     raise exception '%', v_problema using hint = 'agenda';
-  elsif privado.rol_actual() is distinct from 'admin' then
+  elsif not v_admin then
     raise exception 'Solo el administrador puede agendar fuera del horario o sobre un bloqueo' using hint = 'agenda';
   else
     new.forzada_motivo := btrim(new.forzada_motivo);
@@ -309,5 +353,11 @@ grant select, insert on public.sillon to authenticated;
 grant update (nombre, activo) on public.sillon to authenticated;
 grant select, insert on public.horario_profesional to authenticated;
 grant update (sillon_id, hora_inicio, hora_fin, activo) on public.horario_profesional to authenticated;
+-- cita: forzada_por lo asigna validar_agenda, nunca el cliente (permisos por columna).
+revoke insert, update on public.cita from authenticated;
+grant insert (id, clinica_id, paciente_id, odontologo_id, inicio, fin, estado, nota, sillon_id, forzada_motivo)
+  on public.cita to authenticated;
+grant update (paciente_id, odontologo_id, inicio, fin, estado, nota, sillon_id, forzada_motivo)
+  on public.cita to authenticated;
 grant select, insert on public.bloqueo_agenda to authenticated;
 grant update (anulado_at, anulado_por, motivo_anulacion) on public.bloqueo_agenda to authenticated;

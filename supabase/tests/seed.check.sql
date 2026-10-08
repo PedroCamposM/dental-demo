@@ -118,4 +118,11 @@ select pg_temp.ninguno((select count(*) from cita, pg_temp.c
                         where clinica_id = c.id and estado in ('programada', 'confirmada') and inicio > now()
                           and sillon_id is null), 'citas futuras sin sillón');
 
+select pg_temp.ninguno((select count(*) from cita a join cita b on b.clinica_id = a.clinica_id and b.id > a.id, pg_temp.c
+                        where a.clinica_id = c.id and a.inicio > now()
+                          and a.estado in ('programada', 'confirmada') and b.estado in ('programada', 'confirmada')
+                          and (a.odontologo_id = b.odontologo_id or a.sillon_id = b.sillon_id or a.paciente_id = b.paciente_id)
+                          and tstzrange(a.inicio, a.fin) && tstzrange(b.inicio, b.fin)),
+                       'citas futuras superpuestas (profesional, sillón o paciente)');
+
 select 'seed: todas las verificaciones pasaron' as resultado;

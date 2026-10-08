@@ -19,8 +19,9 @@ insert into public.usuario (id, clinica_id, nombre, rol, cop) values
   ('a7000000-0000-0000-0000-00000000000d', 'a7a7a7a7-0000-0000-0000-000000000000', 'Asistente G',   'asistente',  null),
   ('a7000000-0000-0000-0000-00000000000e', 'a7a7a7a7-0000-0000-0000-000000000000', 'Dr. Ruiz',      'odontologo', '7003'),
   ('b7000000-0000-0000-0000-00000000000a', 'b7b7b7b7-0000-0000-0000-000000000000', 'Admin H',       'admin',      '8001');
-insert into public.paciente (id, clinica_id, dni, nombres, apellidos)
-values ('a7a7a7a7-0000-0000-0000-0000000000f1', 'a7a7a7a7-0000-0000-0000-000000000000', '47000001', 'Paola', 'Agenda');
+insert into public.paciente (id, clinica_id, dni, nombres, apellidos) values
+  ('a7a7a7a7-0000-0000-0000-0000000000f1', 'a7a7a7a7-0000-0000-0000-000000000000', '47000001', 'Paola', 'Agenda'),
+  ('a7a7a7a7-0000-0000-0000-0000000000f2', 'a7a7a7a7-0000-0000-0000-000000000000', '47000002', 'Pedro', 'Segundo');
 
 -- Lunes y martes de la próxima semana, en hora de Lima
 create view pruebas.dia as
@@ -97,10 +98,39 @@ select pruebas.debe_fallar(format($$insert into public.cita (clinica_id, pacient
   values ('a7a7a7a7-0000-0000-0000-000000000000', 'a7a7a7a7-0000-0000-0000-0000000000f1',
           'a7000000-0000-0000-0000-00000000000b', %L, %L)$$, pruebas.a(0, '10:15'), pruebas.a(0, '10:45')),
   'Dra. Ortiz ya tiene otra cita');
-select pruebas.debe_fallar(format($$insert into public.cita (clinica_id, paciente_id, odontologo_id, sillon_id, inicio, fin)
+-- El mismo paciente no tiene dos citas a la vez, aunque sean con profesionales distintos
+select pruebas.debe_fallar(format($$insert into public.cita (clinica_id, paciente_id, odontologo_id, inicio, fin)
   values ('a7a7a7a7-0000-0000-0000-000000000000', 'a7a7a7a7-0000-0000-0000-0000000000f1',
+          'a7000000-0000-0000-0000-00000000000e', %L, %L)$$, pruebas.a(0, '10:00'), pruebas.a(0, '10:30')),
+  'El paciente ya tiene otra cita');
+-- Recepción no elige sillón ajeno: se usa el del horario del profesional
+insert into public.cita (id, clinica_id, paciente_id, odontologo_id, sillon_id, inicio, fin)
+values ('a7a7a7a7-0000-0000-0000-0000000000e4', 'a7a7a7a7-0000-0000-0000-000000000000', 'a7a7a7a7-0000-0000-0000-0000000000f2',
+        'a7000000-0000-0000-0000-00000000000e', 'a7a7a7a7-0000-0000-0000-0000000000c1', pruebas.a(0, '09:00'), pruebas.a(0, '09:30'));
+select pruebas.igual((select count(*) from public.cita where id = 'a7a7a7a7-0000-0000-0000-0000000000e4'
+                        and sillon_id = 'a7a7a7a7-0000-0000-0000-0000000000c2'), 1, 'recepción no asigna un sillón ajeno');
+-- Otro sillón solo lo elige el admin, y no puede estar ocupado
+select pruebas.como('a7000000-0000-0000-0000-00000000000a');
+select pruebas.debe_fallar(format($$insert into public.cita (clinica_id, paciente_id, odontologo_id, sillon_id, inicio, fin)
+  values ('a7a7a7a7-0000-0000-0000-000000000000', 'a7a7a7a7-0000-0000-0000-0000000000f2',
           'a7000000-0000-0000-0000-00000000000e', 'a7a7a7a7-0000-0000-0000-0000000000c1', %L, %L)$$,
   pruebas.a(0, '10:00'), pruebas.a(0, '10:30')), 'El sillón ya está ocupado');
+select pruebas.como('a7000000-0000-0000-0000-00000000000c');
+
+-- Estados no activos: no se crean así ni se mueven; no se marca atendida una cita futura
+select pruebas.debe_fallar(format($$insert into public.cita (clinica_id, paciente_id, odontologo_id, inicio, fin, estado)
+  values ('a7a7a7a7-0000-0000-0000-000000000000', 'a7a7a7a7-0000-0000-0000-0000000000f2',
+          'a7000000-0000-0000-0000-00000000000b', %L, %L, 'atendida')$$, pruebas.a(6, '03:00'), pruebas.a(6, '03:30')),
+  'se agenda como programada');
+select pruebas.debe_fallar($$update public.cita set estado = 'atendida' where id = 'a7a7a7a7-0000-0000-0000-0000000000e4'$$,
+                           'aún no empieza');
+select pruebas.debe_fallar(format($$update public.cita set estado = 'cancelada', inicio = %L, fin = %L
+  where id = 'a7a7a7a7-0000-0000-0000-0000000000e4'$$, pruebas.a(6, '03:00'), pruebas.a(6, '03:30')), 'no cambia de fecha');
+-- Nadie escribe el autor de un forzado
+select pruebas.debe_fallar($$insert into public.cita (clinica_id, paciente_id, odontologo_id, inicio, fin, forzada_por)
+  values ('a7a7a7a7-0000-0000-0000-000000000000', 'a7a7a7a7-0000-0000-0000-0000000000f2',
+          'a7000000-0000-0000-0000-00000000000b', now() + interval '30 days', now() + interval '30 days 30 minutes',
+          'a7000000-0000-0000-0000-00000000000a')$$, 'permission denied');
 
 -- Fuera del horario, otro día, en el pasado o cruzando la medianoche
 select pruebas.debe_fallar(format($$insert into public.cita (clinica_id, paciente_id, odontologo_id, inicio, fin)
@@ -132,6 +162,12 @@ values ('a7a7a7a7-0000-0000-0000-0000000000e2', 'a7a7a7a7-0000-0000-0000-0000000
 select pruebas.igual((select count(*) from public.cita where id = 'a7a7a7a7-0000-0000-0000-0000000000e2'
                         and forzada_motivo = 'Urgencia por dolor' and forzada_por = 'a7000000-0000-0000-0000-00000000000a'),
                      1, 'cita forzada con motivo y autor');
+select pruebas.como('a7000000-0000-0000-0000-00000000000c');
+select pruebas.debe_fallar($$update public.cita set forzada_por = 'a7000000-0000-0000-0000-00000000000c'
+                             where id = 'a7a7a7a7-0000-0000-0000-0000000000e2'$$, 'permission denied');
+select pruebas.debe_fallar($$update public.cita set estado = 'cancelada', forzada_motivo = 'Inventado'
+                             where id = 'a7a7a7a7-0000-0000-0000-0000000000e2'$$, 'no cambia');
+select pruebas.como('a7000000-0000-0000-0000-00000000000a');
 -- Un motivo sobre una cita que no lo necesita se descarta
 insert into public.cita (id, clinica_id, paciente_id, odontologo_id, inicio, fin, forzada_motivo)
 values ('a7a7a7a7-0000-0000-0000-0000000000e3', 'a7a7a7a7-0000-0000-0000-000000000000', 'a7a7a7a7-0000-0000-0000-0000000000f1',
@@ -152,7 +188,7 @@ select pruebas.debe_fallar(format($$insert into public.cita (clinica_id, pacient
   'Agenda bloqueada por capacitación: Curso de endodoncia');
 -- El bloqueo de una profesional no afecta a otro
 insert into public.cita (clinica_id, paciente_id, odontologo_id, inicio, fin)
-values ('a7a7a7a7-0000-0000-0000-000000000000', 'a7a7a7a7-0000-0000-0000-0000000000f1',
+values ('a7a7a7a7-0000-0000-0000-000000000000', 'a7a7a7a7-0000-0000-0000-0000000000f2',
         'a7000000-0000-0000-0000-00000000000e', pruebas.a(0, '12:00'), pruebas.a(0, '12:30'));
 
 select pruebas.como('a7000000-0000-0000-0000-00000000000a');
@@ -205,7 +241,7 @@ update public.horario_profesional set activo = false where id = 'a7a7a7a7-0000-0
 select pruebas.como('a7000000-0000-0000-0000-00000000000c');
 select pruebas.debe_fallar(format($$insert into public.cita (clinica_id, paciente_id, odontologo_id, inicio, fin)
   values ('a7a7a7a7-0000-0000-0000-000000000000', 'a7a7a7a7-0000-0000-0000-0000000000f1',
-          'a7000000-0000-0000-0000-00000000000e', %L, %L)$$, pruebas.a(0, '09:00'), pruebas.a(0, '09:30')),
+          'a7000000-0000-0000-0000-00000000000e', %L, %L)$$, pruebas.a(0, '08:00'), pruebas.a(0, '08:30')),
   'Dr. Ruiz no atiende los lunes');
 reset role;
 select pruebas.igual((select count(*) from public.auditoria
@@ -217,7 +253,16 @@ select pruebas.igual((select count(*) from public.auditoria
 select pruebas.igual((select count(*) from public.auditoria
                       where tabla = 'bloqueo_agenda' and accion = 'anular'), 1, 'la anulación del bloqueo queda en la auditoría');
 
+-- Un odontólogo desactivado no recibe citas aunque conserve su horario
 set role authenticated;
+select pruebas.como('a7000000-0000-0000-0000-00000000000a');
+update public.usuario set activo = false where id = 'a7000000-0000-0000-0000-00000000000b';
+select pruebas.como('a7000000-0000-0000-0000-00000000000c');
+select pruebas.debe_fallar(format($$insert into public.cita (clinica_id, paciente_id, odontologo_id, inicio, fin)
+  values ('a7a7a7a7-0000-0000-0000-000000000000', 'a7a7a7a7-0000-0000-0000-0000000000f2',
+          'a7000000-0000-0000-0000-00000000000b', %L, %L)$$, pruebas.a(0, '11:00'), pruebas.a(0, '11:30')),
+  'odontólogos activos');
+
 select pruebas.como('b7000000-0000-0000-0000-00000000000a');
 select pruebas.igual((select count(*) from public.sillon) + (select count(*) from public.horario_profesional)
                      + (select count(*) from public.bloqueo_agenda), 0, 'otra clínica no ve sillones, horarios ni bloqueos');
