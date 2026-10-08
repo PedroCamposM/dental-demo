@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Aplica supabase/migrations en un Postgres efímero y corre supabase/tests/*.test.sql.
+# Requiere los binarios de Postgres 15+ (PGBIN, por defecto /usr/lib/postgresql/16/bin).
+set -euo pipefail
+cd "$(dirname "$0")/.."
+PGBIN="${PGBIN:-/usr/lib/postgresql/16/bin}"
+TMP="$(mktemp -d)"
+RUN=()
+if [ "$(id -u)" = 0 ]; then chown postgres "$TMP"; RUN=(runuser -u postgres --); fi
+PORT="${PGPORT_TEST:-54329}"
+cleanup() { "${RUN[@]}" "$PGBIN/pg_ctl" -D "$TMP/data" -m immediate stop >/dev/null 2>&1 || true; rm -rf "$TMP"; }
+trap cleanup EXIT
+
+"${RUN[@]}" "$PGBIN/initdb" -D "$TMP/data" -U postgres -A trust --locale=C.UTF-8 >/dev/null
+"${RUN[@]}" "$PGBIN/pg_ctl" -D "$TMP/data" -o "-p $PORT -k $TMP -c listen_addresses=''" -l "$TMP/log" -w start >/dev/null
+
+psql_() { "$PGBIN/psql" -h "$TMP" -p "$PORT" -U postgres -d postgres -X -q -v ON_ERROR_STOP=1 "$@"; }
+
+psql_ -f supabase/tests/00_stub_supabase.sql
+for f in supabase/migrations/*.sql; do
+  echo "migración: $(basename "$f")"
+  psql_ -1 -f "$f"
+done
+for f in supabase/tests/*.test.sql; do
+  echo "test: $(basename "$f")"
+  psql_ -o /dev/null -f "$f"
+done
+echo "OK"
