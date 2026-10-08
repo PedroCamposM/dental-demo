@@ -17,31 +17,36 @@ type PropsCampo = {
 } & React.InputHTMLAttributes<HTMLInputElement>;
 
 function Campo({ campo, etiqueta, valor, error, tipo = "text", obligatorio = false, ayuda, ...resto }: PropsCampo) {
+  // Ayuda y error van fuera de la etiqueta: el nombre del campo es solo la etiqueta.
+  const id = `campo-${campo}`;
+  const descripcion = error ? `${id}-error` : ayuda ? `${id}-ayuda` : undefined;
   return (
-    <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-      <span>{etiqueta}{obligatorio && <span aria-hidden="true" className="text-red-700"> *</span>}</span>
+    <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+      <label htmlFor={id}>{etiqueta}{obligatorio && <span aria-hidden="true" className="text-red-700"> *</span>}</label>
       <input
-        name={campo} type={tipo} defaultValue={valor ?? ""} aria-invalid={!!error} aria-required={obligatorio}
-        aria-describedby={error ? `${campo}-error` : undefined} className={ENTRADA} {...resto}
+        id={id} name={campo} type={tipo} defaultValue={valor ?? ""} aria-invalid={!!error} aria-required={obligatorio}
+        aria-describedby={descripcion} className={ENTRADA} {...resto}
       />
-      {ayuda && !error && <span className="text-xs font-normal text-gray-500">{ayuda}</span>}
-      {error && <span id={`${campo}-error`} className="text-xs font-normal text-red-700">{error}</span>}
-    </label>
+      {ayuda && !error && <span id={`${id}-ayuda`} className="text-xs font-normal text-gray-500">{ayuda}</span>}
+      {error && <span id={`${id}-error`} className="text-xs font-normal text-red-700">{error}</span>}
+    </div>
   );
 }
 
 function Opciones({ campo, etiqueta, opciones, valor, error }: {
   campo: CampoPaciente; etiqueta: string; opciones: Record<string, string>; valor?: string; error?: string;
 }) {
+  const id = `campo-${campo}`;
   return (
-    <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-      <span>{etiqueta}<span aria-hidden="true" className="text-red-700"> *</span></span>
-      <select name={campo} defaultValue={valor ?? ""} aria-invalid={!!error} className={ENTRADA}>
+    <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+      <label htmlFor={id}>{etiqueta}<span aria-hidden="true" className="text-red-700"> *</span></label>
+      <select id={id} name={campo} defaultValue={valor ?? ""} aria-invalid={!!error} aria-required
+        aria-describedby={error ? `${id}-error` : undefined} className={ENTRADA}>
         <option value="" disabled>Elegir…</option>
         {Object.entries(opciones).map(([clave, texto]) => <option key={clave} value={clave}>{texto}</option>)}
       </select>
-      {error && <span className="text-xs font-normal text-red-700">{error}</span>}
-    </label>
+      {error && <span id={`${id}-error`} className="text-xs font-normal text-red-700">{error}</span>}
+    </div>
   );
 }
 
@@ -96,16 +101,19 @@ export function FormularioPaciente({ id, inicial = { tipo_documento: "dni" } }: 
         <Campo campo="numero_documento" valor={v.numero_documento} error={e.numero_documento} etiqueta="Número de documento" obligatorio autoComplete="off" />
         <Campo campo="nombres" valor={v.nombres} error={e.nombres} etiqueta="Nombres" obligatorio />
         <Campo campo="apellidos" valor={v.apellidos} error={e.apellidos} etiqueta="Apellidos" obligatorio />
-        <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-          <span>Fecha de nacimiento<span aria-hidden="true" className="text-red-700"> *</span></span>
+        <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+          <label htmlFor="campo-fecha_nacimiento">
+            Fecha de nacimiento<span aria-hidden="true" className="text-red-700"> *</span>
+          </label>
           <input
-            name="fecha_nacimiento" type="date" defaultValue={v.fecha_nacimiento ?? ""}
-            onChange={(e) => setFecha(e.target.value)} aria-invalid={!!estado.errores.fecha_nacimiento} className={ENTRADA}
+            id="campo-fecha_nacimiento" name="fecha_nacimiento" type="date" defaultValue={v.fecha_nacimiento ?? ""}
+            onChange={(ev) => setFecha(ev.target.value)} aria-invalid={!!e.fecha_nacimiento} aria-required
+            aria-describedby={e.fecha_nacimiento ? "campo-fecha_nacimiento-error" : undefined} className={ENTRADA}
           />
-          {estado.errores.fecha_nacimiento && (
-            <span className="text-xs font-normal text-red-700">{estado.errores.fecha_nacimiento}</span>
+          {e.fecha_nacimiento && (
+            <span id="campo-fecha_nacimiento-error" className="text-xs font-normal text-red-700">{e.fecha_nacimiento}</span>
           )}
-        </label>
+        </div>
         <Opciones campo="sexo" valor={v.sexo} error={e.sexo} etiqueta="Sexo" opciones={SEXOS} />
       </fieldset>
 

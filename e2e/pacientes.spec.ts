@@ -5,7 +5,7 @@ test.skip(!conSupabaseLocal, "Crea pacientes: solo contra Supabase local");
 
 test("recepción registra un paciente, recibe aviso de duplicado y lo encuentra al buscar", async ({ page }) => {
   await entrar(page, "recepcion@clinica-demo.example");
-  await page.getByRole("link", { name: "Pacientes" }).click();
+  await page.getByRole("link", { name: "Pacientes", exact: true }).click();
   await page.getByRole("link", { name: "Nuevo paciente" }).click();
 
   const dni = dniAlAzar();

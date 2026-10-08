@@ -8,7 +8,7 @@ export function FormularioInactividad({ minutos }: { minutos: number }) {
     mensaje: null, error: null,
   });
   return (
-    <form action={accion} className="flex flex-col gap-3">
+    <form action={accion} className="flex flex-col gap-3" noValidate>
       <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
         Cerrar la sesión tras estos minutos sin actividad
         <input
