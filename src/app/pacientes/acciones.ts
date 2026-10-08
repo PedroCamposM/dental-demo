@@ -1,0 +1,85 @@
+"use server";
+
+import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
+import { fechaLima } from "@/lib/fechas";
+import { modulos } from "@/lib/funciones";
+import { validarPaciente, type EntradaPaciente, type Errores, type CampoPaciente } from "@/lib/pacientes/validacion";
+import { registrarError } from "@/lib/registro";
+import { obtenerSesion } from "@/lib/sesion";
+import { createClient } from "@/lib/supabase/server";
+
+export type Duplicado = {
+  id: string; nombres: string; apellidos: string; tipo_documento: string; numero_documento: string | null;
+  telefono: string | null; fecha_nacimiento: string | null;
+};
+
+export type EstadoFormulario = {
+  errores: Errores;
+  general: string | null;
+  consentimiento: string | null;
+  duplicados: Duplicado[];
+  valores: EntradaPaciente;
+};
+
+const CAMPOS: CampoPaciente[] = [
+  "tipo_documento", "numero_documento", "nombres", "apellidos", "fecha_nacimiento", "sexo", "telefono", "ocupacion",
+  "direccion", "contacto_emergencia_nombre", "contacto_emergencia_telefono", "contacto_emergencia_parentesco",
+  "apoderado_nombre", "apoderado_dni", "apoderado_telefono", "apoderado_parentesco",
+];
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** Crea o actualiza un paciente. Valida en el servidor y avisa de posibles duplicados antes de crear. */
+export async function guardarPaciente(_previo: EstadoFormulario, form: FormData): Promise<EstadoFormulario> {
+  const valores: EntradaPaciente = Object.fromEntries(CAMPOS.map((c) => [c, String(form.get(c) ?? "")]));
+  const id = String(form.get("id") ?? "") || null;
+  const confirmaDuplicado = form.get("confirmar_duplicado") === "1";
+  const consiente = form.get("consentimiento_datos") === "1";
+  const vacio: EstadoFormulario = { errores: {}, general: null, consentimiento: null, duplicados: [], valores };
+
+  if (!modulos.pacientes) return { ...vacio, general: "Este módulo aún no está habilitado." };
+  const sesion = await obtenerSesion();
+  if (!sesion) return { ...vacio, general: "Tu usuario no tiene acceso a una clínica." };
+  if (id !== null && !UUID.test(id)) return { ...vacio, general: "Paciente inválido." };
+
+  const resultado = validarPaciente(valores, fechaLima(new Date()));
+  const sinConsentimiento = !id && !consiente
+    ? "Marca el consentimiento: el paciente (o su apoderado) autoriza el uso de sus datos (Ley 29733)." : null;
+  if (!resultado.ok || sinConsentimiento) {
+    return { ...vacio, errores: resultado.ok ? {} : resultado.errores, consentimiento: sinConsentimiento };
+  }
+  const datos = resultado.datos;
+
+  const supabase = await createClient();
+
+  if (!id && !confirmaDuplicado) {
+    const { data: duplicados, error } = await supabase.rpc("posibles_duplicados", {
+      nombres: datos.nombres, apellidos: datos.apellidos, fecha_nacimiento: datos.fecha_nacimiento,
+    });
+    if (error) {
+      registrarError("pacientes.duplicados", error);
+      return { ...vacio, general: "No pudimos revisar si el paciente ya existe. Inténtalo de nuevo." };
+    }
+    if ((duplicados ?? []).length > 0) return { ...vacio, duplicados: duplicados as Duplicado[] };
+  }
+
+  const { data, error } = id
+    ? await supabase.from("paciente").update(datos).eq("id", id).select("id").maybeSingle<{ id: string }>()
+    : await supabase.from("paciente")
+        .insert({ ...datos, clinica_id: sesion.clinicaId, consentimiento_datos_at: new Date().toISOString() })
+        .select("id").maybeSingle<{ id: string }>();
+
+  if (error || !data) {
+    if (error?.code === "23505") {
+      return { ...vacio, errores: { numero_documento: "Ya hay un paciente registrado con este documento." } };
+    }
+    if (error?.code === "P0001" && error.message.includes("apoderado")) {
+      return { ...vacio, errores: { apoderado_nombre: "Es menor de edad: completa los datos del apoderado." } };
+    }
+    registrarError(id ? "pacientes.actualizar" : "pacientes.crear", error ?? "sin fila", { paciente: id });
+    return { ...vacio, general: "No se pudo guardar el paciente. Revisa los datos e inténtalo de nuevo." };
+  }
+
+  revalidatePath("/pacientes");
+  redirect(`/pacientes/${data.id}${id ? "?guardado=1" : "?creado=1"}`);
+}

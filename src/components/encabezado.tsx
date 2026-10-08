@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { cerrarSesion } from "@/app/login/actions";
+import { modulos } from "@/lib/funciones";
 import { NOMBRE_ROL, type Sesion } from "@/lib/sesion";
 
 const SECCIONES = [
   { clave: "tablero", href: "/", texto: "Tablero" },
+  ...(modulos.pacientes ? [{ clave: "pacientes", href: "/pacientes", texto: "Pacientes" } as const] : []),
   { clave: "plantillas", href: "/plantillas", texto: "Plantillas" },
 ] as const;
 
