@@ -15,7 +15,10 @@ export default defineConfig({
   testDir: "./e2e",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
+  // En CI se reintenta una vez solo para distinguir una falla inestable de una fija:
+  // las dos hacen fallar el CI («casi cero errores»: lo inestable también se arregla).
   retries: process.env.CI ? 1 : 0,
+  failOnFlakyTests: !!process.env.CI,
   reporter: "list",
   use: {
     baseURL: urlPublicada ?? `http://localhost:${port}`,

@@ -54,8 +54,9 @@ jobs:
           export HABILITAR_ETAPA1=1
           npm run test:e2e
       - name: Mostrar qué veía la página en cada prueba fallida
-        if: failure()
+        if: always()
         run: |
+          [ -d test-results ] || exit 0
           find test-results -name error-context.md ! -path '*retry*' | while read -r f; do
             echo "::group::$f"
             cat "$f" | head -200

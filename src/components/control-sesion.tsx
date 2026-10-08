@@ -135,22 +135,31 @@ function PantallaBloqueada({ alDesbloquear }: { alDesbloquear: () => void }) {
     };
   }, []);
 
-  async function enviar(formulario: FormData) {
+  const campo = useRef<HTMLInputElement>(null);
+
+  // Envío manual (no `action=`): React vacía los formularios con acción un instante
+  // después de terminar, y podía borrar la contraseña que ya se estaba escribiendo de
+  // nuevo. Aquí el campo se vacía solo al mostrar el error, en el mismo momento.
+  async function enviar(ev: React.FormEvent<HTMLFormElement>) {
+    ev.preventDefault();
+    if (enviando) return;
     setEnviando(true);
-    const r = await desbloquear(String(formulario.get("password") ?? ""));
+    const r = await desbloquear(campo.current?.value ?? "");
     setEnviando(false);
-    if (r.ok) alDesbloquear(); else setError(r.error);
+    if (r.ok) { alDesbloquear(); return; }
+    if (campo.current) { campo.current.value = ""; campo.current.focus(); }
+    setError(r.error);
   }
 
   const contenido = (
     <div role="dialog" aria-modal="true" aria-labelledby="titulo-bloqueo"
       className="fixed inset-0 z-50 flex items-center justify-center bg-white p-4">
-      <form action={enviar} className="w-full max-w-sm rounded-xl border border-gray-200 p-6 shadow-sm">
+      <form onSubmit={(ev) => void enviar(ev)} className="w-full max-w-sm rounded-xl border border-gray-200 p-6 shadow-sm">
         <h2 id="titulo-bloqueo" className="text-xl font-semibold">Pantalla bloqueada</h2>
         <p className="mt-1 text-sm text-gray-600">Ingresa tu contraseña para continuar.</p>
         <label className="mt-4 flex flex-col gap-1 text-sm font-medium">
           Contraseña
-          <input name="password" type="password" autoComplete="current-password" autoFocus required
+          <input ref={campo} name="password" type="password" autoComplete="current-password" autoFocus required
             className="rounded-md border border-gray-300 px-3 py-2 text-base font-normal" />
         </label>
         {error && <p role="alert" className="mt-2 text-sm text-red-700">{error}</p>}

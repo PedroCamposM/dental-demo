@@ -102,6 +102,12 @@ casilla no controlado debe conservar su valor tras un envío con errores, y los
 formularios llevan `noValidate` (valida el servidor, con mensajes en español). La
 fusión se ajustó igual: conserva el duplicado elegido y el motivo.
 
+Desbloqueo de pantalla: la acción de formulario de React vaciaba el campo un instante
+después del error «Contraseña incorrecta.» y podía borrar la contraseña ya reescrita
+(falla intermitente en CI). Ahora el envío es manual (`onSubmit`). Desde entonces el
+CI falla también con pruebas inestables (`failOnFlakyTests`) e imprime siempre lo que
+veía la página en cada intento fallido.
+
 ### Pendiente para cerrar la Etapa 1
 
 1. CI en verde en la rama de trabajo (último arreglo: formulario de paciente que
