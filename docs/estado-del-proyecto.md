@@ -145,7 +145,7 @@ Decisión de Pedro (2026-10-08): «es un demo»; los permisos finos se dejan par
 después. Hoy el asistente no ve el Tablero de gestión en pantalla, pero RLS aún le
 deja leer cuotas, pagos y seguimientos por API. Pendiente para una etapa futura.
 
-## v2 — Etapa 2 (catálogo, horarios y agenda): en CI
+## v2 — Etapa 2 (catálogo, horarios y agenda): CI en verde, falta migrar el remoto
 
 Pedro pidió avanzar sin esperar aprobación etapa por etapa («quiero que tú
 desarrolles y mejores la plataforma»). Rebanadas con commit y CI en verde cada una:
@@ -170,6 +170,14 @@ desarrolles y mejores la plataforma»). Rebanadas con commit y CI en verde cada 
   sus citas de preparación como datos del sistema (la v2 no deja citar sin horario).
 - Seed (`seed_etapa2.sql`): 23 procedimientos (los de los planes con su mismo
   precio), 3 sillones, lunes a sábado 9–19, feriado del 8 de diciembre.
+
+Revisión independiente (subagente): 12 hallazgos; corregidos los de severidad media
+y baja en el commit 4142be2 (sillón ajeno, autor del forzado falsificable, citas
+no activas sin validar, doble cita del paciente, odontólogo inactivo, superposición
+en el seed v1, medianoche y fechas imposibles, e2e que compartían datos). Queda
+anotado, sin hacer: restricción de exclusión (btree_gist) contra reservas
+simultáneas, y el «cuál consentimiento» del catálogo (llega con la Etapa 7).
+CI en verde: corrida del commit 4142be2, 29/29 Playwright al primer intento.
 
 Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
 `seed_etapa2.sql` y encender `HABILITAR_ETAPA2=1` en Vercel. Checklist:
