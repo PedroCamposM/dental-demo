@@ -50,3 +50,29 @@ test("el tablero abre la lista de cuotas vencidas con el mensaje listo para What
   await page.getByRole("button", { name: "Enviar mensaje" }).first().click();
   await expect(page.getByLabel(/Mensaje/)).toHaveValue(/Clínica Dental Demo – Trujillo[\s\S]*cuota/);
 });
+
+test("las plantillas se editan con vista previa y no se guardan con variables inválidas", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Correo").fill("valverde@clinica-demo.example");
+  await page.getByLabel("Contraseña").fill(PASSWORD);
+  await page.getByRole("button", { name: "Ingresar" }).click();
+  await page.getByRole("link", { name: "Plantillas" }).click();
+
+  const control = page.getByRole("region", { name: "Control vencido" });
+  const mensaje = control.getByLabel("Mensaje");
+  const original = await mensaje.inputValue();
+
+  await mensaje.fill("Hola {{nombre}}, le debe {{monto}}");
+  await expect(control.getByText("Variables que no existen para este mensaje: {{monto}}.")).toBeVisible();
+  await expect(control.getByRole("button", { name: "Guardar" })).toBeDisabled();
+
+  await mensaje.fill("Hola {{nombre}}, ya le toca su control.");
+  await expect(control.getByText("Hola María, ya le toca su control.")).toBeVisible();
+  await control.getByRole("button", { name: "Guardar" }).click();
+  await expect(control.getByRole("status")).toHaveText("Plantilla guardada");
+
+  // Deja la plantilla como estaba
+  await mensaje.fill(original);
+  await control.getByRole("button", { name: "Guardar" }).click();
+  await expect(control.getByRole("status")).toHaveText("Plantilla guardada");
+});

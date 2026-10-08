@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { listaEspanol, mensajeCuotas, mensajeNoShow } from "./mensajes";
+import { TIPOS_PLANTILLA } from "@/lib/plantillas";
+import {
+  listaEspanol, mensajeControl, mensajeCuotas, mensajeDetenido, mensajeNoShow, mensajePresupuesto, type Mensaje,
+} from "./mensajes";
 
 const contacto = { pacienteId: "pac-1", nombre: "Piero Díaz Quispe", telefono: "51911122233", apoderado: null };
 
@@ -29,5 +32,21 @@ describe("listaEspanol", () => {
     expect(listaEspanol([])).toBe("");
     expect(listaEspanol(["3"])).toBe("3");
     expect(listaEspanol(["3", "4", "5"])).toBe("3, 4 y 5");
+  });
+});
+
+describe("variables de cada mensaje y las que ofrece el editor de plantillas", () => {
+  it("coinciden, para que ninguna plantilla válida deje variables sin llenar", () => {
+    const mensajes: Mensaje[] = [
+      mensajePresupuesto({ ...contacto, planIds: ["p"], titulo: "t", alternativas: 1, centimos: 1, presentado: "2026-10-01", dias: 1, vencido: false }, "c"),
+      mensajeDetenido({ ...contacto, planId: "p", titulo: "t", centimos: 1, ultimaVisita: null, diasSinVisita: null }, "c"),
+      mensajeCuotas({ ...contacto, planIds: ["p"], cuotaId: "q", numeros: [1], cuotas: 1, centimos: 1, venceMasAntigua: "2026-10-01", diasAtraso: 1 }, "c"),
+      mensajeControl({ ...contacto, seguimientoId: "s", planId: null, fecha: "2026-10-01", diasVencido: 1, resultado: "pendiente" }, "c"),
+      mensajeNoShow({ ...contacto, citaId: "x", inicio: "2026-10-02T15:00:00Z" }, "c"),
+    ];
+    for (const m of mensajes) {
+      const ofrecidas = TIPOS_PLANTILLA[m.destino.tipo].variables.map((v) => v.nombre).sort();
+      expect(Object.keys(m.variables).sort(), m.destino.tipo).toEqual(ofrecidas);
+    }
   });
 });
