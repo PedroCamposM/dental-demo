@@ -1,18 +1,22 @@
 import Link from "next/link";
 import { cerrarSesion } from "@/app/login/actions";
+import { ControlSesion } from "@/components/control-sesion";
 import { modulos } from "@/lib/funciones";
-import { NOMBRE_ROL, type Sesion } from "@/lib/sesion";
+import { NOMBRE_ROL, type Rol, type Sesion } from "@/lib/sesion";
 
-const SECCIONES = [
+type Seccion = "tablero" | "pacientes" | "plantillas" | "configuracion";
+
+const SECCIONES: { clave: Seccion; href: string; texto: string; roles?: Rol[]; etapa1?: boolean }[] = [
   { clave: "tablero", href: "/", texto: "Tablero" },
-  ...(modulos.pacientes ? [{ clave: "pacientes", href: "/pacientes", texto: "Pacientes" } as const] : []),
+  { clave: "pacientes", href: "/pacientes", texto: "Pacientes", etapa1: true },
   { clave: "plantillas", href: "/plantillas", texto: "Plantillas" },
-] as const;
+  { clave: "configuracion", href: "/configuracion", texto: "Configuración", roles: ["admin"], etapa1: true },
+];
 
-export function Encabezado({ sesion, seccion = "tablero" }: {
-  sesion: Sesion;
-  seccion?: (typeof SECCIONES)[number]["clave"];
-}) {
+export function Encabezado({ sesion, seccion = "tablero" }: { sesion: Sesion; seccion?: Seccion }) {
+  const visibles = SECCIONES.filter(
+    (s) => (!s.etapa1 || modulos.etapa1) && (!s.roles || s.roles.includes(sesion.rol)),
+  );
   return (
     <header className="border-b border-gray-200 bg-white">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
@@ -23,8 +27,8 @@ export function Encabezado({ sesion, seccion = "tablero" }: {
               {sesion.nombre} · {NOMBRE_ROL[sesion.rol]}
             </p>
           </div>
-          <nav aria-label="Secciones" className="flex gap-1">
-            {SECCIONES.map((s) => (
+          <nav aria-label="Secciones" className="flex flex-wrap gap-1">
+            {visibles.map((s) => (
               <Link
                 key={s.clave}
                 href={s.href}
@@ -38,14 +42,17 @@ export function Encabezado({ sesion, seccion = "tablero" }: {
             ))}
           </nav>
         </div>
-        <form action={cerrarSesion}>
-          <button
-            type="submit"
-            className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
-          >
-            Cerrar sesión
-          </button>
-        </form>
+        <div className="flex flex-wrap items-center gap-2">
+          {sesion.inactividadMinutos !== null && <ControlSesion minutos={sesion.inactividadMinutos} />}
+          <form action={cerrarSesion}>
+            <button
+              type="submit"
+              className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
+            >
+              Cerrar sesión
+            </button>
+          </form>
+        </div>
       </div>
     </header>
   );

@@ -16,7 +16,7 @@ type Fila = {
 };
 
 export default async function Pacientes({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
-  if (!modulos.pacientes) notFound();
+  if (!modulos.etapa1) notFound();
   const sesion = await obtenerSesion();
   if (!sesion) redirect("/");
   const q = ((await searchParams).q ?? "").trim().slice(0, 80);

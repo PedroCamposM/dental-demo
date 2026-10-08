@@ -1,8 +1,10 @@
 "use server";
 
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { destinoSeguro } from "@/lib/auth/rutas";
 import { mensajeErrorLogin } from "@/lib/auth/mensajes";
+import { COOKIE_ACTIVIDAD } from "@/lib/sesion-segura/inactividad";
 import { createClient } from "@/lib/supabase/server";
 
 export type EstadoLogin = { error: string | null; email: string };
@@ -19,6 +21,8 @@ export async function iniciarSesion(_previo: EstadoLogin, form: FormData): Promi
   if (error) {
     return { error: mensajeErrorLogin(error), email };
   }
+  // Sesión nueva: la inactividad de una sesión anterior no cuenta.
+  (await cookies()).set(COOKIE_ACTIVIDAD, String(Date.now()), { path: "/", sameSite: "lax" });
   redirect(destinoSeguro(String(form.get("next") ?? "")));
 }
 

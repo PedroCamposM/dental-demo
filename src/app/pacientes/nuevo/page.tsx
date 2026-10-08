@@ -9,7 +9,7 @@ import { FormularioPaciente } from "../formulario";
 export const metadata: Metadata = { title: "Nuevo paciente – Dental Demo" };
 
 export default async function NuevoPaciente() {
-  if (!modulos.pacientes) notFound();
+  if (!modulos.etapa1) notFound();
   const sesion = await obtenerSesion();
   if (!sesion) redirect("/");
   return (
