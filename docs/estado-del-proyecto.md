@@ -93,10 +93,17 @@ Pantallas (detrás de `HABILITAR_ETAPA1`): `/pacientes`, `/pacientes/nuevo`,
 Revisión independiente: 14 hallazgos, todos corregidos con pruebas (commit 6420f75).
 Bug histórico corregido: `pruebas.debe_fallar` daba por bueno cualquier SQL.
 
+Bug encontrado por Playwright (commit ee82609): tras un error del servidor, React
+reinicia el formulario y no aplica el `defaultValue` nuevo a un `<select>` ya montado;
+el sexo volvía a «Elegir…» y el consentimiento se desmarcaba (y «crear de todas
+formas» tras el aviso de duplicado fallaba). Arreglo: `key` en el `<select>` y el
+estado devuelve `consiente`. Regla para formularios futuros: todo `<select>` o
+casilla no controlado debe conservar su valor tras un envío con errores.
+
 ### Pendiente para cerrar la Etapa 1
 
-1. CI en verde en la rama de trabajo (último problema investigado: alta de paciente
-   por admin y asistente en Playwright).
+1. CI en verde en la rama de trabajo (último arreglo: formulario de paciente que
+   perdía el sexo y el consentimiento tras un error; ver arriba).
 2. Pedro corre «Aplicar migraciones» sobre la rama de trabajo.
 3. Claude carga `seed_etapa1.sql` en el remoto y verifica conteos.
 4. Encender `HABILITAR_ETAPA1=1` en Vercel (primero Preview, luego Production).
