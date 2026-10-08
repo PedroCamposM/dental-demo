@@ -1,7 +1,7 @@
 -- =============================================================================
--- PROPUESTA de esquema inicial (v2) — NO APLICAR hasta aprobación.
--- Este archivo vive en docs/ (no en supabase/migrations/) a propósito, para que
--- `supabase db push` no lo ejecute. Una vez aprobado se partirá en migraciones.
+-- Esquema inicial (v2) — APROBADO. Documento de referencia, no se ejecuta.
+-- Las migraciones reales están en supabase/migrations/ (20261008000100 a 0700).
+-- Cualquier cambio de esquema se hace con una migración nueva, no aquí.
 --
 -- Principios:
 --   * clinica = tenant. Toda tabla de datos lleva clinica_id y tiene RLS.
