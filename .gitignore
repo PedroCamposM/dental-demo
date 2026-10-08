@@ -45,3 +45,7 @@ supabase/.branches
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# pruebas e2e
+/test-results/
+/playwright-report/
