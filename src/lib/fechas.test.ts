@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { diasEntre, fechaLima, formatearFecha, inicioMesLima } from "./fechas";
+import { diasEntre, fechaLima, formatearFecha, hace, inicioMesLima } from "./fechas";
 
 describe("fechas en Lima", () => {
   it("usa la fecha de Lima, no la de UTC", () => {
@@ -20,5 +20,13 @@ describe("fechas en Lima", () => {
 
   it("formatea fechas cortas en español", () => {
     expect(formatearFecha("2026-10-08")).toMatch(/^8 oct 2026$/);
+  });
+});
+
+describe("hace", () => {
+  it("dice hoy, singular y plural", () => {
+    expect(hace(0)).toBe("hoy");
+    expect(hace(1)).toBe("hace 1 día");
+    expect(hace(121)).toBe("hace 121 días");
   });
 });

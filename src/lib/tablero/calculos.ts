@@ -157,12 +157,14 @@ export function calcularTablero(datos: DatosTablero, ahora: Date): Tablero {
   const delMes = datos.planes.filter((p) => Date.parse(p.presentado_at) >= inicioMes);
   const listaMes = agruparAlternativas(delMes).map((grupo) => {
     // Si alguna alternativa se aceptó, esa representa al presupuesto; si no, la de mayor valor.
-    const principal = grupo.find((p) => p.aceptado_at) ?? mayorValor(grupo, valorPlan);
+    const aceptada = grupo.find((p) => p.aceptado_at);
+    const principal = aceptada ?? mayorValor(grupo, valorPlan);
     return {
       ...contacto(principal.paciente_id),
       planIds: grupo.map((p) => p.id),
       titulo: principal.titulo,
-      centimos: Math.max(...grupo.map((p) => valorPlan.get(p.id) ?? 0)),
+      // Aceptado: vale la alternativa elegida; si no, la de mayor valor.
+      centimos: aceptada ? (valorPlan.get(aceptada.id) ?? 0) : Math.max(...grupo.map((p) => valorPlan.get(p.id) ?? 0)),
       presentado: fechaLima(principal.presentado_at),
       estado: principal.estado,
     };
@@ -377,4 +379,23 @@ function indicador<T extends { centimos: number }>(lista: T[]): Indicador<T> {
 
 function suma(valores: number[]): number {
   return valores.reduce((a, b) => a + b, 0);
+}
+
+const ACEPTADO: EstadoPlan[] = ["aceptado", "en_curso", "detenido", "terminado"];
+
+/**
+ * De los presupuestos presentados este mes, cuántos ya se aceptaron (con su valor).
+ * Mismo conjunto que la lista del mes, así la tarjeta y la lista coinciden.
+ */
+export function resumenDelMes(lista: PresupuestoDelMes[]) {
+  const aceptados = lista.filter((p) => ACEPTADO.includes(p.estado));
+  const centimosPresentado = suma(lista.map((p) => p.centimos));
+  const centimosAceptado = suma(aceptados.map((p) => p.centimos));
+  return {
+    presentados: lista.length,
+    aceptados: aceptados.length,
+    centimosPresentado,
+    centimosAceptado,
+    proporcion: centimosPresentado > 0 ? centimosAceptado / centimosPresentado : null,
+  };
 }

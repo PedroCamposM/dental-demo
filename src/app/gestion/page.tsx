@@ -5,6 +5,8 @@ import { Encabezado } from "@/components/encabezado";
 import { formatearSoles } from "@/lib/dinero";
 import { veGestion } from "@/lib/permisos";
 import { obtenerSesion } from "@/lib/sesion";
+import { hace } from "@/lib/fechas";
+import { resumenDelMes } from "@/lib/tablero/calculos";
 import { cargarTablero } from "@/lib/tablero/datos";
 import { INDICADORES, type ClaveIndicador } from "./indicadores";
 
@@ -20,6 +22,7 @@ export default async function Gestion() {
   const { tablero: t } = await cargarTablero();
   const masAntiguo = t.presupuestosAbiertos.lista[0];
   const controlMasAntiguo = t.controlesVencidos.lista[0];
+  const mes = resumenDelMes(t.mes.lista);
 
   return (
     <>
@@ -35,14 +38,14 @@ export default async function Gestion() {
           <Tarjeta clave="presupuestos" cifra={t.presupuestosAbiertos.cantidad}
             detalle={plural(t.presupuestosAbiertos.cantidad, "presupuesto espera respuesta", "presupuestos esperan respuesta")}
             monto={t.presupuestosAbiertos.cantidad > 0 ? `${formatearSoles(t.presupuestosAbiertos.centimos)} en total` : null}>
-            {masAntiguo && <Nota>El más antiguo, hace {masAntiguo.dias} días</Nota>}
+            {masAntiguo && <Nota>El más antiguo se presentó {hace(masAntiguo.dias)}</Nota>}
           </Tarjeta>
           <Tarjeta clave="detenidos" cifra={t.detenidos.cantidad}
             detalle={plural(t.detenidos.cantidad, "tratamiento detenido sin cita", "tratamientos detenidos sin cita")}
             monto={t.detenidos.cantidad > 0 ? `${formatearSoles(t.detenidos.centimos)} por realizar` : null} />
           <Tarjeta clave="controles" cifra={t.controlesVencidos.cantidad}
             detalle={plural(t.controlesVencidos.cantidad, "paciente sin su control", "pacientes sin su control")} monto={null}>
-            {controlMasAntiguo && <Nota>El más antiguo, vencido hace {controlMasAntiguo.diasVencido} días</Nota>}
+            {controlMasAntiguo && <Nota>El más antiguo venció {hace(controlMasAntiguo.diasVencido)}</Nota>}
           </Tarjeta>
           <Tarjeta clave="cuotas" cifra={t.cuotasVencidas.cantidad}
             detalle={plural(t.cuotasVencidas.cantidad, "paciente con cuotas vencidas", "pacientes con cuotas vencidas")}
@@ -52,13 +55,14 @@ export default async function Gestion() {
             monto={null}>
             {t.noShow.porcentaje !== null && <Nota>{porcentaje.format(t.noShow.porcentaje)} de las citas del mes</Nota>}
           </Tarjeta>
-          <Tarjeta clave="mes" cifra={t.mes.aceptado.planes}
-            detalle={`${plural(t.mes.aceptado.planes, "aceptado", "aceptados")} de ${t.mes.presentado.planes} ${plural(t.mes.presentado.planes, "presentado", "presentados")} este mes`}
-            monto={t.mes.presentado.planes > 0
-              ? `${formatearSoles(t.mes.aceptado.centimos)} de ${formatearSoles(t.mes.presentado.centimos)}`
+          <Tarjeta clave="mes" cifra={mes.aceptados}
+            detalle={`${plural(mes.aceptados, "aceptado", "aceptados")} de ${mes.presentados} ${plural(mes.presentados, "presupuesto presentado", "presupuestos presentados")} este mes`}
+            monto={mes.presentados > 0
+              ? `${formatearSoles(mes.centimosAceptado)} de ${formatearSoles(mes.centimosPresentado)}`
               : null}>
-            <Medidor proporcion={t.mes.conversion} />
-            {t.mes.conversion === null && <Nota>Aún no hay presupuestos presentados este mes</Nota>}
+            {mes.proporcion === null
+              ? <Nota>Aún no hay presupuestos presentados este mes</Nota>
+              : <Medidor proporcion={mes.proporcion} />}
           </Tarjeta>
         </div>
       </main>

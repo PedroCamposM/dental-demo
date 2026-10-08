@@ -36,3 +36,8 @@ const formatoCorto = new Intl.DateTimeFormat("es-PE", {
 export function formatearFecha(fecha: string): string {
   return formatoCorto.format(new Date(`${fecha}T00:00:00Z`)).replace(".", "");
 }
+
+/** «hoy», «hace 1 día», «hace N días». */
+export function hace(dias: number): string {
+  return dias <= 0 ? "hoy" : dias === 1 ? "hace 1 día" : `hace ${dias} días`;
+}

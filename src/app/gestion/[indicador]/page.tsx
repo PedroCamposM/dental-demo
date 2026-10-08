@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Encabezado } from "@/components/encabezado";
 import { formatearSoles } from "@/lib/dinero";
-import { fechaLima, formatearFecha } from "@/lib/fechas";
+import { fechaLima, formatearFecha, hace } from "@/lib/fechas";
 import { veGestion } from "@/lib/permisos";
 import { obtenerSesion } from "@/lib/sesion";
 import type { Contacto, EstadoPlan } from "@/lib/tablero/calculos";
@@ -37,7 +37,6 @@ const ESTADO_PLAN: Record<EstadoPlan, string> = {
   terminado: "Terminado", rechazado: "Rechazado",
 };
 
-const hace = (dias: number) => (dias === 0 ? "hoy" : dias === 1 ? "hace 1 día" : `hace ${dias} días`);
 
 export default async function ListaIndicador({ params }: Params) {
   const { indicador } = await params;

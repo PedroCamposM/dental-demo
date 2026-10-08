@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calcularTablero,
+  resumenDelMes,
   type CitaFila,
   type CuotaFila,
   type DatosTablero,
@@ -71,7 +72,32 @@ describe("presentado vs. aceptado del mes", () => {
       pacientes: [p], planes: [a, b], items: [item(a.id, 530000), item(b.id, 330000)],
     }), AHORA);
     expect(t.mes.lista).toHaveLength(1);
-    expect(t.mes.lista[0]).toMatchObject({ titulo: "Prótesis fija", estado: "aceptado" });
+    expect(t.mes.lista[0]).toMatchObject({ titulo: "Prótesis fija", estado: "aceptado", centimos: 330000 });
+  });
+
+  it("el resumen del mes cuenta solo lo presentado este mes y cuánto de eso se aceptó", () => {
+    const p = paciente();
+    const q = paciente();
+    const r = paciente();
+    const abierto = plan(p.id);
+    const aceptadoMes = plan(q.id, { estado: "en_curso", aceptado_at: "2026-10-05T15:00:00Z" });
+    // Presentado el mes pasado y aceptado este mes: no entra (no fue presentado este mes)
+    const anterior = plan(r.id, {
+      presentado_at: "2026-09-20T15:00:00Z", aceptado_at: "2026-10-03T15:00:00Z", estado: "aceptado",
+    });
+    const t = calcularTablero(datos({
+      pacientes: [p, q, r], planes: [abierto, aceptadoMes, anterior],
+      items: [item(abierto.id, 60000), item(aceptadoMes.id, 40000), item(anterior.id, 90000)],
+    }), AHORA);
+    expect(resumenDelMes(t.mes.lista)).toEqual({
+      presentados: 2, aceptados: 1, centimosPresentado: 100000, centimosAceptado: 40000, proporcion: 0.4,
+    });
+  });
+
+  it("el resumen de un mes sin presupuestos no tiene proporción", () => {
+    expect(resumenDelMes([])).toEqual({
+      presentados: 0, aceptados: 0, centimosPresentado: 0, centimosAceptado: 0, proporcion: null,
+    });
   });
 
   it("las alternativas A y B cuentan una sola vez, por la de mayor valor", () => {
