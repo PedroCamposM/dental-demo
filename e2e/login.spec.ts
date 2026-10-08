@@ -1,10 +1,10 @@
 import { expect, test } from "@playwright/test";
 
-// Necesita el proyecto de Supabase real con el seed cargado (.env.local con URL
-// y publishable key). Sin eso, el login no tiene contra quién autenticarse.
+// Necesita un Supabase con el seed cargado: el remoto (.env.local) o el local
+// del CI (supabase start). Sin eso, el login no tiene contra quién autenticarse.
 test.skip(
-  !process.env.NEXT_PUBLIC_SUPABASE_URL?.includes(".supabase.co"),
-  "Requiere NEXT_PUBLIC_SUPABASE_URL y la publishable key del proyecto con el seed",
+  !process.env.NEXT_PUBLIC_SUPABASE_URL,
+  "Requiere NEXT_PUBLIC_SUPABASE_URL y la publishable key de un Supabase con el seed",
 );
 
 const PASSWORD = "DemoTrujillo2026";

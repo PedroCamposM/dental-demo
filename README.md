@@ -14,6 +14,19 @@ cp .env.example .env.local   # completar URL y publishable key de Supabase
 npm run dev
 ```
 
+## Integración continua y migraciones
+
+- **CI** (`.github/workflows/ci.yml`, en cada push): lint, tipos, Vitest y build; luego
+  levanta **Supabase local real** (`supabase start`), aplica migraciones + seed, corre
+  los tests SQL (`scripts/test-db-supabase.sh`) y Playwright contra esa base.
+- **Aplicar migraciones al remoto** (`.github/workflows/migrar.yml`, manual): Actions →
+  *Aplicar migraciones* → *Run workflow* → escribir `APLICAR`. Primero hace el respaldo
+  (`supabase db dump` de esquema, datos y roles, guardado como artefacto por 90 días);
+  si falla, no aplica nada. Luego conteos antes, `db push`, verificaciones de
+  `supabase/verificaciones/2*.sql` y conteos después.
+  Secretos necesarios en GitHub: `SUPABASE_ACCESS_TOKEN` y `SUPABASE_DB_PASSWORD`.
+- Producción sale de `main`; las ramas tienen vista previa en Vercel.
+
 ## Despliegue en Vercel
 
 1. Importar el repo en Vercel (Framework Preset: Next.js, sin cambios de build).

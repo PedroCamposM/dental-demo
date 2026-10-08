@@ -1,0 +1,61 @@
+# Sistema de calidad: todo esto debe estar en verde antes de fusionar a main.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  calidad:
+    name: Lint, tipos, Vitest y build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_build
+
+  base-de-datos:
+    name: Migraciones, RLS, seed y Playwright (Supabase local)
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Pruebas rápidas sobre Postgres efímero (imitación de Supabase)
+        run: npm run test:db
+      - name: Levantar Supabase local
+        run: npx supabase start --exclude studio,imgproxy,realtime,edge-runtime,logflare,vector,supavisor
+      - name: Migraciones + seed + tests SQL sobre Supabase real
+        run: scripts/test-db-supabase.sh
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Playwright contra Supabase local
+        run: |
+          eval "$(npx supabase status -o env | sed 's/^/export /')"
+          export NEXT_PUBLIC_SUPABASE_URL="$API_URL"
+          export NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="${PUBLISHABLE_KEY:-$ANON_KEY}"
+          npm run test:e2e
+      - name: Guardar el reporte si falla
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-${{ github.run_id }}
+          path: test-results/
+          retention-days: 14

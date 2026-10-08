@@ -1,0 +1,78 @@
+# Aplica las migraciones pendientes al proyecto remoto, SIEMPRE con respaldo previo.
+# Se lanza a mano: Actions → "Aplicar migraciones" → Run workflow → escribir APLICAR.
+# Requiere los secretos SUPABASE_ACCESS_TOKEN y SUPABASE_DB_PASSWORD.
+name: Aplicar migraciones
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmar:
+        description: Escribe APLICAR para confirmar
+        required: true
+      solo_respaldo:
+        description: Solo respaldar, sin aplicar migraciones
+        type: boolean
+        default: false
+
+concurrency:
+  group: migrar-remoto
+  cancel-in-progress: false
+
+jobs:
+  migrar:
+    if: inputs.confirmar == 'APLICAR'
+    runs-on: ubuntu-24.04
+    env:
+      PROJECT_REF: elotisuupmqmcedjgxiz
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Vincular el proyecto
+        run: npx supabase link --project-ref "$PROJECT_REF" -p "$SUPABASE_DB_PASSWORD"
+
+      - name: Respaldo (esquema, datos y roles)
+        run: |
+          mkdir -p respaldo
+          npx supabase db dump --linked -p "$SUPABASE_DB_PASSWORD" -f respaldo/esquema.sql
+          npx supabase db dump --linked -p "$SUPABASE_DB_PASSWORD" --data-only --schema public,auth -f respaldo/datos.sql
+          npx supabase db dump --linked -p "$SUPABASE_DB_PASSWORD" --role-only -f respaldo/roles.sql
+          ls -la respaldo
+          test -s respaldo/esquema.sql && test -s respaldo/datos.sql
+      - name: Guardar el respaldo (fuera del repo, 90 días)
+        uses: actions/upload-artifact@v4
+        with:
+          name: respaldo-${{ github.run_id }}
+          path: respaldo/
+          retention-days: 90
+
+      - name: Conteos antes
+        if: ${{ !inputs.solo_respaldo }}
+        run: scripts/consulta-remota.sh supabase/verificaciones/conteos.sql | tee antes.json
+      - name: Migraciones pendientes
+        if: ${{ !inputs.solo_respaldo }}
+        run: npx supabase migration list --linked -p "$SUPABASE_DB_PASSWORD"
+      - name: Aplicar
+        if: ${{ !inputs.solo_respaldo }}
+        run: npx supabase db push --linked -p "$SUPABASE_DB_PASSWORD"
+      - name: Verificaciones de datos
+        if: ${{ !inputs.solo_respaldo }}
+        run: |
+          for f in supabase/verificaciones/2*.sql; do
+            [ -e "$f" ] || continue
+            echo "verificación: $f"
+            scripts/consulta-remota.sh "$f"
+          done
+      - name: Conteos después
+        if: ${{ !inputs.solo_respaldo }}
+        run: |
+          scripts/consulta-remota.sh supabase/verificaciones/conteos.sql | tee despues.json
+          echo "--- diferencias (tabla: antes → después)"
+          jq -n --slurpfile a antes.json --slurpfile d despues.json '
+            ($a[0][0].conteos) as $x | ($d[0][0].conteos) as $y
+            | [($x + $y) | keys[] | select($x[.] != $y[.]) | "\(.): \($x[.] // 0) → \($y[.] // 0)"]'
