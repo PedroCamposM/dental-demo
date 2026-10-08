@@ -6,6 +6,8 @@ create role service_role nologin bypassrls;
 
 create schema extensions;
 create extension pgcrypto with schema extensions;
+-- Como en Supabase: el esquema extensions es usable por los roles de la API.
+grant usage on schema extensions to anon, authenticated, service_role;
 
 create schema auth;
 -- Solo las columnas que usan las pruebas y supabase/seed.sql
