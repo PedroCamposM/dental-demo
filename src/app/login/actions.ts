@@ -24,6 +24,8 @@ export async function iniciarSesion(_previo: EstadoLogin, form: FormData): Promi
 
 export async function cerrarSesion() {
   const supabase = await createClient();
-  await supabase.auth.signOut();
+  // Solo este dispositivo: el alcance por defecto ("global") cerraría también la
+  // sesión del mismo usuario en las otras computadoras de la clínica.
+  await supabase.auth.signOut({ scope: "local" });
   redirect("/login");
 }

@@ -14,7 +14,8 @@ test("contraseña incorrecta muestra un error claro", async ({ page }) => {
   await page.getByLabel("Correo").fill("recepcion@clinica-demo.example");
   await page.getByLabel("Contraseña").fill("incorrecta");
   await page.getByRole("button", { name: "Ingresar" }).click();
-  await expect(page.getByRole("alert")).toHaveText("Correo o contraseña incorrectos.");
+  // Next.js tiene su propio role="alert" (anunciador de rutas): se filtra por el texto.
+  await expect(page.getByRole("alert").filter({ hasText: "Correo o contraseña incorrectos." })).toBeVisible();
 });
 
 for (const [email, nombre, rol] of [
@@ -75,4 +76,25 @@ test("las plantillas se editan con vista previa y no se guardan con variables in
   await mensaje.fill(original);
   await control.getByRole("button", { name: "Guardar" }).click();
   await expect(control.getByRole("status")).toHaveText("Plantilla guardada");
+});
+
+test("cerrar sesión en un dispositivo no cierra la del mismo usuario en otro", async ({ browser }) => {
+  const entrar = async () => {
+    const contexto = await browser.newContext();
+    const pagina = await contexto.newPage();
+    await pagina.goto("/login");
+    await pagina.getByLabel("Correo").fill("mendoza@clinica-demo.example");
+    await pagina.getByLabel("Contraseña").fill(PASSWORD);
+    await pagina.getByRole("button", { name: "Ingresar" }).click();
+    await expect(pagina.getByText("Dinero en riesgo hoy")).toBeVisible();
+    return pagina;
+  };
+  const equipo1 = await entrar();
+  const equipo2 = await entrar();
+
+  await equipo1.getByRole("button", { name: "Cerrar sesión" }).click();
+  await expect(equipo1).toHaveURL(/\/login$/);
+
+  await equipo2.goto("/riesgo/cuotas");
+  await expect(equipo2.getByRole("heading", { name: "Cuotas vencidas" })).toBeVisible();
 });
