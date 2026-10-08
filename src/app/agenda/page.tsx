@@ -6,6 +6,7 @@ import { ESTADOS_ACTIVOS, ESTADOS_CITA, type EstadoCita } from "@/lib/agenda/cit
 import { DIAS_PLURAL, TIPOS_BLOQUEO, type TipoBloqueo } from "@/lib/agenda/horario";
 import { diaSemana, fechaLima, formatearFechaLarga, horaLima, sumarDias } from "@/lib/fechas";
 import { modulos } from "@/lib/funciones";
+import { cargarAlertas, type AlertasPaciente } from "@/lib/historia/alertas";
 import { obtenerSesion } from "@/lib/sesion";
 import { AccionesCita } from "./acciones-cita";
 import { cargarDia, type BloqueoDia, type CitaDia } from "./datos";
@@ -38,6 +39,7 @@ export default async function Agenda({ searchParams }: { searchParams: Promise<{
     ? (params.fecha as string) : hoy;
 
   const d = await cargarDia(fecha);
+  const alertas = await cargarAlertas(d.citas.flatMap((c) => (c.paciente ? [c.paciente.id] : [])));
   const generales = d.bloqueos.filter((b) => b.profesional_id === null);
   const conHorario = new Set(d.horarios.map((h) => h.profesional_id));
   const conCitas = new Set(d.citas.map((c) => c.odontologo_id));
@@ -121,7 +123,10 @@ export default async function Agenda({ searchParams }: { searchParams: Promise<{
                     <p className="px-4 py-6 text-center text-sm text-gray-500">Sin citas</p>
                   ) : (
                     <ol className="divide-y divide-gray-100">
-                      {citas.map((c) => <Cita key={c.id} c={c} sillon={c.sillon_id ? d.sillones.get(c.sillon_id) : undefined} />)}
+                      {citas.map((c) => (
+                        <Cita key={c.id} c={c} sillon={c.sillon_id ? d.sillones.get(c.sillon_id) : undefined}
+                          alertas={c.paciente ? alertas.get(c.paciente.id) : undefined} />
+                      ))}
                     </ol>
                   )}
                   <div className="border-t border-gray-100 px-4 py-2">
@@ -140,12 +145,14 @@ export default async function Agenda({ searchParams }: { searchParams: Promise<{
   );
 }
 
-function Cita({ c, sillon }: { c: CitaDia; sillon?: string }) {
+function Cita({ c, sillon, alertas }: { c: CitaDia; sillon?: string; alertas?: AlertasPaciente }) {
   const nombre = c.paciente ? `${c.paciente.nombres} ${c.paciente.apellidos}` : "Paciente";
   const activa = c.estado === "programada" || c.estado === "confirmada";
   const descripcion = `la cita de ${nombre} a las ${horaLima(c.inicio)}`;
+  const frases = alertas?.frases ?? [];
   return (
-    <li data-cita={c.id} className={`px-4 py-3 ${activa ? "" : "opacity-70"}`}>
+    <li data-cita={c.id} title={frases.length > 0 ? `Alertas registradas: ${frases.join(" · ")}` : undefined}
+      className={`px-4 py-3 ${activa ? "" : "opacity-70"}`}>
       <div className="flex items-start justify-between gap-2">
         <p className="font-medium tabular-nums">{horaLima(c.inicio)} – {horaLima(c.fin)}</p>
         <span className={`rounded px-1.5 py-0.5 text-xs ${COLOR[c.estado]}`}>{ESTADOS_CITA[c.estado]}</span>
@@ -153,6 +160,12 @@ function Cita({ c, sillon }: { c: CitaDia; sillon?: string }) {
       {c.paciente ? (
         <Link href={`/pacientes/${c.paciente.id}`} className="font-medium text-teal-800 hover:underline">{nombre}</Link>
       ) : <p>{nombre}</p>}
+      {frases.length > 0 && (
+        <p className="mt-1 rounded bg-red-50 px-2 py-1 text-xs font-medium text-red-900">
+          <span className="sr-only">Alertas registradas: </span>
+          <span aria-hidden="true">⚠ </span>{frases.join(" · ")}
+        </p>
+      )}
       {c.nota && <p className="text-sm text-gray-600">{c.nota}</p>}
       {sillon && <p className="text-xs text-gray-500">{sillon}</p>}
       {c.forzada_motivo && (

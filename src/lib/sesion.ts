@@ -14,6 +14,8 @@ export type Sesion = {
   clinica: string;
   /** Minutos sin actividad antes de cerrar la sesión (null: módulo aún apagado). */
   inactividadMinutos: number | null;
+  /** Ve la historia clínica: cirujano dentista (admin u odontólogo con COP) o asistente. Lo exige RLS. */
+  veClinico: boolean;
 };
 
 export const NOMBRE_ROL: Record<Rol, string> = {
@@ -37,10 +39,10 @@ export const obtenerSesion = cache(async (): Promise<Sesion | null> => {
 
   const { data } = await supabase
     .from("usuario")
-    .select(`id, nombre, rol, activo, clinica_id, clinica(nombre${modulos.etapa1 ? ", inactividad_minutos" : ""})`)
+    .select(`id, nombre, rol, cop, activo, clinica_id, clinica(nombre${modulos.etapa1 ? ", inactividad_minutos" : ""})`)
     .eq("id", user.id)
     .maybeSingle<{
-      id: string; nombre: string; rol: Rol; activo: boolean; clinica_id: string;
+      id: string; nombre: string; rol: Rol; cop: string | null; activo: boolean; clinica_id: string;
       clinica: { nombre: string; inactividad_minutos?: number } | null;
     }>();
 
@@ -48,5 +50,6 @@ export const obtenerSesion = cache(async (): Promise<Sesion | null> => {
   return {
     usuarioId: data.id, clinicaId: data.clinica_id, nombre: data.nombre, rol: data.rol, clinica: data.clinica.nombre,
     inactividadMinutos: data.clinica.inactividad_minutos ?? null,
+    veClinico: data.rol === "asistente" || ((data.rol === "admin" || data.rol === "odontologo") && data.cop !== null),
   };
 });

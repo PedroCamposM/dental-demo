@@ -49,3 +49,6 @@ export async function registrarYEsperarFicha(page: Page, confirmarDuplicado = fa
 
 /** Catálogo, horarios y agenda encendidos (CI con HABILITAR_ETAPA2=1). */
 export const conEtapa2 = conEtapa1 && process.env.HABILITAR_ETAPA2 === "1";
+
+/** Historia clínica, signos vitales y alertas encendidos (CI con HABILITAR_ETAPA3=1). */
+export const conEtapa3 = conEtapa2 && process.env.HABILITAR_ETAPA3 === "1";

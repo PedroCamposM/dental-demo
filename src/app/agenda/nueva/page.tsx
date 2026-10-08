@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { AlertasPaciente } from "@/components/alertas-paciente";
 import { Encabezado } from "@/components/encabezado";
 import { fechaLima, formatearFecha } from "@/lib/fechas";
 import { modulos } from "@/lib/funciones";
@@ -99,6 +100,7 @@ export default async function NuevaCita({ searchParams }: {
     <>
       <Encabezado sesion={sesion} seccion="agenda" />
       <main className="mx-auto max-w-3xl px-4 py-8">
+        <AlertasPaciente pacienteId={paciente.id} />
         <Link href={`/agenda?fecha=${fecha}`} className="text-sm font-medium text-teal-700 hover:underline">← Agenda</Link>
         <h1 className="mb-6 mt-3 text-2xl font-semibold">Nueva cita</h1>
         <FormularioCita

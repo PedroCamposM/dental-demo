@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { AlertasPaciente } from "@/components/alertas-paciente";
 import { Encabezado } from "@/components/encabezado";
 import { ESTADOS_CITA, type EstadoCita } from "@/lib/agenda/citas";
 import { fechaLima, formatearFecha, horaLima } from "@/lib/fechas";
@@ -10,6 +11,7 @@ import { modulos } from "@/lib/funciones";
 import { obtenerSesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
 import { FormularioPaciente } from "../formulario";
+import { PestanasPaciente } from "./pestanas";
 
 export const metadata: Metadata = { title: "Paciente – Dental Demo" };
 
@@ -65,6 +67,7 @@ export default async function FichaPaciente({ params, searchParams }: {
     <>
       <Encabezado sesion={sesion} seccion="pacientes" />
       <main className="mx-auto max-w-4xl px-4 py-8">
+        <AlertasPaciente pacienteId={id} />
         <Link href="/pacientes" className="text-sm font-medium text-teal-700 hover:underline">← Pacientes</Link>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
           <div>
@@ -93,6 +96,8 @@ export default async function FichaPaciente({ params, searchParams }: {
             </div>
           )}
         </div>
+
+        <PestanasPaciente id={id} actual="filiacion" veClinico={sesion.veClinico} />
 
         {(creado || guardado || fusionado) && (
           <p role="status" className="mt-4 rounded-md bg-teal-50 px-3 py-2 text-sm text-teal-800">
