@@ -4,7 +4,7 @@
 > retome el trabajo sin depender de conversaciones anteriores. Se actualiza al cerrar
 > cada rebanada. **Leerlo junto con `CLAUDE.md` antes de empezar.**
 
-Última actualización: 2026-10-08 — Etapa 1 de la v2, en cierre.
+Última actualización: 2026-10-08 — Etapa 1 de la v2: migrada en el remoto; falta la prueba manual.
 
 ## Dónde está cada cosa
 
@@ -79,7 +79,8 @@ Decisiones aprobadas por Pedro:
 - Seed remoto: solo se agrega (scripts idempotentes), nunca se borra.
 - Respaldos y migraciones vía GitHub Actions.
 
-Migraciones (aplicadas en CI; **aún no en el remoto** al momento de escribir esto):
+Migraciones (aplicadas en el remoto el 2026-10-08 con «Aplicar migraciones», corrida
+37809992322; respaldo cifrado `respaldo-cifrado-37809992322`, 90 días):
 0900 rol asistente · 0901 filiación (tipo/número de documento, sexo, ocupación,
 dirección, contacto de emergencia, parentesco del apoderado; `dni` sincronizado) ·
 0902 permisos por rol (ve_clinico, en_fusion, triggers por rol, anulación de una vía,
@@ -108,14 +109,27 @@ después del error «Contraseña incorrecta.» y podía borrar la contraseña ya
 CI falla también con pruebas inestables (`failOnFlakyTests`) e imprime siempre lo que
 veía la página en cada intento fallido.
 
-### Pendiente para cerrar la Etapa 1
+### Estado del cierre de la Etapa 1
 
-1. CI en verde en la rama de trabajo (último arreglo: formulario de paciente que
-   perdía el sexo y el consentimiento tras un error; ver arriba).
-2. Pedro corre «Aplicar migraciones» sobre la rama de trabajo.
-3. Claude carga `seed_etapa1.sql` en el remoto y verifica conteos.
-4. Encender `HABILITAR_ETAPA1=1` en Vercel (primero Preview, luego Production).
-5. Checklist manual de Pedro con los 4 roles; luego fusionar la rama a `main`.
+Hecho:
+- CI en verde sin reintentos (corrida 37806322757, commit 029eeda).
+- Migraciones 0900–0905 en el remoto. Conteos antes/después iguales salvo
+  `auditoria` +120 (backfill del documento de los 120 pacientes). Verificación de
+  filiación: 120/120 con documento. La primera corrida falló en el respaldo por
+  `SUPABASE_DB_PASSWORD` incorrecta (Pedro la reseteó en Database → Settings).
+- `seed_etapa1.sql` cargado en el remoto (en una transacción vía API de gestión):
+  5 usuarios (asistente con identidad y login HTTP 200), 0 pacientes sin sexo, 0
+  menores sin parentesco, 0 adultos sin contacto de emergencia; auditoría +121.
+- `seed.check.sql` en el remoto: todo pasa salvo «citas programadas en el pasado»
+  (1 cita de hoy 11:00 que ya pasó: los datos demo envejecen; no es un error).
+- Producción (código de `main`) probada contra la base migrada: 10/10 pruebas de
+  login, tablero y plantillas (la de plantillas guarda y restaura una plantilla).
+
+Pendiente:
+1. Pedro agrega `HABILITAR_ETAPA1=1` en Vercel solo para **Preview**; Claude sube un
+   commit para que la vista previa de la rama se reconstruya.
+2. Checklist manual de Pedro con los 4 roles en la vista previa.
+3. Fusionar la rama a `main` y agregar `HABILITAR_ETAPA1=1` en **Production**.
 
 ## Próximas etapas (CLAUDE.md)
 
