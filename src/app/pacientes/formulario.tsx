@@ -19,9 +19,9 @@ type PropsCampo = {
 function Campo({ campo, etiqueta, valor, error, tipo = "text", obligatorio = false, ayuda, ...resto }: PropsCampo) {
   return (
     <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-      <span>{etiqueta}{obligatorio && <span className="text-red-700"> *</span>}</span>
+      <span>{etiqueta}{obligatorio && <span aria-hidden="true" className="text-red-700"> *</span>}</span>
       <input
-        name={campo} type={tipo} defaultValue={valor ?? ""} aria-invalid={!!error}
+        name={campo} type={tipo} defaultValue={valor ?? ""} aria-invalid={!!error} aria-required={obligatorio}
         aria-describedby={error ? `${campo}-error` : undefined} className={ENTRADA} {...resto}
       />
       {ayuda && !error && <span className="text-xs font-normal text-gray-500">{ayuda}</span>}
@@ -35,7 +35,7 @@ function Opciones({ campo, etiqueta, opciones, valor, error }: {
 }) {
   return (
     <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-      <span>{etiqueta}<span className="text-red-700"> *</span></span>
+      <span>{etiqueta}<span aria-hidden="true" className="text-red-700"> *</span></span>
       <select name={campo} defaultValue={valor ?? ""} aria-invalid={!!error} className={ENTRADA}>
         <option value="" disabled>Elegir…</option>
         {Object.entries(opciones).map(([clave, texto]) => <option key={clave} value={clave}>{texto}</option>)}
@@ -97,7 +97,7 @@ export function FormularioPaciente({ id, inicial = { tipo_documento: "dni" } }: 
         <Campo campo="nombres" valor={v.nombres} error={e.nombres} etiqueta="Nombres" obligatorio />
         <Campo campo="apellidos" valor={v.apellidos} error={e.apellidos} etiqueta="Apellidos" obligatorio />
         <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-          <span>Fecha de nacimiento<span className="text-red-700"> *</span></span>
+          <span>Fecha de nacimiento<span aria-hidden="true" className="text-red-700"> *</span></span>
           <input
             name="fecha_nacimiento" type="date" defaultValue={v.fecha_nacimiento ?? ""}
             onChange={(e) => setFecha(e.target.value)} aria-invalid={!!estado.errores.fecha_nacimiento} className={ENTRADA}
