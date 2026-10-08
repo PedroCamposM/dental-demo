@@ -46,3 +46,6 @@ export async function registrarYEsperarFicha(page: Page, confirmarDuplicado = fa
   }
   await expect(page.getByText("Paciente registrado.")).toBeVisible();
 }
+
+/** Catálogo, horarios y agenda encendidos (CI con HABILITAR_ETAPA2=1). */
+export const conEtapa2 = conEtapa1 && process.env.HABILITAR_ETAPA2 === "1";

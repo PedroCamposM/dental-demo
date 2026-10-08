@@ -9,4 +9,9 @@ export const modulos = {
    * Requiere las migraciones 0900-0905 en la base.
    */
   etapa1: process.env.HABILITAR_ETAPA1 === "1",
+  /**
+   * Etapa 2: catálogo de procedimientos, horarios, bloqueos y agenda.
+   * Requiere las migraciones 0906-0907 (y la Etapa 1).
+   */
+  etapa2: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA2 === "1",
 };

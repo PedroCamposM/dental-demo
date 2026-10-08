@@ -103,4 +103,13 @@ select pg_temp.al_menos((select count(*) from v_item_cobro, pg_temp.c
                          where clinica_id = c.id and estado <> 'realizado' and cobrado_centimos > 0), 3,
                         'adelantos (cobrado sin realizar)');
 
+-- Etapa 2: catálogo de procedimientos coherente con los planes del seed
+select pg_temp.al_menos((select count(*) from procedimiento, pg_temp.c where clinica_id = c.id and activo), 20,
+                        'procedimientos activos en el catálogo');
+select pg_temp.ninguno((select count(*) from (select distinct i.procedimiento, i.precio_centimos
+                                              from item_plan i, pg_temp.c where i.clinica_id = c.id) u
+                        where not exists (select 1 from procedimiento p
+                                          where p.nombre = u.procedimiento and p.precio_base_centimos = u.precio_centimos)),
+                       'procedimientos de los planes que no están en el catálogo con su precio');
+
 select 'seed: todas las verificaciones pasaron' as resultado;
