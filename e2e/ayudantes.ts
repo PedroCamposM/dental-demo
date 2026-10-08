@@ -19,17 +19,26 @@ export function dniAlAzar(): string {
 }
 
 /**
- * Pulsa «Registrar paciente» y espera la ficha. Si la página muestra un error, la
- * prueba falla con ese texto (así el log dice por qué no se guardó).
+ * Pulsa «Registrar paciente» y espera la ficha. Antes de leer errores espera a que
+ * termine el envío (sin «Guardando…»), para no tomar mensajes del envío anterior.
+ * Si no llega a la ficha, la prueba falla con lo que muestra la página.
  */
 export async function registrarYEsperarFicha(page: Page, confirmarDuplicado = false) {
+  const guardando = page.getByRole("button", { name: "Guardando…" });
   await page.getByRole("button", { name: "Registrar paciente" }).click();
-  if (confirmarDuplicado) await page.getByRole("button", { name: /crear de todas formas/ }).click();
-  const exito = page.getByText("Paciente registrado.");
-  const errores = page.locator('[role="alert"]:not(#__next-route-announcer__), [id$="-error"]');
-  await expect(exito.or(errores.first())).toBeVisible({ timeout: 15_000 });
-  if (!(await exito.isVisible())) {
+  if (confirmarDuplicado) {
+    const confirmar = page.getByRole("button", { name: /crear de todas formas/ });
+    await expect(confirmar).toBeVisible({ timeout: 20_000 });
+    await expect(guardando).toHaveCount(0, { timeout: 20_000 });
+    await confirmar.click();
+  }
+  try {
+    await page.waitForURL(/\/pacientes\/[0-9a-f-]{36}\?creado=1/, { timeout: 30_000 });
+  } catch {
+    await expect(guardando).toHaveCount(0, { timeout: 5_000 }).catch(() => undefined);
+    const errores = page.locator('[role="alert"]:not(#__next-route-announcer__), [id$="-error"]');
     const textos = (await errores.allTextContents()).map((t) => t.trim()).filter(Boolean);
     throw new Error(`No se registró el paciente. La página muestra: ${JSON.stringify(textos)} (url ${page.url()})`);
   }
+  await expect(page.getByText("Paciente registrado.")).toBeVisible();
 }
