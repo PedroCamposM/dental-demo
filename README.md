@@ -81,6 +81,8 @@ Contraseña de demo para todos: `DemoTrujillo2026`.
 
 - `npm test`: Vitest (lógica en `src/**/*.test.ts`)
 - `npm run test:e2e`: Playwright (`e2e/`). Compila y levanta la app en el puerto 3100.
+  Las pruebas de login real (`e2e/login.spec.ts`) solo corren si `.env.local` apunta
+  al proyecto de Supabase con el seed; si no, se marcan como omitidas.
   Si ya hay un Chromium instalado, `PLAYWRIGHT_CHROMIUM_PATH=/ruta/a/chromium` evita
   descargarlo; si no, `npx playwright install chromium`.
 - `npm run test:db`: migraciones, RLS, reglas y seed sobre un Postgres efímero

@@ -1,4 +1,8 @@
+import { loadEnvConfig } from "@next/env";
 import { defineConfig, devices } from "@playwright/test";
+
+// Lee .env.local como lo hace Next, para que las pruebas sepan si hay Supabase real.
+loadEnvConfig(process.cwd());
 
 // PLAYWRIGHT_CHROMIUM_PATH permite usar un Chromium ya instalado (p. ej. en CI
 // o en un contenedor) en lugar del que descarga `npx playwright install`.
