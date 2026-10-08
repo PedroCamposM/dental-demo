@@ -98,7 +98,9 @@ reinicia el formulario y no aplica el `defaultValue` nuevo a un `<select>` ya mo
 el sexo volvía a «Elegir…» y el consentimiento se desmarcaba (y «crear de todas
 formas» tras el aviso de duplicado fallaba). Arreglo: `key` en el `<select>` y el
 estado devuelve `consiente`. Regla para formularios futuros: todo `<select>` o
-casilla no controlado debe conservar su valor tras un envío con errores.
+casilla no controlado debe conservar su valor tras un envío con errores, y los
+formularios llevan `noValidate` (valida el servidor, con mensajes en español). La
+fusión se ajustó igual: conserva el duplicado elegido y el motivo.
 
 ### Pendiente para cerrar la Etapa 1
 

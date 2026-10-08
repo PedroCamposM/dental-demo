@@ -112,7 +112,7 @@ test("admin fusiona un registro duplicado y el duplicado queda anulado, no borra
   await page.locator(`input[name="duplicado"][value="${duplicado}"]`).check();
   await page.getByRole("button", { name: "Fusionar registros" }).click();
   await expect(page.getByText(/Escribe el motivo/)).toBeVisible();
-  await page.locator(`input[name="duplicado"][value="${duplicado}"]`).check();
+  await expect(page.locator(`input[name="duplicado"][value="${duplicado}"]`)).toBeChecked();
   await page.getByLabel(/Motivo/).fill("Se registró dos veces en recepción");
   await page.getByRole("button", { name: "Fusionar registros" }).click();
   await expect(page.getByText("Registros fusionados. El duplicado quedó anulado.")).toBeVisible();

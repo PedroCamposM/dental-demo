@@ -93,7 +93,8 @@ export async function guardarPaciente(_previo: EstadoFormulario, form: FormData)
   redirect(`/pacientes/${data.id}${id ? "?guardado=1" : "?creado=1"}`);
 }
 
-export type EstadoFusion = { error: string | null };
+/** Devuelve lo elegido y lo escrito para que no se pierda si hay que corregir algo. */
+export type EstadoFusion = { error: string | null; duplicado: string; motivo: string };
 
 const MENSAJES_FUSION: [string, string][] = [
   ["apoderado", "Uno de los pacientes es menor y le faltan datos del apoderado: complétalos en su ficha y vuelve a intentar."],
@@ -106,21 +107,24 @@ const MENSAJES_FUSION: [string, string][] = [
 
 /** Absorbe el registro duplicado en el paciente que se conserva (función auditada en la base). */
 export async function fusionarPacientes(_previo: EstadoFusion, form: FormData): Promise<EstadoFusion> {
-  if (!modulos.etapa1) return { error: "Este módulo aún no está habilitado." };
-  const sesion = await obtenerSesion();
-  if (!sesion || sesion.rol !== "admin") return { error: "Solo el administrador puede fusionar pacientes." };
   const conservar = String(form.get("conservar") ?? "");
   const duplicado = String(form.get("duplicado") ?? "");
-  const motivo = String(form.get("motivo") ?? "").trim();
-  if (!UUID.test(conservar) || !UUID.test(duplicado)) return { error: "Elige el registro duplicado." };
-  if (motivo.length < 5) return { error: "Escribe el motivo de la fusión (al menos 5 caracteres)." };
+  const motivoEscrito = String(form.get("motivo") ?? "");
+  const motivo = motivoEscrito.trim();
+  const fallo = (error: string): EstadoFusion => ({ error, duplicado, motivo: motivoEscrito });
+
+  if (!modulos.etapa1) return fallo("Este módulo aún no está habilitado.");
+  const sesion = await obtenerSesion();
+  if (!sesion || sesion.rol !== "admin") return fallo("Solo el administrador puede fusionar pacientes.");
+  if (!UUID.test(conservar) || !UUID.test(duplicado)) return fallo("Elige el registro duplicado.");
+  if (motivo.length < 5) return fallo("Escribe el motivo de la fusión (al menos 5 caracteres).");
 
   const supabase = await createClient();
   const { error } = await supabase.rpc("fusionar_pacientes", { duplicado, conservar, motivo });
   if (error) {
     const conocido = MENSAJES_FUSION.find(([clave]) => error.message.includes(clave));
     if (!conocido) registrarError("pacientes.fusionar", error, { conservar, duplicado });
-    return { error: conocido?.[1] ?? "No se pudo fusionar. Inténtalo de nuevo." };
+    return fallo(conocido?.[1] ?? "No se pudo fusionar. Inténtalo de nuevo.");
   }
   revalidatePath("/pacientes");
   redirect(`/pacientes/${conservar}?fusionado=1`);
