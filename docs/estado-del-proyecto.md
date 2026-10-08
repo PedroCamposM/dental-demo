@@ -128,7 +128,8 @@ Hecho:
 Pendiente:
 1. Pedro agrega `HABILITAR_ETAPA1=1` en Vercel solo para **Preview**; Claude sube un
    commit para que la vista previa de la rama se reconstruya.
-2. Checklist manual de Pedro con los 4 roles en la vista previa.
+2. Checklist manual de Pedro con los 4 roles en la vista previa (`docs/checklist-etapa1.md`).
+   `HABILITAR_ETAPA1=1` ya está en Vercel para Preview (tipo Config).
 3. Fusionar la rama a `main` y agregar `HABILITAR_ETAPA1=1` en **Production**.
 
 ## Próximas etapas (CLAUDE.md)
