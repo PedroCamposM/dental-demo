@@ -16,16 +16,17 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Paciente = Record<keyof EntradaPaciente, string | null> & {
   id: string; anulado_at: string | null; motivo_anulacion: string | null; consentimiento_datos_at: string | null;
+  fusionado_en: string | null;
 };
 
 export default async function FichaPaciente({ params, searchParams }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ editar?: string; creado?: string; guardado?: string }>;
+  searchParams: Promise<{ editar?: string; creado?: string; guardado?: string; fusionado?: string }>;
 }) {
   const { id } = await params;
-  const { editar, creado, guardado } = await searchParams;
+  const { editar, creado, guardado, fusionado } = await searchParams;
   if (!UUID.test(id)) notFound();
-  if (!modulos.pacientes) notFound();
+  if (!modulos.etapa1) notFound();
   const sesion = await obtenerSesion();
   if (!sesion) redirect("/");
 
@@ -66,20 +67,30 @@ export default async function FichaPaciente({ params, searchParams }: {
             </p>
           </div>
           {!editar && !p.anulado_at && (
-            <Link href={`/pacientes/${id}?editar=1`} className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">
-              Editar filiación
-            </Link>
+            <div className="flex gap-2">
+              <Link href={`/pacientes/${id}?editar=1`} className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">
+                Editar filiación
+              </Link>
+              {sesion.rol === "admin" && (
+                <Link href={`/pacientes/${id}/fusionar`} className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">
+                  Fusionar duplicado
+                </Link>
+              )}
+            </div>
           )}
         </div>
 
-        {(creado || guardado) && (
+        {(creado || guardado || fusionado) && (
           <p role="status" className="mt-4 rounded-md bg-teal-50 px-3 py-2 text-sm text-teal-800">
-            {creado ? "Paciente registrado." : "Cambios guardados."}
+            {creado ? "Paciente registrado." : fusionado ? "Registros fusionados. El duplicado quedó anulado." : "Cambios guardados."}
           </p>
         )}
         {p.anulado_at && (
           <p role="alert" className="mt-4 rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-700">
             Registro anulado: {p.motivo_anulacion}
+            {p.fusionado_en && (
+              <> · <Link href={`/pacientes/${p.fusionado_en}`} className="font-medium text-teal-800 underline">Ver el registro que se conservó</Link></>
+            )}
           </p>
         )}
 

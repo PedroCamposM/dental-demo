@@ -87,3 +87,46 @@ test("un menor exige apoderado y la edición guarda la filiación", async ({ pag
   await expect(page.getByText("Cambios guardados.")).toBeVisible();
   await expect(page.getByText("Estudiante de primaria")).toBeVisible();
 });
+
+test("admin fusiona un registro duplicado y el duplicado queda anulado, no borrado", async ({ page }) => {
+  await entrar(page, "valverde@clinica-demo.example");
+  const apellidos = `Fusion${dniAlAzar()}`;
+  const crear = async (dni: string, confirmar: boolean) => {
+    await page.goto("/pacientes/nuevo");
+    await page.getByLabel("Número de documento").fill(dni);
+    await page.getByLabel("Nombres").fill("Elena");
+    await page.getByLabel("Apellidos").fill(apellidos);
+    await page.getByLabel("Fecha de nacimiento").fill("1970-07-07");
+    await page.getByLabel("Sexo").selectOption("femenino");
+    await page.getByLabel("Celular", { exact: true }).fill("955666777");
+    await page.getByLabel(/autoriza el tratamiento de sus datos/).check();
+    await page.getByRole("button", { name: "Registrar paciente" }).click();
+    if (confirmar) await page.getByRole("button", { name: /crear de todas formas/ }).click();
+    await expect(page.getByText("Paciente registrado.")).toBeVisible();
+    return page.url().split("/pacientes/")[1]?.split("?")[0] ?? "";
+  };
+  const conservar = await crear(dniAlAzar(), false);
+  const duplicado = await crear(dniAlAzar(), true);
+
+  await page.goto(`/pacientes/${conservar}`);
+  await page.getByRole("link", { name: "Fusionar duplicado" }).click();
+  await page.locator(`input[name="duplicado"][value="${duplicado}"]`).check();
+  await page.getByRole("button", { name: "Fusionar registros" }).click();
+  await expect(page.getByText(/Escribe el motivo/)).toBeVisible();
+  await page.locator(`input[name="duplicado"][value="${duplicado}"]`).check();
+  await page.getByLabel(/Motivo/).fill("Se registró dos veces en recepción");
+  await page.getByRole("button", { name: "Fusionar registros" }).click();
+  await expect(page.getByText("Registros fusionados. El duplicado quedó anulado.")).toBeVisible();
+
+  await page.goto(`/pacientes/${duplicado}`);
+  await expect(page.getByText(/Registro anulado: Fusionado con Elena/)).toBeVisible();
+  await expect(page.getByRole("link", { name: "Editar filiación" })).toHaveCount(0);
+});
+
+test("recepción no ve la opción de fusionar", async ({ page }) => {
+  await entrar(page, "recepcion@clinica-demo.example");
+  await page.goto("/pacientes");
+  await page.getByRole("link").filter({ hasText: /, / }).first().click();
+  await expect(page.getByRole("link", { name: "Editar filiación" })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Fusionar duplicado" })).toHaveCount(0);
+});
