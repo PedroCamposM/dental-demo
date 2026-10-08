@@ -74,6 +74,13 @@ Los cálculos están en `src/lib/tablero/calculos.ts` (funciones puras con tests
 El **total en riesgo** suma presupuestos abiertos, detenidos y cuotas vencidas, sin
 volver a contar las cuotas de un plan que ya figura como detenido.
 
+## Plantillas de mensajes
+
+`/plantillas` permite editar el texto de cada tipo de mensaje (presupuesto,
+tratamiento detenido, cuotas vencidas, control y no-show) con vista previa. Las
+variables disponibles para cada tipo están en `src/lib/plantillas.ts`; no se guarda
+una plantilla con variables que ese mensaje no llena.
+
 ## Datos de demo (`supabase/seed.sql`)
 
 Crea **Clínica Dental Demo – Trujillo** con 3 odontólogos, recepción y 120 pacientes
