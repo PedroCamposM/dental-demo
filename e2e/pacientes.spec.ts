@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { conSupabaseLocal, dniAlAzar, entrar } from "./ayudantes";
+import { conSupabaseLocal, dniAlAzar, entrar, registrarYEsperarFicha } from "./ayudantes";
 
 test.skip(!conSupabaseLocal, "Crea pacientes: solo contra Supabase local");
 
@@ -77,8 +77,7 @@ test("un menor exige apoderado y la edición guarda la filiación", async ({ pag
   await page.locator("#campo-apoderado_telefono").fill("944555666");
   await page.locator("#campo-apoderado_parentesco").fill("madre");
   await page.getByLabel(/autoriza el tratamiento de sus datos/).check();
-  await page.getByRole("button", { name: "Registrar paciente" }).click();
-  await expect(page.getByText("Paciente registrado.")).toBeVisible();
+  await registrarYEsperarFicha(page);
   await expect(page.getByText("Carmen Ruiz Vega (madre)")).toBeVisible();
 
   await page.getByRole("link", { name: "Editar filiación" }).click();
@@ -100,9 +99,7 @@ test("admin fusiona un registro duplicado y el duplicado queda anulado, no borra
     await page.getByLabel("Sexo").selectOption("femenino");
     await page.locator("#campo-telefono").fill("955666777");
     await page.getByLabel(/autoriza el tratamiento de sus datos/).check();
-    await page.getByRole("button", { name: "Registrar paciente" }).click();
-    if (confirmar) await page.getByRole("button", { name: /crear de todas formas/ }).click();
-    await expect(page.getByText("Paciente registrado.")).toBeVisible();
+    await registrarYEsperarFicha(page, confirmar);
     return page.url().split("/pacientes/")[1]?.split("?")[0] ?? "";
   };
   const conservar = await crear(dniAlAzar(), false);

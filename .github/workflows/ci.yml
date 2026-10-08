@@ -58,7 +58,7 @@ jobs:
         run: |
           find test-results -name error-context.md ! -path '*retry*' | while read -r f; do
             echo "::group::$f"
-            sed -n '/Page snapshot/,$p' "$f" | head -120
+            cat "$f" | head -200
             echo "::endgroup::"
           done
       - name: Guardar el reporte si falla
