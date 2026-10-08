@@ -37,10 +37,12 @@ function Opciones({ campo, etiqueta, opciones, valor, error }: {
   campo: CampoPaciente; etiqueta: string; opciones: Record<string, string>; valor?: string; error?: string;
 }) {
   const id = `campo-${campo}`;
+  // React no aplica un defaultValue nuevo a un <select> ya montado y, tras un envío con
+  // errores, el formulario se reinicia: la `key` lo vuelve a montar con lo que se eligió.
   return (
     <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
       <label htmlFor={id}>{etiqueta}<span aria-hidden="true" className="text-red-700"> *</span></label>
-      <select id={id} name={campo} defaultValue={valor ?? ""} aria-invalid={!!error} aria-required
+      <select key={valor ?? ""} id={id} name={campo} defaultValue={valor ?? ""} aria-invalid={!!error} aria-required
         aria-describedby={error ? `${id}-error` : undefined} className={ENTRADA}>
         <option value="" disabled>Elegir…</option>
         {Object.entries(opciones).map(([clave, texto]) => <option key={clave} value={clave}>{texto}</option>)}
@@ -54,7 +56,7 @@ type Props = { id?: string; inicial?: EntradaPaciente };
 
 export function FormularioPaciente({ id, inicial = { tipo_documento: "dni" } }: Props) {
   const [estado, accion, guardando] = useActionState<EstadoFormulario, FormData>(guardarPaciente, {
-    errores: {}, general: null, consentimiento: null, duplicados: [], valores: inicial,
+    errores: {}, general: null, consentimiento: null, consiente: false, duplicados: [], valores: inicial,
   });
   const v = estado.valores;
   const e = estado.errores;
@@ -143,7 +145,10 @@ export function FormularioPaciente({ id, inicial = { tipo_documento: "dni" } }: 
       {!id && (
         <div>
           <label className="flex items-start gap-2 text-sm text-gray-700">
-            <input type="checkbox" name="consentimiento_datos" value="1" className="mt-1" />
+            <input
+              key={String(estado.consiente)} type="checkbox" name="consentimiento_datos" value="1"
+              defaultChecked={estado.consiente} className="mt-1"
+            />
             <span>
               El paciente{menor ? " (por medio de su apoderado)" : ""} autoriza el tratamiento de sus datos personales
               para su atención en la clínica (Ley 29733).

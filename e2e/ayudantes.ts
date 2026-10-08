@@ -28,14 +28,14 @@ export async function registrarYEsperarFicha(page: Page, confirmarDuplicado = fa
   await page.getByRole("button", { name: "Registrar paciente" }).click();
   if (confirmarDuplicado) {
     const confirmar = page.getByRole("button", { name: /crear de todas formas/ });
-    await expect(confirmar).toBeVisible({ timeout: 20_000 });
-    await expect(guardando).toHaveCount(0, { timeout: 20_000 });
+    await expect(confirmar).toBeVisible({ timeout: 10_000 });
+    await expect(guardando).toHaveCount(0, { timeout: 10_000 });
     await confirmar.click();
   }
   try {
-    await page.waitForURL(/\/pacientes\/[0-9a-f-]{36}\?creado=1/, { timeout: 30_000 });
+    await page.waitForURL(/\/pacientes\/[0-9a-f-]{36}\?creado=1/, { timeout: 12_000 });
   } catch {
-    await expect(guardando).toHaveCount(0, { timeout: 5_000 }).catch(() => undefined);
+    await expect(guardando).toHaveCount(0, { timeout: 3_000 }).catch(() => undefined);
     const errores = page.locator('[role="alert"]:not(#__next-route-announcer__), [id$="-error"]');
     const textos = (await errores.allTextContents()).map((t) => t.trim()).filter(Boolean);
     throw new Error(`No se registró el paciente. La página muestra: ${JSON.stringify(textos)} (url ${page.url()})`);

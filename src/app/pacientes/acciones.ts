@@ -18,6 +18,8 @@ export type EstadoFormulario = {
   errores: Errores;
   general: string | null;
   consentimiento: string | null;
+  /** Se devuelve para que la casilla siga marcada si hay que corregir algo y volver a enviar. */
+  consiente: boolean;
   duplicados: Duplicado[];
   valores: EntradaPaciente;
 };
@@ -35,7 +37,7 @@ export async function guardarPaciente(_previo: EstadoFormulario, form: FormData)
   const id = String(form.get("id") ?? "") || null;
   const confirmaDuplicado = form.get("confirmar_duplicado") === "1";
   const consiente = form.get("consentimiento_datos") === "1";
-  const vacio: EstadoFormulario = { errores: {}, general: null, consentimiento: null, duplicados: [], valores };
+  const vacio: EstadoFormulario = { errores: {}, general: null, consentimiento: null, consiente, duplicados: [], valores };
 
   if (!modulos.etapa1) return { ...vacio, general: "Este módulo aún no está habilitado." };
   const sesion = await obtenerSesion();

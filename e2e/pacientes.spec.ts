@@ -71,12 +71,14 @@ test("un menor exige apoderado y la edición guarda la filiación", async ({ pag
   await page.getByLabel(/autoriza el tratamiento de sus datos/).check();
   await page.getByRole("button", { name: "Registrar paciente" }).click();
   await expect(page.getByText("Es menor de edad: ingresa el nombre del apoderado.")).toBeVisible();
+  // Tras un error del servidor, lo elegido se conserva (no hay que volver a elegirlo).
+  await expect(page.getByLabel("Sexo")).toHaveValue("masculino");
+  await expect(page.getByLabel(/autoriza el tratamiento de sus datos/)).toBeChecked();
 
   await page.getByLabel("Nombre completo").fill("Carmen Ruiz Vega");
   await page.locator("#campo-apoderado_dni").fill("10000099");
   await page.locator("#campo-apoderado_telefono").fill("944555666");
   await page.locator("#campo-apoderado_parentesco").fill("madre");
-  await page.getByLabel(/autoriza el tratamiento de sus datos/).check();
   await registrarYEsperarFicha(page);
   await expect(page.getByText("Carmen Ruiz Vega (madre)")).toBeVisible();
 
