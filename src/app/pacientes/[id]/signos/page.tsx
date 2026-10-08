@@ -46,7 +46,7 @@ export default async function Signos({ params }: { params: Promise<{ id: string 
 
         {!paciente.anulado_at && (
           <section aria-labelledby="t-nuevos" className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
-            <h2 id="t-nuevos" className="mb-3 text-lg font-semibold">Registrar en esta consulta</h2>
+            <h2 id="t-nuevos" className="mb-3 text-lg font-semibold">Registrar signos vitales</h2>
             <FormularioSignos pacienteId={id} />
           </section>
         )}

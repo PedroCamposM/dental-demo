@@ -195,7 +195,7 @@ export function imc(pesoKg: number | null, tallaCm: number | null): number | nul
 // Alertas: solo lo registrado
 // ---------------------------------------------------------------------------
 export type Alertas = {
-  alergias: string[]; anticoagulante: string | null; enfermedades: string[]; embarazo: boolean;
+  alergias: string[]; anticoagulante: string | null; enfermedades: string[]; embarazo: string;
   semanas_gestacion: number | null;
 };
 
@@ -204,8 +204,13 @@ export function describirAlertas(a: Alertas): string[] {
   const frases: string[] = [];
   if (a.alergias.length > 0) frases.push(`Alergia: ${a.alergias.join(", ")}`);
   if (a.anticoagulante) frases.push(`Anticoagulado: ${a.anticoagulante}`);
-  const enfermedades = a.enfermedades.map((x) => ENFERMEDADES[x as Enfermedad] ?? x);
-  if (enfermedades.length > 0) frases.push(enfermedades.join(", "));
-  if (a.embarazo) frases.push(a.semanas_gestacion ? `Embarazo (${a.semanas_gestacion} semanas)` : "Embarazo");
+  // «reservado»: hay condiciones registradas, pero el detalle es solo para el equipo clínico.
+  if (a.enfermedades.includes("reservado")) frases.push("Condición sistémica registrada (detalle en la historia clínica)");
+  else {
+    const enfermedades = a.enfermedades.map((x) => ENFERMEDADES[x as Enfermedad] ?? x);
+    if (enfermedades.length > 0) frases.push(enfermedades.join(", "));
+  }
+  if (a.embarazo === "si") frases.push(a.semanas_gestacion ? `Embarazo (${a.semanas_gestacion} semanas)` : "Embarazo");
+  if (a.embarazo === "no_sabe") frases.push("Embarazo: no sabe");
   return frases;
 }

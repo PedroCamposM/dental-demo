@@ -28,10 +28,6 @@ export default async function Historia({ params, searchParams }: {
   const { sesion, paciente } = await abrirHistoria(id);
   const supabase = await createClient();
 
-  // El acceso a la historia queda en la auditoría
-  const lectura = await supabase.rpc("registrar_lectura_historia", { id_paciente: id });
-  if (lectura.error) registrarError("historia.lectura", lectura.error, { paciente: id });
-
   const [{ data: versiones, error }, { data: equipo }] = await Promise.all([
     supabase.from("cuestionario_salud").select(COLUMNAS_VERSION).eq("paciente_id", id)
       .order("registrado_at", { ascending: false }).order("version", { ascending: false }).returns<Version[]>(),
@@ -51,7 +47,7 @@ export default async function Historia({ params, searchParams }: {
         <Link href="/pacientes" className="text-sm font-medium text-teal-700 hover:underline">← Pacientes</Link>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
           <h1 className="text-2xl font-semibold">{paciente.nombres} {paciente.apellidos}</h1>
-          {!paciente.anulado_at && (
+          {!paciente.anulado_at && sesion.esDentista && (
             <Link href={`/pacientes/${id}/historia/nueva`}
               className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800">
               {vigente ? "Actualizar historia" : "Registrar historia"}
@@ -73,7 +69,7 @@ export default async function Historia({ params, searchParams }: {
 
         {!elegida ? (
           <p className="mt-8 rounded-lg border border-dashed border-gray-300 p-6 text-center text-gray-600">
-            Aún no tiene historia clínica. Regístrala en la primera consulta.
+            Aún no tiene historia clínica. La registra el odontólogo en la primera consulta.
           </p>
         ) : (
           <>

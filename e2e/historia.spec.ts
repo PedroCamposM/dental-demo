@@ -21,8 +21,8 @@ async function crearPaciente(page: Page) {
   expect(pacienteId).toMatch(/^[0-9a-f-]{36}$/);
 }
 
-test("la asistente registra la historia y la actualiza en una versión nueva", async ({ page }) => {
-  await entrar(page, "asistente@clinica-demo.example");
+test("la odontóloga registra la historia y la actualiza en una versión nueva", async ({ page }) => {
+  await entrar(page, "mendoza@clinica-demo.example");
   await crearPaciente(page);
   const alertas = page.getByRole("note", { name: "Alertas clínicas" });
   await expect(alertas).toContainText("Historia clínica sin registrar");
@@ -64,6 +64,16 @@ test("la asistente registra la historia y la actualiza en una versión nueva", a
   await expect(page.getByText("Dolor en molar inferior derecho")).toBeVisible();
 });
 
+test("la asistente ve la historia pero no la modifica", async ({ page }) => {
+  await entrar(page, "asistente@clinica-demo.example");
+  await page.goto(`/pacientes/${pacienteId}/historia`);
+  await expect(page.getByText("Dolor en molar inferior derecho")).toHaveCount(0);   // muestra la vigente (versión 2)
+  await expect(page.getByText("Versión vigente 2")).toBeVisible();
+  await expect(page.getByRole("link", { name: "Actualizar historia" })).toHaveCount(0);
+  await page.goto(`/pacientes/${pacienteId}/historia/nueva`);
+  await expect(page).toHaveURL(new RegExp(`/pacientes/${pacienteId}/historia$`));
+});
+
 test("la asistente registra signos vitales y anula uno mal digitado", async ({ page }) => {
   await entrar(page, "asistente@clinica-demo.example");
   await page.goto(`/pacientes/${pacienteId}/signos`);
@@ -101,10 +111,11 @@ test("recepción no ve la historia, pero sí las alertas en la ficha y en la age
   await expect(page).toHaveURL(new RegExp(`/pacientes/${pacienteId}$`));
 
   // En la agenda, la cita muestra las alertas (también al pasar el cursor)
-  const martes = new Date(Date.now() + 70 * 86_400_000);
-  martes.setUTCDate(martes.getUTCDate() + ((9 - (martes.getUTCDay() || 7)) % 7 || 7));
-  let fecha = martes.toISOString().slice(0, 10);
-  if (fecha.endsWith("-12-08")) fecha = new Date(martes.getTime() + 7 * 86_400_000).toISOString().slice(0, 10);   // feriado
+  // Un jueves lejano: agenda.spec usa lunes y domingos; horarios.spec bloquea un 2–3 de marzo
+  const jueves = new Date(Date.now() + 70 * 86_400_000);
+  jueves.setUTCDate(jueves.getUTCDate() + ((11 - (jueves.getUTCDay() || 7)) % 7 || 7));
+  let fecha = jueves.toISOString().slice(0, 10);
+  if (/-(12-08|03-0[23])$/.test(fecha)) fecha = new Date(jueves.getTime() + 7 * 86_400_000).toISOString().slice(0, 10);
   await page.goto(`/agenda/nueva?paciente=${pacienteId}&fecha=${fecha}`);
   await page.locator("#cita-profesional_id").selectOption({ label: "Dra. Lucía Valverde Ríos" });
   await page.locator("#cita-hora").fill("15:00");

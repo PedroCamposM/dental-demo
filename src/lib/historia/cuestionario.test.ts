@@ -74,10 +74,13 @@ describe("validarSignos", () => {
 describe("describirAlertas", () => {
   it("solo describe lo registrado", () => {
     expect(describirAlertas({ alergias: ["Penicilina"], anticoagulante: "Warfarina", enfermedades: ["hipertension", "diabetes"],
-      embarazo: true, semanas_gestacion: 20 })).toEqual([
+      embarazo: "si", semanas_gestacion: 20 })).toEqual([
       "Alergia: Penicilina", "Anticoagulado: Warfarina", "Hipertensión arterial, Diabetes", "Embarazo (20 semanas)",
     ]);
-    expect(describirAlertas({ alergias: [], anticoagulante: null, enfermedades: [], embarazo: false, semanas_gestacion: null }))
+    expect(describirAlertas({ alergias: [], anticoagulante: null, enfermedades: [], embarazo: "no", semanas_gestacion: null }))
       .toEqual([]);
+    // Recepción: sabe que hay una condición, sin el detalle
+    expect(describirAlertas({ alergias: [], anticoagulante: null, enfermedades: ["reservado"], embarazo: "no_sabe",
+      semanas_gestacion: null })).toEqual(["Condición sistémica registrada (detalle en la historia clínica)", "Embarazo: no sabe"]);
   });
 });

@@ -27,13 +27,21 @@ set role authenticated;
 -- ---------------------------------------------------------------------------
 -- Cuestionario versionado
 -- ---------------------------------------------------------------------------
-select pruebas.como('a8000000-0000-0000-0000-00000000000c');   -- el asistente registra la primera versión
-insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, motivo_consulta, alergias)
-values ('a8a8a8a8-0000-0000-0000-000000000000', 'a8a8a8a8-0000-0000-0000-0000000000f1',
-        'a8000000-0000-0000-0000-00000000000c', 'Dolor en molar inferior', array['Penicilina']);
+-- El asistente ve la historia y registra signos vitales, pero no el cuestionario
+select pruebas.como('a8000000-0000-0000-0000-00000000000c');
 select pruebas.debe_fallar($$insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, motivo_consulta)
   values ('a8a8a8a8-0000-0000-0000-000000000000', 'a8a8a8a8-0000-0000-0000-0000000000f1',
-          'a8000000-0000-0000-0000-00000000000b', 'A nombre de otro')$$, 'row-level security');
+          'a8000000-0000-0000-0000-00000000000c', 'Intento del asistente')$$, 'row-level security');
+
+select pruebas.como('a8000000-0000-0000-0000-00000000000b');   -- la odontóloga registra la primera versión
+insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, motivo_consulta, alergias)
+values ('a8a8a8a8-0000-0000-0000-000000000000', 'a8a8a8a8-0000-0000-0000-0000000000f1',
+        'a8000000-0000-0000-0000-00000000000b', 'Dolor en molar inferior', array['Penicilina']);
+select pruebas.debe_fallar($$insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, motivo_consulta)
+  values ('a8a8a8a8-0000-0000-0000-000000000000', 'a8a8a8a8-0000-0000-0000-0000000000f1',
+          'a8000000-0000-0000-0000-00000000000a', 'A nombre de otro')$$, 'row-level security');
+select pruebas.como('a8000000-0000-0000-0000-00000000000c');
+select pruebas.igual((select count(*) from public.cuestionario_salud), 1, 'el asistente ve la historia');
 
 select pruebas.como('a8000000-0000-0000-0000-00000000000b');   -- la odontóloga actualiza: versión 2
 insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, motivo_consulta, alergias, anticoagulado,
@@ -73,8 +81,8 @@ select pruebas.debe_fallar($$insert into public.cuestionario_salud (clinica_id, 
           'a8000000-0000-0000-0000-00000000000d', 'Intento')$$, 'row-level security');
 select pruebas.igual((select count(*) from public.alertas_pacientes(array['a8a8a8a8-0000-0000-0000-0000000000f1']::uuid[])
                       where alergias = array['Látex', 'Penicilina'] and anticoagulante = 'Warfarina 5 mg'
-                        and enfermedades = array['hipertension'] and embarazo and semanas_gestacion = 20),
-                     1, 'recepción ve las alertas de la versión vigente');
+                        and enfermedades = array['reservado'] and embarazo = 'si' and semanas_gestacion = 20),
+                     1, 'recepción ve las alertas de la versión vigente (las condiciones, sin detalle)');
 select pruebas.debe_fallar($$select public.registrar_lectura_historia('a8a8a8a8-0000-0000-0000-0000000000f1')$$,
                            'no accede a la historia');
 
@@ -97,10 +105,22 @@ select pruebas.debe_fallar($$insert into public.signos_vitales (clinica_id, paci
           'a8000000-0000-0000-0000-00000000000c', 45)$$, 'check constraint');
 select pruebas.debe_fallar($$update public.signos_vitales set peso_kg = 70 where id = 'a8a8a8a8-0000-0000-0000-0000000000a1'$$,
                            'permission denied');
-update public.signos_vitales set anulado_at = now(), anulado_por = 'a8000000-0000-0000-0000-00000000000c',
+-- La anulación lleva la hora del servidor, aunque el cliente mande otra
+update public.signos_vitales set anulado_at = '1999-01-01', anulado_por = 'a8000000-0000-0000-0000-00000000000c',
        motivo_anulacion = 'Peso mal digitado' where id = 'a8a8a8a8-0000-0000-0000-0000000000a1';
+select pruebas.igual((select count(*) from public.signos_vitales
+                      where id = 'a8a8a8a8-0000-0000-0000-0000000000a1' and anulado_at > now() - interval '1 minute'),
+                     1, 'anulación con la hora del servidor');
 select pruebas.debe_fallar($$update public.signos_vitales set anulado_at = now(), anulado_por = 'a8000000-0000-0000-0000-00000000000c',
        motivo_anulacion = 'Otra vez' where id = 'a8a8a8a8-0000-0000-0000-0000000000a1'$$, 'ya está anulado');
+reset role;
+insert into public.cita (id, clinica_id, paciente_id, odontologo_id, inicio, fin, estado)
+values ('a8a8a8a8-0000-0000-0000-0000000000c1', 'a8a8a8a8-0000-0000-0000-000000000000', 'a8a8a8a8-0000-0000-0000-0000000000f2',
+        'a8000000-0000-0000-0000-00000000000b', now() - interval '1 day', now() - interval '1 day' + interval '30 minutes', 'atendida');
+set role authenticated;
+select pruebas.debe_fallar($$insert into public.signos_vitales (clinica_id, paciente_id, cita_id, registrado_por, peso_kg)
+  values ('a8a8a8a8-0000-0000-0000-000000000000', 'a8a8a8a8-0000-0000-0000-0000000000f1', 'a8a8a8a8-0000-0000-0000-0000000000c1',
+          'a8000000-0000-0000-0000-00000000000c', 60)$$, 'no corresponde a este paciente');
 select pruebas.como('a8000000-0000-0000-0000-00000000000d');
 select pruebas.igual((select count(*) from public.signos_vitales), 0, 'recepción no ve los signos vitales');
 
@@ -124,7 +144,8 @@ select pruebas.igual((select count(*) from public.auditoria where tabla = 'histo
                      'admin con COP ve las lecturas de la historia');
 
 -- ---------------------------------------------------------------------------
--- Fusión: la historia del duplicado pasa al que se conserva, en versiones nuevas
+-- Fusión: la historia del duplicado pasa al que se conserva, en versiones nuevas,
+-- y una versión conciliada reúne las alertas de ambos (ninguna se pierde)
 -- ---------------------------------------------------------------------------
 select pruebas.como('a8000000-0000-0000-0000-00000000000b');
 insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, motivo_consulta, alergias)
@@ -136,8 +157,13 @@ select public.fusionar_pacientes('a8a8a8a8-0000-0000-0000-0000000000f2', 'a8a8a8
 select pruebas.igual((select count(*) from public.cuestionario_salud
                       where paciente_id = 'a8a8a8a8-0000-0000-0000-0000000000f1' and version = 3
                         and motivo_consulta = 'Registro duplicado'), 1, 'la historia del duplicado pasa como versión 3');
+select pruebas.igual((select count(*) from public.cuestionario_salud
+                      where paciente_id = 'a8a8a8a8-0000-0000-0000-0000000000f1' and version = 4
+                        and motivo_consulta like 'Versión conciliada%'), 1, 'versión conciliada 4');
 select pruebas.igual((select count(*) from public.alertas_pacientes(array['a8a8a8a8-0000-0000-0000-0000000000f1']::uuid[])
-                      where alergias = array['Ibuprofeno']), 1, 'la alerta vigente es la última registrada');
+                      where alergias = array['Ibuprofeno', 'Látex', 'Penicilina'] and anticoagulante = 'Warfarina 5 mg'
+                        and enfermedades = array['hipertension'] and embarazo = 'si'), 1,
+                     'tras la fusión no se pierde ninguna alerta');
 select pruebas.debe_fallar($$insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, motivo_consulta)
   values ('a8a8a8a8-0000-0000-0000-000000000000', 'a8a8a8a8-0000-0000-0000-0000000000f2',
           'a8000000-0000-0000-0000-00000000000a', 'En el anulado')$$, 'anulado');

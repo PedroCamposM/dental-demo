@@ -183,9 +183,38 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
 `seed_etapa2.sql` y encender `HABILITAR_ETAPA2=1` en Vercel. Checklist:
 `docs/checklist-etapa2.md`.
 
+## v2 — Etapa 3 (historia clínica, signos vitales y alertas): hecha en la rama
+
+- **0908**: `cuestionario_salud` (insert-only, versión correlativa por paciente; nada
+  se edita ni se borra), `signos_vitales` (se anulan con motivo; la cita debe ser del
+  mismo paciente; la hora de anulación la pone el servidor), `alertas_pacientes()`
+  (solo alergias, anticoagulante, condiciones, embarazo y fecha; recepción ve que hay
+  una condición pero no cuál), `registrar_lectura_historia()` (lectura auditada, una
+  vez cada 10 min). La fusión mueve historia y signos y crea una **versión
+  conciliada** (unión de alergias, condiciones, anticoagulación; embarazo «sí»
+  prevalece) para que ninguna alerta se pierda.
+- Permisos: la historia la **ven** dentistas y asistente; el cuestionario lo
+  **registran solo dentistas** (admin u odontólogo con COP); la asistente registra
+  signos vitales. Recepción no ve nada clínico, solo el banner de alertas.
+  (Decisión tomada por seguridad según CLAUDE.md y lo aprobado: «asistente ve, no
+  firma». Pedro puede cambiarla.)
+- Pantallas: pestañas Filiación · Historia clínica · Signos vitales; banner fijo de
+  alertas en toda vista del paciente y en la agenda (texto y al pasar el cursor),
+  con la fecha de la historia; si no se pueden cargar, lo dice (no «sin alertas»).
+- Seed (`seed_etapa3.sql`): historia para los 120 pacientes, firmada por quien
+  atendió; penicilina, AINES, látex, anticoagulados, hipertensos, diabéticos, una
+  gestante (registrada hace una semana), hábitos, versiones 2 y signos vitales.
+- Revisión independiente: 15 hallazgos; corregidos los de severidad alta y media.
+- **Pendiente de Pedro (decisión clínica, no se inventa):** qué condiciones
+  sistémicas deben alertar. Hoy, al equipo clínico se le muestran todas las
+  registradas; a recepción, solo que hay alguna.
+- Falta en `/docs`: NTS 139-MINSA/2018/DGAIN (historia clínica) para alinear campos.
+- Para el remoto: «Aplicar migraciones» (0906–0908), cargar `seed_etapa2.sql` y
+  `seed_etapa3.sql`, y encender `HABILITAR_ETAPA2=1` y `HABILITAR_ETAPA3=1` en Vercel.
+
 ## Próximas etapas (CLAUDE.md)
 
-3 historia clínica, signos y alertas · 4 examen, odontograma y
+4 examen, odontograma y
 CIE-10 (revisar el catálogo de 38 hallazgos contra las 24 páginas de la NTS 188) ·
 5 plan con fases · 6 evolución firmada · 7 consentimientos, recetas, imágenes ·
 8 tablero clínico y caja · 9 especialidades · 10 laboratorio · 11 PDF · 12 seed y guion.

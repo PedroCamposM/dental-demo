@@ -16,6 +16,8 @@ export type Sesion = {
   inactividadMinutos: number | null;
   /** Ve la historia clínica: cirujano dentista (admin u odontólogo con COP) o asistente. Lo exige RLS. */
   veClinico: boolean;
+  /** Cirujano dentista (admin u odontólogo con COP): registra la historia clínica. Lo exige RLS. */
+  esDentista: boolean;
 };
 
 export const NOMBRE_ROL: Record<Rol, string> = {
@@ -51,5 +53,6 @@ export const obtenerSesion = cache(async (): Promise<Sesion | null> => {
     usuarioId: data.id, clinicaId: data.clinica_id, nombre: data.nombre, rol: data.rol, clinica: data.clinica.nombre,
     inactividadMinutos: data.clinica.inactividad_minutos ?? null,
     veClinico: data.rol === "asistente" || ((data.rol === "admin" || data.rol === "odontologo") && data.cop !== null),
+    esDentista: (data.rol === "admin" || data.rol === "odontologo") && data.cop !== null,
   };
 });

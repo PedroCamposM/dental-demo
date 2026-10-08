@@ -139,6 +139,11 @@ select pg_temp.al_menos((select count(distinct paciente_id) from cuestionario_sa
 select pg_temp.al_menos((select count(*) from cuestionario_salud, pg_temp.c where clinica_id = c.id and version = 2), 3,
                         'historias con más de una versión');
 select pg_temp.al_menos((select count(*) from signos_vitales, pg_temp.c where clinica_id = c.id), 30, 'signos vitales');
+select pg_temp.ninguno((select count(*) from cuestionario_salud, pg_temp.c
+                        where clinica_id = c.id and embarazo = 'si' and registrado_at < now() - interval '30 days'),
+                       'embarazos registrados hace más de un mes (alerta desactualizada)');
+select pg_temp.ninguno((select count(*) from cuestionario_salud q join usuario u on u.id = q.registrado_por
+                        where u.rol not in ('admin', 'odontologo') or u.cop is null), 'historias firmadas por quien no es dentista');
 select pg_temp.ninguno((select count(*) from cuestionario_salud q join paciente p on p.id = q.paciente_id
                         where q.embarazo = 'si' and (p.sexo <> 'femenino'
                               or extract(year from age(p.fecha_nacimiento)) not between 15 and 50)),

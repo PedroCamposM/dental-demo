@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { AlertasPaciente } from "@/components/alertas-paciente";
 import { Encabezado } from "@/components/encabezado";
 import { registrarError } from "@/lib/registro";
@@ -15,6 +15,7 @@ export default async function NuevaVersion({ params }: { params: Promise<{ id: s
   const { id } = await params;
   const { sesion, paciente } = await abrirHistoria(id);
   if (paciente.anulado_at) notFound();
+  if (!sesion.esDentista) redirect(`/pacientes/${id}/historia`);
   const supabase = await createClient();
   const { data: vigente, error } = await supabase.from("cuestionario_salud").select(COLUMNAS_VERSION).eq("paciente_id", id)
     .order("registrado_at", { ascending: false }).order("version", { ascending: false }).limit(1).maybeSingle<Version>();
@@ -28,7 +29,8 @@ export default async function NuevaVersion({ params }: { params: Promise<{ id: s
       hospitalizaciones: vigente.hospitalizaciones ?? "", medicacion: vigente.medicacion ?? "",
       anticoagulado: vigente.anticoagulado ? "1" : "", anticoagulante: vigente.anticoagulante ?? "",
       alergias: vigente.alergias.join("\n"), embarazo: vigente.embarazo === "no_aplica" ? "no" : vigente.embarazo,
-      semanas_gestacion: vigente.semanas_gestacion?.toString() ?? "", lactancia: vigente.lactancia ? "1" : "",
+      // Las semanas cambian: se vuelven a preguntar (no se copian de la versión anterior).
+      semanas_gestacion: "", lactancia: vigente.lactancia ? "1" : "",
       habitos_otros: vigente.habitos_otros ?? "", antecedentes_odontologicos: vigente.antecedentes_odontologicos ?? "",
       observaciones: "",
     },

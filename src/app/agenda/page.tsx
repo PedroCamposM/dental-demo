@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { Encabezado } from "@/components/encabezado";
 import { ESTADOS_ACTIVOS, ESTADOS_CITA, type EstadoCita } from "@/lib/agenda/citas";
 import { DIAS_PLURAL, TIPOS_BLOQUEO, type TipoBloqueo } from "@/lib/agenda/horario";
-import { diaSemana, fechaLima, formatearFechaLarga, horaLima, sumarDias } from "@/lib/fechas";
+import { diaSemana, fechaLima, formatearFecha, formatearFechaLarga, horaLima, sumarDias } from "@/lib/fechas";
 import { modulos } from "@/lib/funciones";
 import { cargarAlertas, type AlertasPaciente } from "@/lib/historia/alertas";
 import { obtenerSesion } from "@/lib/sesion";
@@ -39,7 +39,8 @@ export default async function Agenda({ searchParams }: { searchParams: Promise<{
     ? (params.fecha as string) : hoy;
 
   const d = await cargarDia(fecha);
-  const alertas = await cargarAlertas(d.citas.flatMap((c) => (c.paciente ? [c.paciente.id] : [])));
+  const { error: errorAlertas, porPaciente: alertas } =
+    await cargarAlertas(d.citas.flatMap((c) => (c.paciente ? [c.paciente.id] : [])));
   const generales = d.bloqueos.filter((b) => b.profesional_id === null);
   const conHorario = new Set(d.horarios.map((h) => h.profesional_id));
   const conCitas = new Set(d.citas.map((c) => c.odontologo_id));
@@ -86,6 +87,11 @@ export default async function Agenda({ searchParams }: { searchParams: Promise<{
         {d.error && (
           <p role="alert" className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
             No se pudo cargar toda la agenda. Recarga la página.
+          </p>
+        )}
+        {errorAlertas && (
+          <p role="alert" className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+            No se pudieron cargar las alertas clínicas de los pacientes. Recarga la página.
           </p>
         )}
         {generales.map((b) => (
@@ -151,7 +157,8 @@ function Cita({ c, sillon, alertas }: { c: CitaDia; sillon?: string; alertas?: A
   const descripcion = `la cita de ${nombre} a las ${horaLima(c.inicio)}`;
   const frases = alertas?.frases ?? [];
   return (
-    <li data-cita={c.id} title={frases.length > 0 ? `Alertas registradas: ${frases.join(" · ")}` : undefined}
+    <li data-cita={c.id}
+      title={frases.length > 0 ? `Alertas registradas: ${frases.join(" · ")} (historia del ${formatearFecha(fechaLima(alertas?.registradaEl ?? c.inicio))})` : undefined}
       className={`px-4 py-3 ${activa ? "" : "opacity-70"}`}>
       <div className="flex items-start justify-between gap-2">
         <p className="font-medium tabular-nums">{horaLima(c.inicio)} – {horaLima(c.fin)}</p>

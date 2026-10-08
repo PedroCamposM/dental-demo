@@ -8,6 +8,24 @@
 -- embarazo) se muestran en toda vista del paciente, también a recepción, mediante
 -- una función que solo devuelve esos datos. Solo se muestra lo registrado.
 
+-- Paciente vigente, esperando a una fusión en curso (bloqueo compartido): si la
+-- fusión anula al paciente mientras se registra algo, el registro se rechaza en
+-- vez de quedar en el duplicado anulado.
+create function privado.validar_paciente_vigente_bloqueando() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_anulado timestamptz;
+begin
+  select anulado_at into v_anulado from public.paciente
+   where id = new.paciente_id
+     and (current_user <> 'authenticated' or clinica_id = privado.clinica_actual())
+   for share;
+  if v_anulado is not null then
+    raise exception 'El paciente está anulado: registra la atención en el paciente vigente';
+  end if;
+  return new;
+end $$;
+
 -- ---------------------------------------------------------------------------
 -- Cuestionario de salud (anamnesis y antecedentes), versionado
 -- ---------------------------------------------------------------------------
@@ -58,7 +76,8 @@ create index cuestionario_paciente_idx on public.cuestionario_salud (paciente_id
 create function privado.preparar_cuestionario() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
-  perform 1 from public.paciente where id = new.paciente_id for update;
+  perform 1 from public.paciente where id = new.paciente_id
+     and (current_user <> 'authenticated' or clinica_id = privado.clinica_actual()) for update;
   select coalesce(max(version), 0) + 1 into new.version from public.cuestionario_salud where paciente_id = new.paciente_id;
   new.alergias := coalesce((select array_agg(distinct a order by a)
                             from (select btrim(x) as a from unnest(new.alergias) x) t
@@ -69,7 +88,7 @@ end $$;
 create trigger preparar before insert on public.cuestionario_salud
   for each row execute function privado.preparar_cuestionario();
 create trigger paciente_vigente before insert on public.cuestionario_salud
-  for each row execute function privado.validar_paciente_vigente();
+  for each row execute function privado.validar_paciente_vigente_bloqueando();
 create trigger auditar after insert on public.cuestionario_salud
   for each row execute function privado.auditar_simple();
 
@@ -120,20 +139,37 @@ create table public.signos_vitales (
 alter table public.signos_vitales enable row level security;
 create index signos_paciente_idx on public.signos_vitales (paciente_id, registrado_at desc);
 create trigger paciente_vigente before insert on public.signos_vitales
-  for each row execute function privado.validar_paciente_vigente();
+  for each row execute function privado.validar_paciente_vigente_bloqueando();
+
+-- La cita es del mismo paciente; la anulación lleva la hora del servidor.
+create function privado.validar_signos() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  if tg_op = 'INSERT' and new.cita_id is not null
+     and not exists (select 1 from public.cita where id = new.cita_id and paciente_id = new.paciente_id) then
+    raise exception 'La cita no corresponde a este paciente';
+  end if;
+  if tg_op = 'UPDATE' and old.anulado_at is null and new.anulado_at is not null then
+    new.anulado_at := now();
+  end if;
+  return new;
+end $$;
+create trigger validar before insert or update on public.signos_vitales
+  for each row execute function privado.validar_signos();
 create trigger solo_anular before update on public.signos_vitales
   for each row execute function privado.solo_anular();
 create trigger auditar after insert or update on public.signos_vitales
   for each row execute function privado.auditar();
 
 -- ---------------------------------------------------------------------------
--- RLS: la historia la ven y registran los cirujanos dentistas y el asistente
--- (ve_clinico); recepción no. Nada se borra.
+-- RLS: la historia la ven los cirujanos dentistas y el asistente (ve_clinico);
+-- el cuestionario solo lo registran los cirujanos dentistas; los signos vitales
+-- también el asistente. Recepción no ve nada de esto. Nada se borra.
 -- ---------------------------------------------------------------------------
 create policy cuestionario_select on public.cuestionario_salud for select to authenticated
   using (clinica_id = (select privado.clinica_actual()) and (select privado.ve_clinico()));
 create policy cuestionario_insert on public.cuestionario_salud for insert to authenticated
-  with check (clinica_id = (select privado.clinica_actual()) and (select privado.ve_clinico())
+  with check (clinica_id = (select privado.clinica_actual()) and (select privado.es_dentista())
               and registrado_por = (select auth.uid()));
 
 create policy signos_select on public.signos_vitales for select to authenticated
@@ -163,11 +199,16 @@ grant update (anulado_at, anulado_por, motivo_anulacion) on public.signos_vitale
 -- ---------------------------------------------------------------------------
 create function public.alertas_pacientes(pacientes uuid[])
 returns table (paciente_id uuid, alergias text[], anticoagulante text, enfermedades text[],
-               embarazo boolean, semanas_gestacion smallint, actualizado_at timestamptz)
+               embarazo text, semanas_gestacion smallint, actualizado_at timestamptz)
 language sql stable security definer set search_path = '' as $$
   select distinct on (c.paciente_id)
-         c.paciente_id, c.alergias, case when c.anticoagulado then c.anticoagulante end, c.enfermedades,
-         c.embarazo = 'si', c.semanas_gestacion, c.registrado_at
+         c.paciente_id, c.alergias, case when c.anticoagulado then c.anticoagulante end,
+         -- Las condiciones sistémicas, con nombre, solo para el equipo clínico; recepción
+         -- solo sabe que hay alguna registrada (dato clínico reservado, regla 9).
+         case when privado.ve_clinico() then c.enfermedades
+              when cardinality(c.enfermedades) > 0 or c.enfermedades_otras is not null then array['reservado']
+              else '{}'::text[] end,
+         c.embarazo, c.semanas_gestacion, c.registrado_at
     from public.cuestionario_salud c
    where c.clinica_id = privado.clinica_actual()
      and c.paciente_id = any (pacientes)
@@ -252,6 +293,33 @@ begin
   select coalesce(max(version), 0) into v_desfase from public.cuestionario_salud where paciente_id = conservar;
   update public.cuestionario_salud set paciente_id = conservar, version = version + v_desfase where paciente_id = duplicado;
   get diagnostics n_historia = row_count;
+  -- Si ambos tenían historia, una versión conciliada reúne lo que alerta (alergias,
+  -- condiciones, anticoagulación, embarazo) para que ninguna alerta se pierda; queda
+  -- marcada para revisión.
+  if n_historia > 0 and v_desfase > 0 then
+    insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, motivo_consulta, enfermedades,
+      enfermedades_otras, medicacion, anticoagulado, anticoagulante, alergias, embarazo, semanas_gestacion, lactancia,
+      habitos, observaciones)
+    select v_clinica, conservar, auth.uid(), 'Versión conciliada al fusionar registros duplicados',
+           (select coalesce(array_agg(distinct e order by e), '{}') from unnest(a.enfermedades || b.enfermedades) e),
+           nullif(concat_ws('; ', a.enfermedades_otras, nullif(b.enfermedades_otras, a.enfermedades_otras)), ''),
+           nullif(concat_ws('; ', a.medicacion, nullif(b.medicacion, a.medicacion)), ''),
+           a.anticoagulado or b.anticoagulado,
+           nullif(concat_ws('; ', case when a.anticoagulado then a.anticoagulante end,
+                            case when b.anticoagulado and b.anticoagulante is distinct from a.anticoagulante
+                                 then b.anticoagulante end), ''),
+           (select coalesce(array_agg(distinct x order by x), '{}') from unnest(a.alergias || b.alergias) x),
+           r.embarazo, r.semanas_gestacion, r.lactancia,
+           (select coalesce(array_agg(distinct x order by x), '{}') from unnest(a.habitos || b.habitos) x),
+           'Generada automáticamente al fusionar registros: revisar con el paciente.'
+      from (select * from public.cuestionario_salud where paciente_id = conservar and version <= v_desfase
+             order by registrado_at desc, version desc limit 1) a,
+           (select * from public.cuestionario_salud where paciente_id = conservar and version > v_desfase
+             order by registrado_at desc, version desc limit 1) b
+      -- Embarazo: el registrado como «sí» prevalece; si no, el más reciente.
+      cross join lateral (select * from public.cuestionario_salud where id in (a.id, b.id)
+                           order by (embarazo = 'si') desc, registrado_at desc limit 1) r;
+  end if;
   update public.signos_vitales set paciente_id = conservar where paciente_id = duplicado;
   get diagnostics n_signos = row_count;
   perform set_config('dental.fusion', 'off', true);

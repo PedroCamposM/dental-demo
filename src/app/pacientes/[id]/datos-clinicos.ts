@@ -16,7 +16,9 @@ export type PacienteClinico = {
 
 /** Mujer de 12 años o más: el cuestionario pregunta por embarazo y lactancia. */
 export function puedeGestar(p: PacienteClinico): boolean {
-  if (p.sexo !== "femenino" || !p.fecha_nacimiento) return p.sexo === "femenino";
+  // Sin sexo registrado se pregunta igual (no se descarta un embarazo por falta de dato).
+  if (p.sexo === "masculino") return false;
+  if (!p.fecha_nacimiento) return true;
   const hoy = fechaLima(new Date());
   const [a, m, d] = p.fecha_nacimiento.split("-").map(Number) as [number, number, number];
   const [ah, mh, dh] = hoy.split("-").map(Number) as [number, number, number];
@@ -35,6 +37,12 @@ export async function abrirHistoria(id: string): Promise<{ sesion: Sesion; pacie
     .select("id, nombres, apellidos, sexo, fecha_nacimiento, anulado_at").eq("id", id).maybeSingle<PacienteClinico>();
   if (error) registrarError("historia.paciente", error, { paciente: id });
   if (!data) notFound();
+  // Todo acceso a la historia (también signos y el formulario) queda en la auditoría.
+  const lectura = await supabase.rpc("registrar_lectura_historia", { id_paciente: id });
+  if (lectura.error) {
+    registrarError("historia.lectura", lectura.error, { paciente: id });
+    throw new Error("No se pudo registrar el acceso a la historia clínica");
+  }
   return { sesion, paciente: data };
 }
 

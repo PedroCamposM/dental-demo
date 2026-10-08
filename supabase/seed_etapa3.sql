@@ -16,6 +16,11 @@ select p.id, p.clinica_id, p.sexo, p.fecha_nacimiento,
                 p.created_at) as primera,
        (select max(c.inicio) from public.cita c where c.paciente_id = p.id and c.estado = 'atendida') as ultima,
        (select c.id from public.cita c where c.paciente_id = p.id and c.estado = 'atendida' order by c.inicio desc limit 1) as ultima_cita,
+       -- Quien atendió: firma la versión de esa consulta
+       coalesce((select c.odontologo_id from public.cita c where c.paciente_id = p.id and c.estado = 'atendida'
+                 order by c.inicio limit 1), 'd0000000-0000-4000-8000-000000000001') as primer_odontologo,
+       coalesce((select c.odontologo_id from public.cita c where c.paciente_id = p.id and c.estado = 'atendida'
+                 order by c.inicio desc limit 1), 'd0000000-0000-4000-8000-000000000001') as ultimo_odontologo,
        (select pl.titulo from public.plan_tratamiento pl where pl.paciente_id = p.id order by pl.presentado_at limit 1) as plan
 from public.paciente p
 where p.clinica_id = 'c0000000-0000-4000-8000-000000000001' and p.anulado_at is null and p.fecha_nacimiento is not null;
@@ -42,7 +47,7 @@ from pg_temp.base b;
 insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, registrado_at, motivo_consulta,
   enfermedad_actual, enfermedades, cirugias, medicacion, anticoagulado, anticoagulante, alergias, embarazo,
   semanas_gestacion, habitos, antecedentes_odontologicos)
-select d.clinica_id, d.id, 'd0000000-0000-4000-8000-000000000001', d.primera,
+select d.clinica_id, d.id, d.primer_odontologo, d.primera,
        coalesce('Evaluación para ' || lower(d.plan), 'Control y limpieza dental'),
        case pg_temp.h(d.id, 'actual') % 4
          when 0 then 'Refiere sensibilidad al frío desde hace unas semanas.'
@@ -59,8 +64,8 @@ select d.clinica_id, d.id, 'd0000000-0000-4000-8000-000000000001', d.primera,
                               case when d.anticoagulado then d.anticoagulante end), ''),
        d.anticoagulado, case when d.anticoagulado then d.anticoagulante end,
        d.alergias,
-       case when d.edad < 12 or d.sexo = 'masculino' then 'no_aplica' when d.gestante then 'si' else 'no' end,
-       case when d.gestante then (12 + pg_temp.h(d.id, 'semanas') % 20)::smallint end,
+       case when d.edad < 12 or d.sexo = 'masculino' then 'no_aplica' else 'no' end,
+       null,
        array_remove(array[case when d.edad >= 18 and pg_temp.h(d.id, 'bruxismo') < 14 then 'bruxismo' end,
                           case when d.edad >= 18 and pg_temp.h(d.id, 'tabaco') < 10 then 'tabaco' end,
                           case when d.edad < 12 and pg_temp.h(d.id, 'succion') < 30 then 'succion_digital' end,
@@ -72,19 +77,24 @@ select d.clinica_id, d.id, 'd0000000-0000-4000-8000-000000000001', d.primera,
 from pg_temp.datos d
 where not exists (select 1 from public.cuestionario_salud c where c.paciente_id = d.id);
 
--- Versión 2 para algunos pacientes con controles: la historia se actualiza sin borrar la anterior
+-- Versión 2 para algunos pacientes con controles (la historia se actualiza sin borrar
+-- la anterior) y para la gestante: su embarazo se registró hace una semana.
 insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, registrado_at, motivo_consulta,
   enfermedad_actual, enfermedades, cirugias, medicacion, anticoagulado, anticoagulante, alergias, embarazo,
   semanas_gestacion, habitos, antecedentes_odontologicos, observaciones)
-select c.clinica_id, c.paciente_id, 'd0000000-0000-4000-8000-000000000003', d.ultima,
+select c.clinica_id, c.paciente_id, d.ultimo_odontologo,
+       case when d.gestante then now() - interval '7 days' else d.ultima end,
        'Control', 'Sin molestias.', c.enfermedades, c.cirugias,
-       nullif(concat_ws('; ', c.medicacion, 'Omeprazol 20 mg en ayunas'), ''), c.anticoagulado, c.anticoagulante,
-       c.alergias, c.embarazo, c.semanas_gestacion, c.habitos, c.antecedentes_odontologicos,
-       'Actualización en el control: inició omeprazol.'
+       case when d.gestante then c.medicacion else nullif(concat_ws('; ', c.medicacion, 'Omeprazol 20 mg en ayunas'), '') end,
+       c.anticoagulado, c.anticoagulante, c.alergias,
+       case when d.gestante then 'si' else c.embarazo end,
+       case when d.gestante then (12 + pg_temp.h(d.id, 'semanas') % 20)::smallint end,
+       c.habitos, c.antecedentes_odontologicos,
+       case when d.gestante then 'Actualización: refiere embarazo.' else 'Actualización en el control: inició omeprazol.' end
 from public.cuestionario_salud c
 join pg_temp.datos d on d.id = c.paciente_id
-where c.version = 1 and d.ultima is not null and d.ultima > d.primera + interval '20 days'
-  and pg_temp.h(d.id, 'version2') < 15
+where c.version = 1
+  and (d.gestante or (d.ultima is not null and d.ultima > d.primera + interval '20 days' and pg_temp.h(d.id, 'version2') < 15))
   and not exists (select 1 from public.cuestionario_salud v where v.paciente_id = c.paciente_id and v.version > 1);
 
 -- Signos vitales en la última consulta atendida (los registró la asistente)
