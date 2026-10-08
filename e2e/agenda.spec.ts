@@ -17,7 +17,10 @@ const MENDOZA = "Dra. Carla Mendoza Paredes";
 async function abrirFichaDeUnPaciente(page: Page): Promise<string> {
   await page.goto("/pacientes");
   await page.getByRole("link").filter({ hasText: /, / }).first().click();
-  const nombre = (await page.getByRole("heading", { level: 1 }).textContent())?.trim() ?? "";
+  await page.waitForURL(/\/pacientes\/[0-9a-f-]{36}$/);
+  const titulo = page.getByRole("heading", { level: 1 });
+  await expect(titulo).not.toHaveText("Pacientes");
+  const nombre = (await titulo.textContent())?.trim() ?? "";
   expect(nombre).not.toBe("");
   return nombre;
 }
@@ -26,7 +29,8 @@ test("recepción agenda desde la ficha, la agenda evita choques y días sin aten
   await entrar(page, "recepcion@clinica-demo.example");
   const paciente = await abrirFichaDeUnPaciente(page);
   await page.getByRole("link", { name: "Agendar cita" }).click();
-  await expect(page.getByText(paciente)).toBeVisible();
+  await page.waitForURL(/\/agenda\/nueva\?paciente=/);
+  await expect(page.getByText(paciente, { exact: true })).toBeVisible();
 
   await page.locator("#cita-profesional_id").selectOption({ label: MENDOZA });
   await page.locator("#cita-fecha").fill(LUNES);
