@@ -4,6 +4,10 @@
 /** Cookies (sin datos sensibles) que permiten al middleware cerrar sesiones viejas. */
 export const COOKIE_ACTIVIDAD = "dental_ult";
 export const COOKIE_LIMITE = "dental_lim";
+/** Pantalla bloqueada (httpOnly: solo el servidor la pone y la quita al desbloquear). */
+export const COOKIE_BLOQUEO = "dental_bloqueo";
+/** Las cookies de actividad duran un día: sobreviven a cerrar el navegador. */
+export const DURACION_COOKIE_S = 86_400;
 
 /** Segundos de aviso antes de cerrar la sesión. */
 export const SEGUNDOS_AVISO = 60;

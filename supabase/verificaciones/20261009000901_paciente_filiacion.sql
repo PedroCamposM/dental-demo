@@ -12,6 +12,13 @@ begin
                                group by clinica_id, tipo_documento, numero_documento having count(*) > 1) d;
   if v > 0 then raise exception 'filiación: % documentos repetidos', v; end if;
 
+  -- Desde 0901 un menor sin apoderado completo ya no admite cambios (ni anulación ni fusión).
+  select count(*) into v from public.paciente
+  where anulado_at is null
+    and fecha_nacimiento > ((now() at time zone 'America/Lima')::date - interval '18 years')::date
+    and (apoderado_nombre is null or apoderado_dni is null or apoderado_telefono is null);
+  if v > 0 then raise exception 'filiación: % menores sin apoderado completo: corregir antes de seguir', v; end if;
+
   select count(*) into v from public.paciente p where not exists (select 1 from public.clinica c where c.id = p.clinica_id);
   if v > 0 then raise exception 'filiación: % pacientes huérfanos', v; end if;
 end $$;

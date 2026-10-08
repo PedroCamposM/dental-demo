@@ -13,6 +13,13 @@ language sql immutable parallel safe set search_path = '' as $$
 $$;
 grant execute on function privado.normalizar(text) to authenticated;
 
+-- Escapa los comodines de LIKE para buscar el texto tal cual ("50%" o "_" no son comodines).
+create function privado.literal_like(texto text) returns text
+language sql immutable parallel safe set search_path = '' as $$
+  select replace(replace(replace(coalesce(texto, ''), '\', '\\'), '%', '\%'), '_', '\_')
+$$;
+grant execute on function privado.literal_like(text) to authenticated;
+
 create index paciente_nombre_trgm on public.paciente
   using gin (privado.normalizar(nombres || ' ' || apellidos) extensions.gin_trgm_ops);
 create index paciente_telefono on public.paciente (clinica_id, telefono);
@@ -32,14 +39,14 @@ language sql stable security invoker set search_path = '' as $$
     and length(q.t) >= 2
     and (
       -- documento (DNI, CE o pasaporte) desde el inicio
-      p.numero_documento like upper(regexp_replace(texto, '\s', '', 'g')) || '%'
+      p.numero_documento like privado.literal_like(upper(regexp_replace(texto, '\s', '', 'g'))) || '%'
       -- teléfono: 6 o más dígitos en cualquier parte (con o sin 51)
       or (length(q.digitos) >= 6 and (p.telefono like '%' || q.digitos || '%'
                                       or p.apoderado_telefono like '%' || q.digitos || '%'))
       -- nombre: cada palabra buscada aparece en nombres + apellidos
       or not exists (
         select 1 from unnest(string_to_array(q.t, ' ')) palabra
-        where privado.normalizar(p.nombres || ' ' || p.apellidos) not like '%' || palabra || '%')
+        where privado.normalizar(p.nombres || ' ' || p.apellidos) not like '%' || privado.literal_like(palabra) || '%')
     )
   order by extensions.similarity(privado.normalizar(p.nombres || ' ' || p.apellidos), q.t) desc,
            p.apellidos, p.nombres

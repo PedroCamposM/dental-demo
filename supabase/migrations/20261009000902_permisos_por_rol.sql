@@ -11,6 +11,14 @@
 -- Sin usuario (migraciones, seed, service_role) privado.rol_actual() es null y
 -- estas validaciones no aplican: RLS ya no rige para esos roles.
 
+-- Dentro de la función de fusión de pacientes (0904): corre como su dueño, no como
+-- "authenticated", y marca la transacción. Fuera de ella esta marca no sirve.
+create function privado.en_fusion() returns boolean
+language sql stable set search_path = '' as $$
+  select coalesce(current_setting('dental.fusion', true), '') = 'on' and current_user <> 'authenticated'
+$$;
+grant execute on function privado.en_fusion() to authenticated;
+
 -- Ve la historia clínica: cirujano dentista o asistente.
 create function privado.ve_clinico() returns boolean
 language sql stable security definer set search_path = '' as $$
@@ -50,7 +58,7 @@ create policy item_plan_update on public.item_plan for update to authenticated
 create function privado.validar_cambio_plan_por_rol() returns trigger
 language plpgsql set search_path = '' as $$
 begin
-  if privado.rol_actual() is null or privado.es_dentista() then
+  if privado.rol_actual() is null or privado.es_dentista() or privado.en_fusion() then
     return new;
   end if;
   if (to_jsonb(new) - array['estado', 'motivo_rechazo', 'aceptado_at', 'terminado_at', 'updated_at'])
@@ -72,15 +80,22 @@ create trigger validar_rol before update on public.plan_tratamiento
 create function privado.validar_cambio_item_por_rol() returns trigger
 language plpgsql set search_path = '' as $$
 begin
-  if privado.rol_actual() is null or privado.es_dentista() then
+  if privado.rol_actual() is null or privado.es_dentista() or privado.en_fusion() then
     return new;
   end if;
-  if (to_jsonb(new) - array['estado', 'updated_at']) is distinct from (to_jsonb(old) - array['estado', 'updated_at']) then
+  if (to_jsonb(new) - array['estado', 'motivo_cancelacion', 'updated_at'])
+     is distinct from (to_jsonb(old) - array['estado', 'motivo_cancelacion', 'updated_at']) then
     raise exception 'Solo un cirujano dentista puede modificar el procedimiento, la pieza, el diagnóstico o el precio';
   end if;
+  -- Recepción registra la decisión del paciente (acepta o no un ítem propuesto)
+  -- y programa o desprograma lo aceptado. Nada más.
   if new.estado is distinct from old.estado
+     and not (old.estado = 'propuesto' and new.estado in ('aceptado', 'cancelado'))
      and not (old.estado in ('aceptado', 'programado') and new.estado in ('aceptado', 'programado')) then
-    raise exception 'Recepción solo puede programar o desprogramar ítems aceptados';
+    raise exception 'Recepción solo puede aceptar o cancelar ítems propuestos y programar los aceptados';
+  end if;
+  if new.motivo_cancelacion is distinct from old.motivo_cancelacion and new.estado <> 'cancelado' then
+    raise exception 'Solo un cirujano dentista puede modificar el procedimiento, la pieza, el diagnóstico o el precio';
   end if;
   return new;
 end $$;
@@ -108,15 +123,39 @@ create policy plantilla_mensaje_update on public.plantilla_mensaje for update to
   using (clinica_id = (select privado.clinica_actual()) and (select privado.rol_actual()) in ('admin', 'recepcion'))
   with check (clinica_id = (select privado.clinica_actual()));
 
--- Anular un paciente: solo admin.
+-- Anulación y fusión del paciente: solo admin, de una sola vía (no se "desanula"
+-- ni se reescribe el motivo) y un paciente anulado ya no se edita. fusionado_en
+-- (0904) solo lo escribe la función de fusión. Se compara por to_jsonb para no
+-- depender de columnas que agregan migraciones posteriores.
 create function privado.validar_anulacion_paciente() returns trigger
 language plpgsql set search_path = '' as $$
+declare
+  v_toca_anulacion boolean := exists (
+    select 1 from unnest(array['anulado_at', 'anulado_por', 'motivo_anulacion', 'fusionado_en']) k
+    where to_jsonb(new) -> k is distinct from to_jsonb(old) -> k);
 begin
-  if privado.rol_actual() is not null and privado.rol_actual() <> 'admin'
-     and new.anulado_at is distinct from old.anulado_at then
+  if privado.rol_actual() is null or privado.en_fusion() then
+    return new;
+  end if;
+  if old.anulado_at is not null then
+    raise exception 'El paciente está anulado y su registro no se puede modificar';
+  end if;
+  if v_toca_anulacion and privado.rol_actual() <> 'admin' then
     raise exception 'Solo el administrador puede anular un paciente';
+  end if;
+  if to_jsonb(new) -> 'fusionado_en' is distinct from to_jsonb(old) -> 'fusionado_en' then
+    raise exception 'La fusión de pacientes solo se hace con la opción Fusionar';
   end if;
   return new;
 end $$;
 create trigger validar_anulacion before update on public.paciente
   for each row execute function privado.validar_anulacion_paciente();
+
+-- Auditoría: el admin la lee, pero el contenido clínico (notas, odontogramas,
+-- hallazgos) solo si además es cirujano dentista (regla 9).
+drop policy auditoria_select on public.auditoria;
+create policy auditoria_select on public.auditoria for select to authenticated
+  using (clinica_id = (select privado.clinica_actual())
+         and (select privado.rol_actual()) = 'admin'
+         and (tabla not in ('nota_evolucion', 'odontograma', 'odontograma_hallazgo')
+              or (select privado.es_dentista())));

@@ -13,6 +13,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function guardarPlantilla(id: string | null, tipo: string, cuerpo: string): Promise<ResultadoGuardar> {
   const sesion = await obtenerSesion();
   if (!sesion) return { ok: false, errores: ["Tu usuario no tiene acceso a una clínica."] };
+  if (sesion.rol !== "admin" && sesion.rol !== "recepcion") {
+    return { ok: false, errores: ["Solo administración y recepción editan las plantillas."] };
+  }
   if (!esTipoPlantilla(tipo) || (id !== null && !UUID.test(id))) {
     return { ok: false, errores: ["Plantilla inválida."] };
   }

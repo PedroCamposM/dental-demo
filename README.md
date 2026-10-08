@@ -24,7 +24,10 @@ npm run dev
   (`supabase db dump` de esquema, datos y roles, guardado como artefacto por 90 días);
   si falla, no aplica nada. Luego conteos antes, `db push`, verificaciones de
   `supabase/verificaciones/2*.sql` y conteos después.
-  Secretos necesarios en GitHub: `SUPABASE_ACCESS_TOKEN` y `SUPABASE_DB_PASSWORD`.
+  Secretos necesarios en GitHub: `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD` y
+  `BACKUP_PASSPHRASE` (16+ caracteres; guárdala también fuera de GitHub). El respaldo se
+  sube **cifrado** (`respaldo.tar.gz.gpg`). Para abrirlo:
+  `gpg -d respaldo.tar.gz.gpg | tar -xz`.
 - Producción sale de `main`; las ramas tienen vista previa en Vercel.
 
 ## Despliegue en Vercel

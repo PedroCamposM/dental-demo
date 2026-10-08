@@ -13,6 +13,13 @@ test("bloquear la pantalla pide la contraseña para volver", async ({ page }) =>
 
   await page.reload();   // recargar no la desbloquea
   await expect(bloqueo).toBeVisible();
+  const otraPestana = await page.context().newPage();   // ni abrir otra pestaña
+  await otraPestana.goto("/");
+  await expect(otraPestana.getByRole("dialog", { name: "Pantalla bloqueada" })).toBeVisible();
+  await otraPestana.close();
+  // Lo de debajo queda inerte: no se puede activar el menú
+  await expect(page.getByRole("link", { name: "Tablero" })).toHaveAttribute("aria-current", "page");
+  expect(await page.locator("header").evaluate((n) => n.closest("[inert]") !== null)).toBe(true);
 
   await bloqueo.getByLabel("Contraseña").fill("incorrecta");
   await bloqueo.getByRole("button", { name: "Desbloquear" }).click();

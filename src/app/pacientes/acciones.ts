@@ -64,14 +64,21 @@ export async function guardarPaciente(_previo: EstadoFormulario, form: FormData)
   }
 
   const { data, error } = id
-    ? await supabase.from("paciente").update(datos).eq("id", id).select("id").maybeSingle<{ id: string }>()
+    ? await supabase.from("paciente").update(datos).eq("id", id).is("anulado_at", null)
+        .select("id").maybeSingle<{ id: string }>()
     : await supabase.from("paciente")
         .insert({ ...datos, clinica_id: sesion.clinicaId, consentimiento_datos_at: new Date().toISOString() })
         .select("id").maybeSingle<{ id: string }>();
 
   if (error || !data) {
     if (error?.code === "23505") {
-      return { ...vacio, errores: { numero_documento: "Ya hay un paciente registrado con este documento." } };
+      return { ...vacio, errores: { numero_documento: "Ya hay un paciente registrado con este documento. Búscalo en Pacientes; si no aparece, está anulado: consulta al administrador." } };
+    }
+    if (id && !error) {
+      return { ...vacio, general: "Este paciente está anulado o fusionado: su registro ya no se edita." };
+    }
+    if (error?.code === "P0001" && error.message.includes("anulado")) {
+      return { ...vacio, general: "Este paciente está anulado o fusionado: su registro ya no se edita." };
     }
     if (error?.code === "P0001" && error.message.includes("apoderado")) {
       return { ...vacio, errores: { apoderado_nombre: "Es menor de edad: completa los datos del apoderado." } };
@@ -87,6 +94,7 @@ export async function guardarPaciente(_previo: EstadoFormulario, form: FormData)
 export type EstadoFusion = { error: string | null };
 
 const MENSAJES_FUSION: [string, string][] = [
+  ["apoderado", "Uno de los pacientes es menor y le faltan datos del apoderado: complétalos en su ficha y vuelve a intentar."],
   ["Solo el administrador", "Solo el administrador puede fusionar pacientes."],
   ["motivo", "Escribe el motivo de la fusión (al menos 5 caracteres)."],
   ["distintos", "Elige un registro distinto al paciente actual."],

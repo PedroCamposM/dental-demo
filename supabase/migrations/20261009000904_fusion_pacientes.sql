@@ -16,8 +16,7 @@ alter table public.auditoria add constraint auditoria_accion_check
 create or replace function privado.solo_anular() returns trigger
 language plpgsql set search_path = '' as $$
 begin
-  if current_setting('dental.fusion', true) = 'on' and current_user <> 'authenticated'
-     and (to_jsonb(new) - 'paciente_id') = (to_jsonb(old) - 'paciente_id') then
+  if privado.en_fusion() and (to_jsonb(new) - 'paciente_id') = (to_jsonb(old) - 'paciente_id') then
     return new;
   end if;
   if old.anulado_at is not null then
@@ -48,8 +47,10 @@ begin
   if length(btrim(coalesce(motivo, ''))) < 5 then
     raise exception 'Indica el motivo de la fusión';
   end if;
-  select * into v_dup from public.paciente where id = duplicado and clinica_id = v_clinica for update;
-  select * into v_con from public.paciente where id = conservar and clinica_id = v_clinica for update;
+  -- Bloquea ambos en orden de id: dos fusiones cruzadas no se bloquean entre sí.
+  perform 1 from public.paciente where id in (duplicado, conservar) and clinica_id = v_clinica order by id for update;
+  select * into v_dup from public.paciente where id = duplicado and clinica_id = v_clinica;
+  select * into v_con from public.paciente where id = conservar and clinica_id = v_clinica;
   if v_dup.id is null or v_con.id is null then
     raise exception 'Paciente no encontrado';
   end if;
@@ -70,7 +71,15 @@ begin
   get diagnostics n_seguimientos = row_count;
   perform set_config('dental.fusion', 'off', true);
 
-  -- Datos de contacto que solo tenía el duplicado pasan al que se conserva.
+  -- El documento pasa al que se conserva si este no tenía (se libera primero en el
+  -- duplicado, porque el documento es único por clínica).
+  if v_con.numero_documento is null and v_dup.numero_documento is not null then
+    update public.paciente set numero_documento = null, dni = null where id = duplicado;
+    update public.paciente set tipo_documento = v_dup.tipo_documento, numero_documento = v_dup.numero_documento
+    where id = conservar;
+  end if;
+
+  -- Datos que solo tenía el duplicado pasan al que se conserva.
   update public.paciente p set
     telefono = coalesce(p.telefono, v_dup.telefono),
     sexo = coalesce(p.sexo, v_dup.sexo),
@@ -79,13 +88,20 @@ begin
     contacto_emergencia_nombre = coalesce(p.contacto_emergencia_nombre, v_dup.contacto_emergencia_nombre),
     contacto_emergencia_telefono = coalesce(p.contacto_emergencia_telefono, v_dup.contacto_emergencia_telefono),
     contacto_emergencia_parentesco = coalesce(p.contacto_emergencia_parentesco, v_dup.contacto_emergencia_parentesco),
-    consentimiento_datos_at = coalesce(p.consentimiento_datos_at, v_dup.consentimiento_datos_at)
+    consentimiento_datos_at = coalesce(p.consentimiento_datos_at, v_dup.consentimiento_datos_at),
+    fecha_nacimiento = coalesce(p.fecha_nacimiento, v_dup.fecha_nacimiento),
+    apoderado_nombre = coalesce(p.apoderado_nombre, v_dup.apoderado_nombre),
+    apoderado_dni = coalesce(p.apoderado_dni, v_dup.apoderado_dni),
+    apoderado_telefono = coalesce(p.apoderado_telefono, v_dup.apoderado_telefono),
+    apoderado_parentesco = coalesce(p.apoderado_parentesco, v_dup.apoderado_parentesco)
   where p.id = conservar;
 
+  perform set_config('dental.fusion', 'on', true);
   update public.paciente set
     anulado_at = now(), anulado_por = auth.uid(), fusionado_en = conservar,
     motivo_anulacion = 'Fusionado con ' || v_con.nombres || ' ' || v_con.apellidos || ': ' || btrim(motivo)
   where id = duplicado;
+  perform set_config('dental.fusion', 'off', true);
 
   v_movidos := jsonb_build_object('planes', n_planes, 'notas', n_notas, 'odontogramas', n_odontogramas,
                                   'citas', n_citas, 'seguimientos', n_seguimientos);
@@ -97,3 +113,24 @@ end $$;
 
 revoke all on function public.fusionar_pacientes(uuid, uuid, text) from public, anon;
 grant execute on function public.fusionar_pacientes(uuid, uuid, text) to authenticated;
+
+-- Nada nuevo se registra a nombre de un paciente anulado (o fusionado): evita que
+-- una nota o cita creada durante la fusión quede en el registro duplicado.
+create function privado.validar_paciente_vigente() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  if exists (select 1 from public.paciente where id = new.paciente_id and anulado_at is not null) then
+    raise exception 'El paciente está anulado: registra la atención en el paciente vigente';
+  end if;
+  return new;
+end $$;
+create trigger paciente_vigente before insert on public.plan_tratamiento
+  for each row execute function privado.validar_paciente_vigente();
+create trigger paciente_vigente before insert on public.nota_evolucion
+  for each row execute function privado.validar_paciente_vigente();
+create trigger paciente_vigente before insert on public.odontograma
+  for each row execute function privado.validar_paciente_vigente();
+create trigger paciente_vigente before insert on public.cita
+  for each row execute function privado.validar_paciente_vigente();
+create trigger paciente_vigente before insert on public.seguimiento
+  for each row execute function privado.validar_paciente_vigente();

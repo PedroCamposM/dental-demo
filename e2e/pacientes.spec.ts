@@ -20,7 +20,7 @@ test("recepción registra un paciente, recibe aviso de duplicado y lo encuentra 
   await page.getByLabel("Apellidos").fill(apellidos);
   await page.getByLabel("Fecha de nacimiento").fill("1988-04-12");
   await page.getByLabel("Sexo").selectOption("femenino");
-  await page.getByLabel("Celular", { exact: true }).fill("911 222 333");
+  await page.locator("#campo-telefono").fill("911 222 333");
   await page.getByLabel(/autoriza el tratamiento de sus datos/).check();
   await page.getByRole("button", { name: "Registrar paciente" }).click();
   await expect(page.getByText("Paciente registrado.")).toBeVisible();
@@ -33,10 +33,10 @@ test("recepción registra un paciente, recibe aviso de duplicado y lo encuentra 
   await page.getByLabel("Apellidos").fill("Persona");
   await page.getByLabel("Fecha de nacimiento").fill("1990-01-01");
   await page.getByLabel("Sexo").selectOption("masculino");
-  await page.getByLabel("Celular", { exact: true }).fill("922333444");
+  await page.locator("#campo-telefono").fill("922333444");
   await page.getByLabel(/autoriza el tratamiento de sus datos/).check();
   await page.getByRole("button", { name: "Registrar paciente" }).click();
-  await expect(page.getByText("Ya hay un paciente registrado con este documento.")).toBeVisible();
+  await expect(page.getByText(/Ya hay un paciente registrado con este documento/)).toBeVisible();
 
   // Mismo nombre (sin tildes) y fecha, otro documento: aviso de posible duplicado
   await page.goto("/pacientes/nuevo");
@@ -45,7 +45,7 @@ test("recepción registra un paciente, recibe aviso de duplicado y lo encuentra 
   await page.getByLabel("Apellidos").fill(apellidos.toLowerCase());
   await page.getByLabel("Fecha de nacimiento").fill("1988-04-12");
   await page.getByLabel("Sexo").selectOption("femenino");
-  await page.getByLabel("Celular", { exact: true }).fill("933444555");
+  await page.locator("#campo-telefono").fill("933444555");
   await page.getByLabel(/autoriza el tratamiento de sus datos/).check();
   await page.getByRole("button", { name: "Registrar paciente" }).click();
   await expect(page.getByText("Posible paciente duplicado")).toBeVisible();
@@ -73,9 +73,9 @@ test("un menor exige apoderado y la edición guarda la filiación", async ({ pag
   await expect(page.getByText("Es menor de edad: ingresa el nombre del apoderado.")).toBeVisible();
 
   await page.getByLabel("Nombre completo").fill("Carmen Ruiz Vega");
-  await page.getByLabel("DNI", { exact: true }).fill("10000099");
-  await page.getByLabel("Celular", { exact: true }).last().fill("944555666");
-  await page.getByLabel("Parentesco", { exact: true }).last().fill("madre");
+  await page.locator("#campo-apoderado_dni").fill("10000099");
+  await page.locator("#campo-apoderado_telefono").fill("944555666");
+  await page.locator("#campo-apoderado_parentesco").fill("madre");
   await page.getByLabel(/autoriza el tratamiento de sus datos/).check();
   await page.getByRole("button", { name: "Registrar paciente" }).click();
   await expect(page.getByText("Paciente registrado.")).toBeVisible();
@@ -98,7 +98,7 @@ test("admin fusiona un registro duplicado y el duplicado queda anulado, no borra
     await page.getByLabel("Apellidos").fill(apellidos);
     await page.getByLabel("Fecha de nacimiento").fill("1970-07-07");
     await page.getByLabel("Sexo").selectOption("femenino");
-    await page.getByLabel("Celular", { exact: true }).fill("955666777");
+    await page.locator("#campo-telefono").fill("955666777");
     await page.getByLabel(/autoriza el tratamiento de sus datos/).check();
     await page.getByRole("button", { name: "Registrar paciente" }).click();
     if (confirmar) await page.getByRole("button", { name: /crear de todas formas/ }).click();

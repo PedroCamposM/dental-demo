@@ -1,76 +1,98 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { cerrarPorInactividad, desbloquear } from "@/app/sesion/acciones";
+import { createPortal } from "react-dom";
+import { bloquearPantalla, cerrarPorInactividad, desbloquear } from "@/app/sesion/acciones";
 import {
-  COOKIE_ACTIVIDAD, COOKIE_LIMITE, estadoInactividad, type EstadoInactividad,
+  COOKIE_ACTIVIDAD, COOKIE_LIMITE, DURACION_COOKIE_S, estadoInactividad, type EstadoInactividad,
 } from "@/lib/sesion-segura/inactividad";
 
 const CLAVE_ACTIVIDAD = "dental:ultima-actividad";
-const CLAVE_BLOQUEO = "dental:bloqueado";
+const CLAVE_BLOQUEO = "dental:bloqueo";   // aviso entre pestañas; la fuente de verdad es la cookie del servidor
 const EVENTOS = ["pointerdown", "keydown", "touchstart", "wheel", "pointermove"] as const;
 
 // El almacenamiento puede no estar disponible (modo privado): nunca debe romper la página.
-function leer(almacen: "local" | "session", clave: string): string | null {
-  try { return (almacen === "local" ? localStorage : sessionStorage).getItem(clave); } catch { return null; }
+function leer(clave: string): string | null {
+  try { return localStorage.getItem(clave); } catch { return null; }
 }
-function escribir(almacen: "local" | "session", clave: string, valor: string | null) {
-  try {
-    const s = almacen === "local" ? localStorage : sessionStorage;
-    if (valor === null) s.removeItem(clave); else s.setItem(clave, valor);
-  } catch { /* sin almacenamiento: el estado vive solo en esta pestaña */ }
+function escribir(clave: string, valor: string) {
+  try { localStorage.setItem(clave, valor); } catch { /* sin almacenamiento: solo esta pestaña */ }
 }
+
+type Props = {
+  minutos: number;
+  /** La pantalla ya estaba bloqueada (cookie del servidor): también en pestañas nuevas. */
+  bloqueadoInicial: boolean;
+  /** Hora del servidor al renderizar: corrige relojes de tablets adelantados o atrasados. */
+  ahoraServidor: number;
+};
 
 /**
  * Cierra la sesión tras `minutos` sin actividad (avisa el último minuto) y ofrece
  * bloquear la pantalla, que pide la contraseña para volver. La última actividad se
- * comparte entre pestañas para que una pestaña olvidada no cierre la que se usa.
+ * comparte entre pestañas y con el servidor (cookie), en hora del servidor.
  */
-export function ControlSesion({ minutos }: { minutos: number }) {
-  const ultima = useRef(Date.now());
+export function ControlSesion({ minutos, bloqueadoInicial, ahoraServidor }: Props) {
+  const desfase = useRef(0);
+  const ultima = useRef(0);
   const cerrando = useRef(false);
   const [estado, setEstado] = useState<EstadoInactividad>({ tipo: "activa" });
-  const [bloqueado, setBloqueado] = useState(false);
+  const [bloqueado, setBloqueado] = useState(bloqueadoInicial);
 
-  const registrarActividad = useCallback(() => {
-    const ahora = Date.now();
-    if (ahora - ultima.current < 2000) return;   // sin escribir en cada movimiento
-    ultima.current = ahora;
-    escribir("local", CLAVE_ACTIVIDAD, String(ahora));
-    document.cookie = `${COOKIE_ACTIVIDAD}=${ahora}; path=/; samesite=lax`;
+  const ahora = () => Date.now() + desfase.current;
+
+  const registrarActividad = useCallback((forzar = false) => {
+    const t = Date.now() + desfase.current;
+    if (!forzar && t - ultima.current < 2000) return;   // sin escribir en cada movimiento
+    ultima.current = t;
+    escribir(CLAVE_ACTIVIDAD, String(t));
+    document.cookie = `${COOKIE_ACTIVIDAD}=${t}; path=/; samesite=lax; max-age=${DURACION_COOKIE_S}`;
   }, []);
 
   useEffect(() => {
-    setBloqueado(leer("session", CLAVE_BLOQUEO) === "1");
+    desfase.current = ahoraServidor - Date.now();
+    registrarActividad(true);
     document.cookie = `${COOKIE_LIMITE}=${minutos}; path=/; samesite=lax; max-age=31536000`;
-    escribir("local", CLAVE_ACTIVIDAD, String(ultima.current));
-    for (const e of EVENTOS) window.addEventListener(e, registrarActividad, { passive: true });
+    const alActuar = () => registrarActividad();
+    for (const e of EVENTOS) window.addEventListener(e, alActuar, { passive: true });
+    const alCambiarOtraPestana = (e: StorageEvent) => {
+      if (e.key === CLAVE_BLOQUEO && e.newValue?.startsWith("1")) setBloqueado(true);
+      if (e.key === CLAVE_BLOQUEO && e.newValue?.startsWith("0")) setBloqueado(false);
+    };
+    window.addEventListener("storage", alCambiarOtraPestana);
     const reloj = setInterval(() => {
-      const compartida = Number(leer("local", CLAVE_ACTIVIDAD) ?? 0);
+      const compartida = Number(leer(CLAVE_ACTIVIDAD) ?? 0);
       if (compartida > ultima.current) ultima.current = compartida;
-      const nuevo = estadoInactividad(ultima.current, Date.now(), minutos);
+      const nuevo = estadoInactividad(ultima.current, Date.now() + desfase.current, minutos);
       setEstado(nuevo);
       if (nuevo.tipo === "expirada" && !cerrando.current) {
         cerrando.current = true;
-        escribir("session", CLAVE_BLOQUEO, null);
         void cerrarPorInactividad();
       }
     }, 1000);
     return () => {
       clearInterval(reloj);
-      for (const e of EVENTOS) window.removeEventListener(e, registrarActividad);
+      for (const e of EVENTOS) window.removeEventListener(e, alActuar);
+      window.removeEventListener("storage", alCambiarOtraPestana);
     };
-  }, [minutos, registrarActividad]);
+  }, [minutos, ahoraServidor, registrarActividad]);
 
-  function bloquear() {
-    escribir("session", CLAVE_BLOQUEO, "1");
+  async function bloquear() {
     setBloqueado(true);
+    escribir(CLAVE_BLOQUEO, `1:${ahora()}`);
+    await bloquearPantalla();
+  }
+
+  function alDesbloquear() {
+    escribir(CLAVE_BLOQUEO, `0:${ahora()}`);
+    setBloqueado(false);
+    registrarActividad(true);
   }
 
   return (
     <>
       <button
-        type="button" onClick={bloquear}
+        type="button" onClick={() => void bloquear()}
         className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50"
       >
         Bloquear pantalla
@@ -81,13 +103,13 @@ export function ControlSesion({ minutos }: { minutos: number }) {
           <p id="aviso-inactividad" className="font-medium text-amber-900">
             Tu sesión se cerrará en {estado.segundosRestantes} s por inactividad.
           </p>
-          <button type="button" onClick={() => { ultima.current = 0; registrarActividad(); }}
+          <button type="button" onClick={() => registrarActividad(true)}
             className="mt-2 rounded-md bg-amber-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-800">
             Seguir trabajando
           </button>
         </div>
       )}
-      {bloqueado && <PantallaBloqueada alDesbloquear={() => { escribir("session", CLAVE_BLOQUEO, null); setBloqueado(false); }} />}
+      {bloqueado && <PantallaBloqueada alDesbloquear={alDesbloquear} />}
     </>
   );
 }
@@ -95,6 +117,21 @@ export function ControlSesion({ minutos }: { minutos: number }) {
 function PantallaBloqueada({ alDesbloquear }: { alDesbloquear: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [enviando, setEnviando] = useState(false);
+  const [destino, setDestino] = useState<HTMLElement | null>(null);
+
+  // Se monta directo en <body> y todo lo demás queda inerte: con Tab no se llega a
+  // enlaces ni botones de la página que queda debajo.
+  useEffect(() => {
+    const capa = document.createElement("div");
+    document.body.appendChild(capa);
+    const otros = Array.from(document.body.children).filter((n): n is HTMLElement => n !== capa && n instanceof HTMLElement);
+    for (const n of otros) n.inert = true;
+    setDestino(capa);
+    return () => {
+      for (const n of otros) n.inert = false;
+      capa.remove();
+    };
+  }, []);
 
   async function enviar(formulario: FormData) {
     setEnviando(true);
@@ -103,7 +140,7 @@ function PantallaBloqueada({ alDesbloquear }: { alDesbloquear: () => void }) {
     if (r.ok) alDesbloquear(); else setError(r.error);
   }
 
-  return (
+  const contenido = (
     <div role="dialog" aria-modal="true" aria-labelledby="titulo-bloqueo"
       className="fixed inset-0 z-50 flex items-center justify-center bg-white p-4">
       <form action={enviar} className="w-full max-w-sm rounded-xl border border-gray-200 p-6 shadow-sm">
@@ -122,4 +159,6 @@ function PantallaBloqueada({ alDesbloquear }: { alDesbloquear: () => void }) {
       </form>
     </div>
   );
+  // Antes de montar (render del servidor) se muestra igual, para no dejar ver la página.
+  return destino ? createPortal(contenido, destino) : contenido;
 }

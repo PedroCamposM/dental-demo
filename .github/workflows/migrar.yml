@@ -1,6 +1,8 @@
 # Aplica las migraciones pendientes al proyecto remoto, SIEMPRE con respaldo previo.
 # Se lanza a mano: Actions → "Aplicar migraciones" → Run workflow → escribir APLICAR.
-# Requiere los secretos SUPABASE_ACCESS_TOKEN y SUPABASE_DB_PASSWORD.
+# Requiere los secretos SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD y BACKUP_PASSPHRASE.
+# El respaldo trae datos de pacientes y de Auth: se sube SOLO cifrado (el repo es
+# público y sus artefactos los puede descargar cualquier cuenta de GitHub).
 name: Aplicar migraciones
 
 on:
@@ -26,7 +28,14 @@ jobs:
       PROJECT_REF: elotisuupmqmcedjgxiz
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
     steps:
+      - name: Verificar secretos
+        run: |
+          for v in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD BACKUP_PASSPHRASE; do
+            [ -n "${!v}" ] || { echo "Falta el secreto $v en GitHub (Settings → Secrets → Actions)"; exit 1; }
+          done
+          [ ${#BACKUP_PASSPHRASE} -ge 16 ] || { echo "BACKUP_PASSPHRASE debe tener al menos 16 caracteres"; exit 1; }
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
@@ -42,14 +51,19 @@ jobs:
           npx supabase db dump --linked -p "$SUPABASE_DB_PASSWORD" -f respaldo/esquema.sql
           npx supabase db dump --linked -p "$SUPABASE_DB_PASSWORD" --data-only --schema public,auth -f respaldo/datos.sql
           npx supabase db dump --linked -p "$SUPABASE_DB_PASSWORD" --role-only -f respaldo/roles.sql
-          ls -la respaldo
           test -s respaldo/esquema.sql && test -s respaldo/datos.sql
-      - name: Guardar el respaldo (fuera del repo, 90 días)
+          tar -czf respaldo.tar.gz respaldo
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+              --symmetric --cipher-algo AES256 -o respaldo.tar.gz.gpg respaldo.tar.gz
+          rm -rf respaldo respaldo.tar.gz
+          ls -la respaldo.tar.gz.gpg
+      - name: Guardar el respaldo cifrado (fuera del repo, 90 días)
         uses: actions/upload-artifact@v4
         with:
-          name: respaldo-${{ github.run_id }}
-          path: respaldo/
+          name: respaldo-cifrado-${{ github.run_id }}
+          path: respaldo.tar.gz.gpg
           retention-days: 90
+          if-no-files-found: error
 
       - name: Conteos antes
         if: ${{ !inputs.solo_respaldo }}
