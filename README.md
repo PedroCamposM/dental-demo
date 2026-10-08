@@ -22,7 +22,8 @@ npm run dev
    el prefijo `NEXT_PUBLIC_` las envía al navegador y Vercel no permite que sean secretas):
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
-4. Cada push a la rama vuelve a desplegar. Las pruebas no corren en Vercel: correr
+4. Para probar la versión publicada: `E2E_BASE_URL=https://dental-demo-sigma.vercel.app npm run test:e2e`.
+5. Cada push a la rama vuelve a desplegar. Las pruebas no corren en Vercel: correr
    `npm run lint`, `npm test`, `npm run test:db` y `npm run test:e2e` antes de subir.
 
 ## Supabase CLI (vía npx)
