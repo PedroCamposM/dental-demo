@@ -24,9 +24,13 @@ insert into public.nota_evolucion (clinica_id, paciente_id, odontologo_id, texto
   ('99999999-0000-0000-0000-000000000001', '99999999-0000-0000-0000-0000000000a2', '91000000-0000-0000-0000-00000000000b', 'Nota en el duplicado');
 insert into public.odontograma (clinica_id, paciente_id, tipo, odontologo_id) values
   ('99999999-0000-0000-0000-000000000001', '99999999-0000-0000-0000-0000000000a2', 'inicial', '91000000-0000-0000-0000-00000000000b');
+-- Cita cargada como dato de preparación (la clínica de esta prueba no tiene horarios:
+-- desde la Etapa 2 la app no deja citar fuera de horario).
+reset role;
 insert into public.cita (clinica_id, paciente_id, odontologo_id, inicio, fin) values
   ('99999999-0000-0000-0000-000000000001', '99999999-0000-0000-0000-0000000000a2', '91000000-0000-0000-0000-00000000000b',
    now() + interval '1 day', now() + interval '1 day 1 hour');
+set role authenticated;
 -- Plan con ítems en el duplicado: la fusión la hará un admin SIN COP (no es cirujano
 -- dentista), que no puede editar planes pero sí fusionar.
 insert into public.plan_tratamiento (id, clinica_id, paciente_id, odontologo_id, titulo) values

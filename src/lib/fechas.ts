@@ -41,3 +41,37 @@ export function formatearFecha(fecha: string): string {
 export function hace(dias: number): string {
   return dias <= 0 ? "hoy" : dias === 1 ? "hace 1 día" : `hace ${dias} días`;
 }
+
+/** Instante de una fecha y hora de Lima ("2026-10-12", "09:30"). */
+export function instanteLima(fecha: string, hora: string): Date {
+  return new Date(`${fecha}T${hora}:00${DESFASE}`);
+}
+
+const formatoHora = new Intl.DateTimeFormat("es-PE", {
+  timeZone: ZONA, hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+});
+
+/** Hora de Lima (HH:MM) de un instante. */
+export function horaLima(instante: Date | string): string {
+  return formatoHora.format(new Date(instante));
+}
+
+/** Día ISO de la semana (1 = lunes … 7 = domingo) de una fecha YYYY-MM-DD. */
+export function diaSemana(fecha: string): number {
+  const d = new Date(`${fecha}T12:00:00Z`).getUTCDay();
+  return d === 0 ? 7 : d;
+}
+
+/** Suma días a una fecha YYYY-MM-DD. */
+export function sumarDias(fecha: string, dias: number): string {
+  return new Date(Date.parse(`${fecha}T12:00:00Z`) + dias * 86_400_000).toISOString().slice(0, 10);
+}
+
+const formatoLargo = new Intl.DateTimeFormat("es-PE", {
+  timeZone: "UTC", weekday: "long", day: "numeric", month: "long",
+});
+
+/** "2026-10-12" -> "lunes 12 de octubre" */
+export function formatearFechaLarga(fecha: string): string {
+  return formatoLargo.format(new Date(`${fecha}T12:00:00Z`));
+}

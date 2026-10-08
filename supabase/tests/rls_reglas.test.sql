@@ -201,9 +201,13 @@ update public.plan_tratamiento set estado = 'en_curso' where id = 'aaaaaaaa-0000
 set role authenticated;
 select pruebas.como('a0000000-0000-0000-0000-00000000000a');
 select pruebas.igual((select valor_pendiente_centimos from public.v_plan_detenido), 80000, 'plan detenido: corona pendiente');
+-- Cita cargada como dato de preparación (sin horarios en esta clínica de prueba;
+-- desde la Etapa 2 la app no deja citar fuera de horario: ver agenda.test.sql).
+reset role;
 insert into public.cita (id, clinica_id, paciente_id, odontologo_id, inicio, fin) values
   ('aaaaaaaa-0000-0000-0000-000000000011', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-0000000000f1',
    'a0000000-0000-0000-0000-00000000000b', now() + interval '7 days', now() + interval '7 days 1 hour');
+set role authenticated;
 insert into public.cita_item (clinica_id, cita_id, item_plan_id) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-000000000011', 'aaaaaaaa-0000-0000-0000-0000000000c2');
 select pruebas.igual((select count(*) from public.v_plan_detenido), 0, 'con cita en 30 días ya no está detenido');

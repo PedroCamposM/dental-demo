@@ -112,4 +112,10 @@ select pg_temp.ninguno((select count(*) from (select distinct i.procedimiento, i
                                           where p.nombre = u.procedimiento and p.precio_base_centimos = u.precio_centimos)),
                        'procedimientos de los planes que no están en el catálogo con su precio');
 
+select pg_temp.ninguno((select count(*) - 18 from horario_profesional, pg_temp.c where clinica_id = c.id and activo),
+                       'horarios distintos de 3 profesionales × 6 días');
+select pg_temp.ninguno((select count(*) from cita, pg_temp.c
+                        where clinica_id = c.id and estado in ('programada', 'confirmada') and inicio > now()
+                          and sillon_id is null), 'citas futuras sin sillón');
+
 select 'seed: todas las verificaciones pasaron' as resultado;
