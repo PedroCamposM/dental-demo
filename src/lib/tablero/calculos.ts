@@ -91,6 +91,9 @@ export type Detenido = Contacto & {
 };
 export type DeudaCuotas = Contacto & {
   planIds: string[];
+  /** Cuota vencida más antigua: a la que se asocia el seguimiento. */
+  cuotaId: string;
+  numeros: number[];
   cuotas: number;
   centimos: number;
   venceMasAntigua: string;
@@ -104,16 +107,30 @@ export type ControlVencido = Contacto & {
   resultado: ResultadoSeguimiento;
 };
 export type NoShow = Contacto & { citaId: string; inicio: string };
+export type PresupuestoDelMes = Contacto & {
+  planIds: string[];
+  titulo: string;
+  centimos: number;
+  presentado: string;
+  estado: EstadoPlan;
+};
 
 export type Indicador<T> = { cantidad: number; centimos: number; lista: T[] };
 
 export type Tablero = {
   hoy: string;
+  /**
+   * Total en riesgo: presupuestos abiertos + detenidos + cuotas vencidas. Las cuotas
+   * de un plan detenido no se suman otra vez (ya están en lo que falta hacer).
+   */
+  enRiesgo: number;
   mes: {
     presentado: { planes: number; centimos: number };
     aceptado: { planes: number; centimos: number };
     /** Aceptado / presentado del mes en valor, 0–1; null si no se presentó nada. */
     conversion: number | null;
+    /** Presupuestos presentados en el mes, con el estado en que están hoy. */
+    lista: PresupuestoDelMes[];
   };
   presupuestosAbiertos: Indicador<Presupuesto>;
   detenidos: Indicador<Detenido>;
@@ -138,21 +155,44 @@ export function calcularTablero(datos: DatosTablero, ahora: Date): Tablero {
 
   // Presentado vs. aceptado: las alternativas de un mismo presupuesto cuentan una vez (la de mayor valor).
   const delMes = datos.planes.filter((p) => Date.parse(p.presentado_at) >= inicioMes);
-  const presentado = agruparAlternativas(delMes).map((g) => Math.max(...g.map((p) => valorPlan.get(p.id) ?? 0)));
+  const listaMes = agruparAlternativas(delMes).map((grupo) => {
+    // Si alguna alternativa se aceptó, esa representa al presupuesto; si no, la de mayor valor.
+    const principal = grupo.find((p) => p.aceptado_at) ?? mayorValor(grupo, valorPlan);
+    return {
+      ...contacto(principal.paciente_id),
+      planIds: grupo.map((p) => p.id),
+      titulo: principal.titulo,
+      centimos: Math.max(...grupo.map((p) => valorPlan.get(p.id) ?? 0)),
+      presentado: fechaLima(principal.presentado_at),
+      estado: principal.estado,
+    };
+  });
+  listaMes.sort((a, b) => b.presentado.localeCompare(a.presentado) || b.centimos - a.centimos);
+  const presentado = listaMes.map((x) => x.centimos);
   const aceptados = datos.planes.filter((p) => p.aceptado_at && Date.parse(p.aceptado_at) >= inicioMes);
   const centimosPresentado = suma(presentado);
   const centimosAceptado = suma(aceptados.map((p) => valorPlan.get(p.id) ?? 0));
 
+  const abiertos = presupuestosAbiertos(datos, hoy, contacto, valorPlan);
+  const planesDetenidos = detenidos(datos, ahora, hoy, contacto);
+  const cuotas = cuotasVencidas(datos, hoy, contacto);
+  const idsDetenidos = new Set(planesDetenidos.lista.map((d) => d.planId));
+  const cuotasFueraDeDetenidos = suma(datos.cuotas
+    .filter((c) => c.vence_el < hoy && !idsDetenidos.has(c.plan_id))
+    .map((c) => Math.max(c.monto_centimos - c.pagado_centimos, 0)));
+
   return {
     hoy,
+    enRiesgo: abiertos.centimos + planesDetenidos.centimos + cuotasFueraDeDetenidos,
     mes: {
       presentado: { planes: presentado.length, centimos: centimosPresentado },
       aceptado: { planes: aceptados.length, centimos: centimosAceptado },
       conversion: centimosPresentado > 0 ? centimosAceptado / centimosPresentado : null,
+      lista: listaMes,
     },
-    presupuestosAbiertos: presupuestosAbiertos(datos, hoy, contacto, valorPlan),
-    detenidos: detenidos(datos, ahora, hoy, contacto),
-    cuotasVencidas: cuotasVencidas(datos, hoy, contacto),
+    presupuestosAbiertos: abiertos,
+    detenidos: planesDetenidos,
+    cuotasVencidas: cuotas,
     controlesVencidos: controlesVencidos(datos, ahora, hoy, contacto),
     noShow: noShow(datos, ahora, inicioMes, contacto),
   };
@@ -162,7 +202,7 @@ function presupuestosAbiertos(
   datos: DatosTablero, hoy: string, contacto: (id: string) => Contacto, valorPlan: Map<string, number>,
 ): Indicador<Presupuesto> {
   const lista = agruparAlternativas(datos.planes.filter((p) => p.estado === "propuesto")).map((grupo) => {
-    const principal = grupo.reduce((a, b) => ((valorPlan.get(b.id) ?? 0) > (valorPlan.get(a.id) ?? 0) ? b : a));
+    const principal = mayorValor(grupo, valorPlan);
     const presentado = fechaLima(principal.presentado_at);
     return {
       ...contacto(principal.paciente_id),
@@ -226,12 +266,18 @@ function cuotasVencidas(datos: DatosTablero, hoy: string, contacto: (id: string)
     const pacienteId = pacienteDePlan.get(c.plan_id);
     if (saldo <= 0 || c.vence_el >= hoy || !pacienteId) continue;
     const deuda = porPaciente.get(pacienteId) ?? {
-      ...contacto(pacienteId), planIds: [], cuotas: 0, centimos: 0, venceMasAntigua: c.vence_el, diasAtraso: 0,
+      ...contacto(pacienteId), planIds: [], cuotaId: c.cuota_id, numeros: [], cuotas: 0, centimos: 0,
+      venceMasAntigua: c.vence_el, diasAtraso: 0,
     };
     if (!deuda.planIds.includes(c.plan_id)) deuda.planIds.push(c.plan_id);
+    deuda.numeros.push(c.numero);
+    deuda.numeros.sort((a, b) => a - b);
     deuda.cuotas += 1;
     deuda.centimos += saldo;
-    if (c.vence_el < deuda.venceMasAntigua) deuda.venceMasAntigua = c.vence_el;
+    if (c.vence_el < deuda.venceMasAntigua) {
+      deuda.venceMasAntigua = c.vence_el;
+      deuda.cuotaId = c.cuota_id;
+    }
     deuda.diasAtraso = diasEntre(deuda.venceMasAntigua, hoy);
     porPaciente.set(pacienteId, deuda);
   }
@@ -298,6 +344,10 @@ export function agruparAlternativas<P extends Pick<PlanFila, "paciente_id" | "pr
     grupos.set(clave, [...(grupos.get(clave) ?? []), p]);
   }
   return [...grupos.values()];
+}
+
+function mayorValor<P extends { id: string }>(planes: P[], valorPlan: Map<string, number>): P {
+  return planes.reduce((a, b) => ((valorPlan.get(b.id) ?? 0) > (valorPlan.get(a.id) ?? 0) ? b : a));
 }
 
 function sumarPorPlan(items: ItemFila[], incluir: (i: ItemFila) => boolean): Map<string, number> {

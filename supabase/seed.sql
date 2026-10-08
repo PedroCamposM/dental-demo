@@ -28,6 +28,9 @@
 --   I  12  terminados en los últimos meses (2 con saldo pendiente)
 --   K  15  presupuestos presentados este mes (9 aceptados)
 --   J  15  profilaxis terminadas (10) y pacientes nuevos con cita (5)
+--
+-- Variables de las plantillas: {{nombre}}, {{paciente}}, {{clinica}},
+-- {{tratamiento}}, {{monto}}, {{fecha}}, {{cuotas}}, {{numero}}.
 
 do $$
 begin
@@ -75,9 +78,11 @@ insert into public.plantilla_mensaje (clinica_id, tipo, nombre, cuerpo) values
   ('c0000000-0000-4000-8000-000000000001', 'tratamiento_detenido', 'Tratamiento pendiente',
    'Hola {{nombre}}, le saluda {{clinica}}. Notamos que su tratamiento de {{tratamiento}} quedó pendiente. Es importante continuarlo para no perder lo avanzado. ¿Le reservamos una cita esta semana?'),
   ('c0000000-0000-4000-8000-000000000001', 'cuota_vencida', 'Recordatorio de cuota',
-   'Hola {{nombre}}, le saluda {{clinica}}. Le recordamos que su cuota n.º {{numero}} de {{monto}} venció el {{fecha}}. Puede pagar por Yape, Plin o transferencia y enviarnos la constancia por aquí. ¡Gracias!'),
+   'Hola {{nombre}}, le saluda {{clinica}}. Le recordamos que tiene {{cuotas}} de su tratamiento por {{monto}}; la más antigua venció el {{fecha}}. Puede pagar por Yape, Plin o transferencia y enviarnos la constancia por aquí. ¡Gracias!'),
   ('c0000000-0000-4000-8000-000000000001', 'control', 'Control periódico',
-   'Hola {{nombre}}, le saluda {{clinica}}. Ya le toca su control dental. ¿Le reservamos una cita? Responda este mensaje y coordinamos el horario.');
+   'Hola {{nombre}}, le saluda {{clinica}}. Ya le toca su control dental. ¿Le reservamos una cita? Responda este mensaje y coordinamos el horario.'),
+  ('c0000000-0000-4000-8000-000000000001', 'no_show', 'Cita perdida',
+   'Hola {{nombre}}, le saluda {{clinica}}. Le esperábamos el {{fecha}} y no pudo venir. ¿Le reprogramamos la cita? Díganos qué día y hora le acomodan.');
 
 -- ---------------------------------------------------------------------------
 -- Ayudantes (solo viven durante esta sesión)

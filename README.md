@@ -34,6 +34,7 @@ Las migraciones viven en `supabase/migrations/` y salen del esquema aprobado en
 | `…0500_citas_seguimiento` | citas, plantillas de WhatsApp, seguimiento |
 | `…0600_auditoria_reglas_indices` | auditoría, reglas 3 y 4, anulación de una vía, índices |
 | `…0700_rls_grants` | políticas RLS y GRANTs explícitos |
+| `…0800_seguimiento_no_show` | tipo de seguimiento `no_show` para escribir a quien faltó a su cita |
 
 RLS se activa en la misma migración que crea cada tabla; las políticas llegan en la última.
 
@@ -51,6 +52,27 @@ pagos sin sobreaplicar y reglas 1, 3 y 4.
 
 Después de las pruebas, `test:db` carga `supabase/seed.sql` y verifica con
 `supabase/tests/seed.check.sql` que estén los casos que necesita el tablero.
+
+## Tablero "dinero en riesgo"
+
+La pantalla principal (`/`) muestra el total en riesgo y seis indicadores en soles.
+Cada uno abre `/riesgo/<indicador>` con la lista de pacientes y un botón **Enviar
+mensaje**: arma el texto desde la plantilla de la clínica (editable antes de enviar),
+abre WhatsApp con un enlace `wa.me` y registra el envío en `seguimiento`.
+
+Los cálculos están en `src/lib/tablero/calculos.ts` (funciones puras con tests):
+
+| Indicador | Cómo se calcula |
+| --- | --- |
+| Presentado vs. aceptado | Planes presentados / aceptados desde el 1 del mes (Lima). Las alternativas A/B del mismo día cuentan una vez, por la de mayor valor |
+| Presupuestos abiertos | Planes propuestos, del más antiguo al más nuevo; se marcan los vencidos |
+| Tratamientos detenidos | Regla 4; vale lo que falta hacer (ítems aceptados o programados) |
+| Cuotas vencidas | Saldo de cuotas con vencimiento anterior a hoy, agrupado por paciente |
+| Controles vencidos | Controles con fecha pasada, sin resultado "agendó cita" ni cita futura; uno por paciente |
+| No-show del mes | Citas "no asistió" del mes sobre las citas ya ocurridas (atendidas + no asistió) |
+
+El **total en riesgo** suma presupuestos abiertos, detenidos y cuotas vencidas, sin
+volver a contar las cuotas de un plan que ya figura como detenido.
 
 ## Datos de demo (`supabase/seed.sql`)
 

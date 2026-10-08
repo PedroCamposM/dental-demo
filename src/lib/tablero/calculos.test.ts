@@ -34,8 +34,8 @@ function item(planId: string, precio: number, estado: ItemFila["estado"] = "prop
 function cita(pacienteId: string, inicio: string, estado: CitaFila["estado"], itemIds: string[] = []): CitaFila {
   return { id: id("cita"), paciente_id: pacienteId, inicio, estado, item_ids: itemIds };
 }
-function cuota(planId: string, venceEl: string, monto: number, pagado = 0): CuotaFila {
-  return { cuota_id: id("cuota"), plan_id: planId, numero: 1, vence_el: venceEl, monto_centimos: monto, pagado_centimos: pagado };
+function cuota(planId: string, venceEl: string, monto: number, pagado = 0, numero = 1): CuotaFila {
+  return { cuota_id: id("cuota"), plan_id: planId, numero, vence_el: venceEl, monto_centimos: monto, pagado_centimos: pagado };
 }
 function control(pacienteId: string, fecha: string, resultado: SeguimientoFila["resultado"] = "pendiente"): SeguimientoFila {
   return { id: id("seg"), paciente_id: pacienteId, plan_id: null, tipo: "control", fecha_programada: fecha, resultado };
@@ -60,6 +60,18 @@ describe("presentado vs. aceptado del mes", () => {
     expect(t.mes.presentado).toEqual({ planes: 1, centimos: 100000 });
     expect(t.mes.aceptado).toEqual({ planes: 1, centimos: 50000 });
     expect(t.mes.conversion).toBe(0.5);
+    expect(t.mes.lista.map((x) => x.planIds)).toEqual([[nuevo.id]]);
+  });
+
+  it("en la lista del mes, una alternativa aceptada representa al presupuesto", () => {
+    const p = paciente();
+    const a = plan(p.id, { titulo: "Implante" });
+    const b = plan(p.id, { titulo: "Prótesis fija", estado: "aceptado", aceptado_at: "2026-10-04T15:00:00Z" });
+    const t = calcularTablero(datos({
+      pacientes: [p], planes: [a, b], items: [item(a.id, 530000), item(b.id, 330000)],
+    }), AHORA);
+    expect(t.mes.lista).toHaveLength(1);
+    expect(t.mes.lista[0]).toMatchObject({ titulo: "Prótesis fija", estado: "aceptado" });
   });
 
   it("las alternativas A y B cuentan una sola vez, por la de mayor valor", () => {
@@ -148,17 +160,19 @@ describe("cuotas vencidas", () => {
     const t = calcularTablero(datos({
       pacientes: [p], planes: [pl],
       cuotas: [
-        cuota(pl.id, "2026-08-05", 20000),          // vencida, sin pagar
-        cuota(pl.id, "2026-09-05", 20000, 5000),    // vencida, pago parcial
-        cuota(pl.id, "2026-07-05", 20000, 20000),   // pagada
-        cuota(pl.id, "2026-10-08", 20000),          // vence hoy: aún no está vencida
-        cuota(pl.id, "2026-11-05", 20000),          // futura
+        cuota(pl.id, "2026-09-05", 20000, 5000, 4), // vencida, pago parcial
+        cuota(pl.id, "2026-08-05", 20000, 0, 3),    // vencida, sin pagar
+        cuota(pl.id, "2026-07-05", 20000, 20000, 2), // pagada
+        cuota(pl.id, "2026-10-08", 20000, 0, 5),    // vence hoy: aún no está vencida
+        cuota(pl.id, "2026-11-05", 20000, 0, 6),    // futura
       ],
     }), AHORA);
 
     expect(t.cuotasVencidas.cantidad).toBe(1);
     expect(t.cuotasVencidas.centimos).toBe(35000);
-    expect(t.cuotasVencidas.lista[0]).toMatchObject({ cuotas: 2, venceMasAntigua: "2026-08-05", diasAtraso: 64 });
+    expect(t.cuotasVencidas.lista[0]).toMatchObject({
+      cuotas: 2, numeros: [3, 4], venceMasAntigua: "2026-08-05", diasAtraso: 64,
+    });
   });
 
   it("para un menor, el teléfono de contacto es el del apoderado", () => {
@@ -215,5 +229,27 @@ describe("no-show del mes", () => {
 
   it("sin citas en el mes el porcentaje es null", () => {
     expect(calcularTablero(datos({}), AHORA).noShow.porcentaje).toBeNull();
+  });
+});
+
+describe("total en riesgo", () => {
+  it("suma abiertos, detenidos y cuotas vencidas sin contar dos veces un plan detenido", () => {
+    const a = paciente();
+    const b = paciente();
+    const abierto = plan(a.id);
+    const ortoDetenida = plan(b.id, { estado: "en_curso", aceptado_at: "2026-04-01T15:00:00Z" });
+    const ortoAlDia = plan(b.id, { estado: "en_curso", aceptado_at: "2026-04-01T15:00:00Z" });
+    const brackets = item(ortoAlDia.id, 480000, "aceptado");
+    const t = calcularTablero(datos({
+      pacientes: [a, b], planes: [abierto, ortoDetenida, ortoAlDia],
+      items: [item(abierto.id, 100000), item(ortoDetenida.id, 480000, "aceptado"), brackets],
+      cuotas: [cuota(ortoDetenida.id, "2026-09-01", 20000), cuota(ortoAlDia.id, "2026-09-01", 20000, 5000)],
+      citas: [cita(b.id, "2026-10-20T15:00:00Z", "programada", [brackets.id])],
+    }), AHORA);
+
+    expect(t.detenidos.centimos).toBe(480000);
+    expect(t.cuotasVencidas.centimos).toBe(35000);
+    // 100000 abierto + 480000 detenido + 15000 de la cuota del plan al día
+    expect(t.enRiesgo).toBe(595000);
   });
 });

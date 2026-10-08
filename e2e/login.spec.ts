@@ -36,3 +36,17 @@ for (const [email, nombre, rol] of [
     await expect(page).toHaveURL(/\/login$/);
   });
 }
+
+test("el tablero abre la lista de cuotas vencidas con el mensaje listo para WhatsApp", async ({ page }) => {
+  await page.goto("/login");
+  await page.getByLabel("Correo").fill("recepcion@clinica-demo.example");
+  await page.getByLabel("Contraseña").fill(PASSWORD);
+  await page.getByRole("button", { name: "Ingresar" }).click();
+
+  await expect(page.getByText("Dinero en riesgo hoy")).toBeVisible();
+  await page.getByRole("link", { name: /Cuotas vencidas/ }).click();
+  await expect(page.getByRole("heading", { name: "Cuotas vencidas" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Enviar mensaje" }).first().click();
+  await expect(page.getByLabel(/Mensaje/)).toHaveValue(/Clínica Dental Demo – Trujillo[\s\S]*cuota/);
+});
