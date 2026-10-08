@@ -10,7 +10,7 @@ Next.js (App Router) + TypeScript estricto + Tailwind · Supabase (Postgres, Aut
 
 ```bash
 npm install
-cp .env.example .env.local   # completar URL y anon key de Supabase
+cp .env.example .env.local   # completar URL y publishable key de Supabase
 npm run dev
 ```
 
@@ -18,7 +18,7 @@ npm run dev
 
 ```bash
 npx supabase login                          # una vez, abre el navegador o usa SUPABASE_ACCESS_TOKEN
-npx supabase link --project-ref <REF>       # REF = subdominio de la URL del proyecto
+npx supabase link --project-ref elotisuupmqmcedjgxiz
 npx supabase migration list                 # ver estado (no aplica nada)
 ```
 
