@@ -1,4 +1,4 @@
-// Las seis listas del tablero: la clave va en la URL /riesgo/<clave>.
+// Las seis listas del Tablero de gestión: la clave va en la URL /gestion/<clave>.
 export const INDICADORES = {
   mes: {
     titulo: "Presentado vs. aceptado del mes",

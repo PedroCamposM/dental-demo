@@ -4,7 +4,7 @@ test("sin sesión, la app manda al login y recuerda adónde ibas", async ({ page
   await page.goto("/pacientes?orden=antiguedad");
   await expect(page).toHaveURL(/\/login\?next=%2Fpacientes%3Forden%3Dantiguedad$/);
   await expect(page.getByRole("heading", { name: "Dental Demo" })).toBeVisible();
-  await expect(page.getByText("Mira cuánta plata tienes en riesgo")).toBeVisible();
+  await expect(page.getByText("Historia clínica, tratamientos y seguimiento de tus pacientes.")).toBeVisible();
 });
 
 test("el formulario de login pide correo y contraseña", async ({ page }) => {

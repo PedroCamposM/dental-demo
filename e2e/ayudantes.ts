@@ -7,8 +7,12 @@ export async function entrar(page: Page, email: string) {
   await page.getByLabel("Correo").fill(email);
   await page.getByLabel("Contraseña").fill(PASSWORD);
   await page.getByRole("button", { name: "Ingresar" }).click();
-  await expect(page.getByText("Dinero en riesgo hoy")).toBeVisible();
+  await expect(page).not.toHaveURL(/\/login/);
+  await expect(page.getByRole("button", { name: "Cerrar sesión" })).toBeVisible();
 }
+
+/** Las pantallas de pacientes están encendidas (CI y vista previa con HABILITAR_ETAPA1=1). */
+export const conEtapa1 = process.env.HABILITAR_ETAPA1 === "1";
 
 /** Las pruebas que crean datos solo corren contra un Supabase local (CI o PC con Docker). */
 export const conSupabaseLocal = /127\.0\.0\.1|localhost/.test(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "");

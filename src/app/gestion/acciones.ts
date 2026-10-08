@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { fechaLima } from "@/lib/fechas";
+import { veGestion } from "@/lib/permisos";
 import { obtenerSesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
 import type { Destino, TipoSeguimiento } from "@/lib/tablero/mensajes";
@@ -17,6 +18,7 @@ export async function registrarMensaje(
 ): Promise<ResultadoEnvio> {
   const sesion = await obtenerSesion();
   if (!sesion) return { ok: false, error: "Tu usuario no tiene acceso a una clínica." };
+  if (!veGestion(sesion.rol)) return { ok: false, error: "Tu rol no registra mensajes de seguimiento." };
 
   const ids = [destino.pacienteId, destino.planId, destino.cuotaId, plantillaId].filter((x) => x !== null);
   if (!TIPOS.includes(destino.tipo) || !ids.every((x) => UUID.test(x)) || !texto.trim()) {

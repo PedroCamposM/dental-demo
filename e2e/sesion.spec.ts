@@ -18,7 +18,7 @@ test("bloquear la pantalla pide la contraseña para volver", async ({ page }) =>
   await expect(otraPestana.getByRole("dialog", { name: "Pantalla bloqueada" })).toBeVisible();
   await otraPestana.close();
   // Lo de debajo queda inerte: no se puede activar el menú
-  await expect(page.getByRole("link", { name: "Tablero" })).toHaveAttribute("aria-current", "page");
+  await expect(page.getByRole("link", { name: "Pacientes", exact: true })).toHaveAttribute("aria-current", "page");
   expect(await page.locator("header").evaluate((n) => n.closest("[inert]") !== null)).toBe(true);
 
   await bloqueo.getByLabel("Contraseña").fill("incorrecta");
@@ -27,7 +27,7 @@ test("bloquear la pantalla pide la contraseña para volver", async ({ page }) =>
   await bloqueo.getByLabel("Contraseña").fill(PASSWORD);
   await bloqueo.getByRole("button", { name: "Desbloquear" }).click();
   await expect(bloqueo).toBeHidden();
-  await expect(page.getByText("Dinero en riesgo hoy")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pacientes", level: 1 })).toBeVisible();
 });
 
 test("tras 15 minutos sin actividad avisa y cierra la sesión", async ({ page }) => {
@@ -46,7 +46,7 @@ test("«Seguir trabajando» mantiene la sesión abierta", async ({ page }) => {
   await page.clock.fastForward("14:10");
   await page.getByRole("button", { name: "Seguir trabajando" }).click();
   await page.clock.fastForward("02:00");
-  await expect(page.getByText("Dinero en riesgo hoy")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Pacientes", level: 1 })).toBeVisible();
   await expect(page.getByText(/Tu sesión se cerrará/)).toBeHidden();
 });
 
@@ -64,7 +64,7 @@ test("solo el admin configura los minutos de inactividad", async ({ page }) => {
   await entrar(page, "recepcion@clinica-demo.example");
   await expect(page.getByRole("link", { name: "Configuración" })).toHaveCount(0);
   await page.goto("/configuracion");
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/pacientes$/);
 
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
   await entrar(page, "valverde@clinica-demo.example");

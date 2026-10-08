@@ -12,8 +12,12 @@ Marca cada casilla; si algo falla, anota el paso, el rol y una captura.
 
 ## 1. Recepción (`recepcion`)
 
-- [ ] Entra y ve el tablero «Dinero en riesgo hoy» como antes.
-- [ ] El menú muestra **Tablero, Pacientes y Plantillas**; no muestra Configuración.
+- [ ] Al entrar llega a **Pacientes** (no a un tablero de dinero). El login dice «Historia
+      clínica, tratamientos y seguimiento de tus pacientes.».
+- [ ] El menú muestra **Pacientes, Gestión y Plantillas**; no muestra Configuración.
+- [ ] **Gestión** abre el «Tablero de gestión»: cada tarjeta muestra primero cuántos
+      pacientes o tratamientos necesitan seguimiento y el monto debajo, en pequeño.
+- [ ] «Cuotas vencidas» → «Enviar mensaje» prepara el texto para WhatsApp.
 - [ ] **Pacientes**: busca por DNI de un paciente existente, por nombre sin tildes y por
       celular. Aparece en la lista.
 - [ ] **Nuevo paciente** con DNI de 7 dígitos: muestra un error claro en el campo.
@@ -29,7 +33,8 @@ Marca cada casilla; si algo falla, anota el paso, el rol y una captura.
 ## 2. Asistente (`asistente`)
 
 - [ ] Entra; el encabezado dice «Milagros Ruiz Arana · Asistente».
-- [ ] El menú muestra **Tablero y Pacientes** (sin Plantillas ni Configuración).
+- [ ] Llega a **Pacientes**; el menú muestra solo **Pacientes** (sin Gestión, Plantillas ni
+      Configuración). Si escribe `/gestion` en la dirección, vuelve a Pacientes.
 - [ ] Registra un **menor** (nacido hace menos de 18 años): aparece el bloque
       «Apoderado (obligatorio: es menor de edad)». Sin apoderado no deja guardar; con
       nombre, DNI, celular y parentesco, sí.
@@ -37,7 +42,8 @@ Marca cada casilla; si algo falla, anota el paso, el rol y una captura.
 
 ## 3. Odontólogo (`mendoza` o `alvarado`)
 
-- [ ] Entra; el menú muestra **Tablero y Pacientes** (sin Plantillas ni Configuración).
+- [ ] Entra a **Pacientes**; el menú muestra **Pacientes y Gestión** (sin Plantillas ni
+      Configuración). Gestión abre el Tablero de gestión.
 - [ ] Puede registrar y editar pacientes.
 - [ ] **Bloquear pantalla**: aparece «Pantalla bloqueada». Al recargar la página o abrir
       la app en otra pestaña, sigue bloqueada.
@@ -46,7 +52,7 @@ Marca cada casilla; si algo falla, anota el paso, el rol y una captura.
 
 ## 4. Administrador (`valverde`)
 
-- [ ] El menú muestra **Tablero, Pacientes, Plantillas y Configuración**.
+- [ ] El menú muestra **Pacientes, Gestión, Plantillas y Configuración**.
 - [ ] **Configuración**: cambia el cierre por inactividad a **5 minutos** y guarda.
 - [ ] Deja la app quieta: al minuto 4 aparece «Tu sesión se cerrará en … s»;
       «Seguir trabajando» la mantiene abierta.

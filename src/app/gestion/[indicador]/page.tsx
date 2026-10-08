@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { Encabezado } from "@/components/encabezado";
 import { formatearSoles } from "@/lib/dinero";
 import { fechaLima, formatearFecha } from "@/lib/fechas";
+import { veGestion } from "@/lib/permisos";
 import { obtenerSesion } from "@/lib/sesion";
 import type { Contacto, EstadoPlan } from "@/lib/tablero/calculos";
 import { cargarTablero } from "@/lib/tablero/datos";
@@ -42,7 +43,7 @@ export default async function ListaIndicador({ params }: Params) {
   const { indicador } = await params;
   if (!esIndicador(indicador)) notFound();
   const sesion = await obtenerSesion();
-  if (!sesion) redirect("/");
+  if (!sesion || !veGestion(sesion.rol)) redirect("/");
 
   const { tablero: t, plantillas, ultimosEnvios } = await cargarTablero();
   const c = sesion.clinica;
@@ -96,9 +97,9 @@ export default async function ListaIndicador({ params }: Params) {
 
   return (
     <>
-      <Encabezado sesion={sesion} />
+      <Encabezado sesion={sesion} seccion="gestion" />
       <main className="mx-auto max-w-6xl px-4 py-8">
-        <Link href="/" className="text-sm font-medium text-teal-700 hover:underline">← Volver al tablero</Link>
+        <Link href="/gestion" className="text-sm font-medium text-teal-700 hover:underline">← Volver al tablero de gestión</Link>
         <h1 className="mt-3 text-2xl font-semibold">{INDICADORES[indicador].titulo}</h1>
         <p className="mt-1 text-gray-600">{INDICADORES[indicador].descripcion}</p>
 

@@ -2,8 +2,8 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Dental Demo – Dinero en riesgo",
-  description: "Demo de software dental centrado en el plan de tratamiento",
+  title: "Dental Demo",
+  description: "Software clínico dental: historia clínica, plan de tratamiento y seguimiento del paciente",
 };
 
 export default function RootLayout({

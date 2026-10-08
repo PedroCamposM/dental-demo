@@ -1,4 +1,4 @@
-// Indicadores del tablero "dinero en riesgo". Funciones puras: reciben las
+// Indicadores del Tablero de gestión. Funciones puras: reciben las
 // filas que RLS deja ver a la clínica y el instante actual. Montos en céntimos.
 import { diasEntre, fechaLima, inicioMesLima } from "@/lib/fechas";
 

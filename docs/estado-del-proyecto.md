@@ -109,6 +109,17 @@ después del error «Contraseña incorrecta.» y podía borrar la contraseña ya
 CI falla también con pruebas inestables (`failOnFlakyTests`) e imprime siempre lo que
 veía la página en cada intento fallido.
 
+### La atención clínica primero (pedido de Pedro, 2026-10-08)
+
+La portada de la v1 era «Dinero en riesgo hoy» con un total en soles, y el login decía
+«Mira cuánta plata tienes en riesgo…». Contradecía la v2 (lo económico es un módulo
+más). Cambio: `/` lleva a **Pacientes**; el tablero pasa a **Tablero de gestión**
+(`/gestion`, `/riesgo/*` redirige), sin el total gigante y con pacientes primero y monto
+después; lo ven admin, odontólogo y recepción (Pedro: «es una plataforma de gestión del
+odontólogo»), no el asistente (también en la acción del servidor). Regla en
+`src/lib/permisos.ts` con Vitest. Login: «Historia clínica, tratamientos y seguimiento
+de tus pacientes.». El tablero clínico (Etapa 8) será la portada cuando exista.
+
 ### Estado del cierre de la Etapa 1
 
 Hecho:
