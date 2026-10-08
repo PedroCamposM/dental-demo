@@ -1,6 +1,7 @@
 # Dental Demo
 
-Demo de software dental centrado en el **plan de tratamiento**. Ver [`CLAUDE.md`](./CLAUDE.md) para el alcance y las reglas.
+Demo de software dental centrado en el **plan de tratamiento**. Ver [`CLAUDE.md`](./CLAUDE.md) para el alcance y las reglas,
+y [`docs/estado-del-proyecto.md`](./docs/estado-del-proyecto.md) para el estado actual, las decisiones tomadas y lo pendiente.
 
 ## Stack
 
