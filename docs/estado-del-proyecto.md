@@ -4,7 +4,7 @@
 > retome el trabajo sin depender de conversaciones anteriores. Se actualiza al cerrar
 > cada rebanada. **Leerlo junto con `CLAUDE.md` antes de empezar.**
 
-Última actualización: 2026-10-08 — Etapa 1 de la v2: migrada en el remoto; falta la prueba manual.
+Última actualización: 2026-10-08 — Etapa 1 migrada en el remoto; Etapa 2 hecha en la rama (falta migrar).
 
 ## Dónde está cada cosa
 
@@ -137,15 +137,47 @@ Hecho:
   login, tablero y plantillas (la de plantillas guarda y restaura una plantilla).
 
 Pendiente:
-1. Pedro agrega `HABILITAR_ETAPA1=1` en Vercel solo para **Preview**; Claude sube un
-   commit para que la vista previa de la rama se reconstruya.
-2. Checklist manual de Pedro con los 4 roles en la vista previa (`docs/checklist-etapa1.md`).
+1. Checklist manual de Pedro con los 4 roles en la vista previa (`docs/checklist-etapa1.md`).
    `HABILITAR_ETAPA1=1` ya está en Vercel para Preview (tipo Config).
-3. Fusionar la rama a `main` y agregar `HABILITAR_ETAPA1=1` en **Production**.
+2. Fusionar la rama a `main` y agregar `HABILITAR_ETAPA1=1` en **Production**.
+
+Decisión de Pedro (2026-10-08): «es un demo»; los permisos finos se dejan para
+después. Hoy el asistente no ve el Tablero de gestión en pantalla, pero RLS aún le
+deja leer cuotas, pagos y seguimientos por API. Pendiente para una etapa futura.
+
+## v2 — Etapa 2 (catálogo, horarios y agenda): en CI
+
+Pedro pidió avanzar sin esperar aprobación etapa por etapa («quiero que tú
+desarrolles y mejores la plataforma»). Rebanadas con commit y CI en verde cada una:
+
+- **0906 catálogo** (`procedimiento`): código, nombre, especialidad, precio base
+  (céntimos), duración, consentimiento, control automático (días), activo. Solo
+  admin mantiene; no se borra. `item_plan.procedimiento_id` opcional (Etapa 5).
+  Pantalla: Configuración → Procedimientos y aranceles.
+- **0907 agenda**: `sillon`, `horario_profesional` (un bloque por día; inactivo en
+  vez de borrar, regla 8), `bloqueo_agenda` (se anula con motivo), `cita.sillon_id`,
+  `cita.forzada_motivo/forzada_por`. Trigger `validar_agenda` (solo rol
+  `authenticated`: el seed y la fusión no pasan): sin citas fuera de horario ni sobre
+  bloqueos salvo admin con motivo; nunca dos citas activas superpuestas por
+  profesional o sillón; no en el pasado ni cruzando la medianoche. Citas auditadas.
+  RPC `guardar_horario_semanal` (todo o nada). Pantalla: Configuración → Sillones y
+  horarios.
+- **Agenda** (`/agenda`, `/agenda/nueva`, ficha del paciente → «Agendar cita»).
+- Variable `HABILITAR_ETAPA2` (requiere también la Etapa 1). En CI encendida.
+- Hallazgo: Supabase da todos los permisos a anon/authenticated en tablas nuevas;
+  cada migración hace `revoke all` y concede solo lo necesario (probado con anon).
+- Pruebas que se ajustaron a propósito: `fusion.test` y `rls_reglas.test` cargan
+  sus citas de preparación como datos del sistema (la v2 no deja citar sin horario).
+- Seed (`seed_etapa2.sql`): 23 procedimientos (los de los planes con su mismo
+  precio), 3 sillones, lunes a sábado 9–19, feriado del 8 de diciembre.
+
+Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
+`seed_etapa2.sql` y encender `HABILITAR_ETAPA2=1` en Vercel. Checklist:
+`docs/checklist-etapa2.md`.
 
 ## Próximas etapas (CLAUDE.md)
 
-2 catálogo y agenda · 3 historia clínica, signos y alertas · 4 examen, odontograma y
+3 historia clínica, signos y alertas · 4 examen, odontograma y
 CIE-10 (revisar el catálogo de 38 hallazgos contra las 24 páginas de la NTS 188) ·
 5 plan con fases · 6 evolución firmada · 7 consentimientos, recetas, imágenes ·
 8 tablero clínico y caja · 9 especialidades · 10 laboratorio · 11 PDF · 12 seed y guion.
