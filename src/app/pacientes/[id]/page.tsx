@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Encabezado } from "@/components/encabezado";
-import { fechaLima, formatearFecha } from "@/lib/fechas";
+import { ESTADOS_CITA, type EstadoCita } from "@/lib/agenda/citas";
+import { fechaLima, formatearFecha, horaLima } from "@/lib/fechas";
 import { esMenorDeEdad, SEXOS, TIPOS_DOCUMENTO, type EntradaPaciente } from "@/lib/pacientes/validacion";
 import { registrarError } from "@/lib/registro";
 import { modulos } from "@/lib/funciones";
@@ -38,6 +39,13 @@ export default async function FichaPaciente({ params, searchParams }: {
   }
   if (!data) notFound();
   const p = data;
+  // Próximas citas (Etapa 2: agenda)
+  const { data: citas } = modulos.etapa2
+    ? await supabase.from("cita").select("id, inicio, estado, nota, usuario!cita_clinica_id_odontologo_id_fkey(nombre)")
+        .eq("paciente_id", id).in("estado", ["programada", "confirmada"]).gte("inicio", new Date().toISOString())
+        .order("inicio").limit(5)
+        .returns<{ id: string; inicio: string; estado: EstadoCita; nota: string | null; usuario: { nombre: string } | null }[]>()
+    : { data: null };
   const menor = p.fecha_nacimiento ? esMenorDeEdad(p.fecha_nacimiento, fechaLima(new Date())) : false;
   const inicial = Object.fromEntries(
     Object.entries(p).filter(([, valor]) => typeof valor === "string").map(([k, valor]) => [k, valor]),
@@ -67,7 +75,13 @@ export default async function FichaPaciente({ params, searchParams }: {
             </p>
           </div>
           {!editar && !p.anulado_at && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              {modulos.etapa2 && (
+                <Link href={`/agenda/nueva?paciente=${id}`}
+                  className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800">
+                  Agendar cita
+                </Link>
+              )}
               <Link href={`/pacientes/${id}?editar=1`} className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">
                 Editar filiación
               </Link>
@@ -119,6 +133,28 @@ export default async function FichaPaciente({ params, searchParams }: {
                   {dato("Celular", p.apoderado_telefono?.slice(2))}
                 </dl>
               </>
+            )}
+          </section>
+        )}
+
+        {modulos.etapa2 && !editar && (
+          <section aria-labelledby="titulo-citas" className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
+            <h2 id="titulo-citas" className="text-lg font-semibold">Próximas citas</h2>
+            {(citas ?? []).length === 0 ? (
+              <p className="mt-2 text-sm text-gray-500">No tiene citas agendadas.</p>
+            ) : (
+              <ul className="mt-3 divide-y divide-gray-100">
+                {(citas ?? []).map((c) => (
+                  <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                    <Link href={`/agenda?fecha=${fechaLima(c.inicio)}`} className="font-medium text-teal-800 hover:underline">
+                      {formatearFecha(fechaLima(c.inicio))}, {horaLima(c.inicio)}
+                    </Link>
+                    <span className="text-sm text-gray-600">
+                      {c.usuario?.nombre ?? ""}{c.nota ? ` · ${c.nota}` : ""} · {ESTADOS_CITA[c.estado]}
+                    </span>
+                  </li>
+                ))}
+              </ul>
             )}
           </section>
         )}

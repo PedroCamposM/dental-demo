@@ -4,6 +4,8 @@ import { instanteLima } from "@/lib/fechas";
 
 /** Índice ISO: 1 = lunes … 7 = domingo. */
 export const DIAS = ["", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"] as const;
+/** «los lunes», «los sábados»… */
+export const DIAS_PLURAL = ["", "lunes", "martes", "miércoles", "jueves", "viernes", "sábados", "domingos"] as const;
 
 export type DiaHorario =
   | { dia: number; activo: false }
