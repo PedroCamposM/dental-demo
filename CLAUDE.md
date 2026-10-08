@@ -19,20 +19,20 @@ Es una **demo funcional para validar el producto con las primeras 10–15 clíni
 
 ## Modelo de datos (núcleo)
 
-- `clinica` es el tenant. **Toda tabla lleva `clinica_id` y tiene RLS activado.**
+- `clinica` es el tenant. **Toda tabla lleva `clinica_id` y tiene RLS activado.** Única excepción aprobada: `catalogo_hallazgo` (catálogo oficial de la NTS 188, igual para todas las clínicas, solo lectura, también con RLS).
 - `usuario` con rol: admin, odontologo o recepcion.
 - `paciente`: DNI, nombre, teléfono, fecha de nacimiento, apoderado (si es menor) y consentimiento de datos con fecha.
-- `odontograma`: tipo inicial o evolución, hallazgos por pieza y superficie, con numeración FDI.
+- `odontograma`: tipo inicial o evolución, hallazgos por pieza y superficie, con numeración FDI. Los hallazgos usan el catálogo de la NTS 188 (siglas oficiales, solo azul/rojo). Superficies con nombre anatómico: vestibular, palatino, lingual, mesial, distal, oclusal, incisal.
 - `plan_tratamiento`: versiones y alternativas; estado propuesto, aceptado, en curso, detenido, terminado o rechazado; motivo de rechazo; fecha de vencimiento.
-- `item_plan`: pieza, superficie, procedimiento, precio, odontólogo y estado (propuesto, aceptado, programado, realizado o cobrado).
+- `item_plan`: pieza, superficie, procedimiento, precio, odontólogo y estado clínico (propuesto, aceptado, programado, realizado o cancelado). El estado de cobro (pendiente, parcial o cobrado) **no** es un estado del ítem: se calcula desde los pagos aplicados. Un ítem puede estar cobrado sin estar realizado (adelantos).
 - `cita`: se vincula a uno o más `item_plan` y tiene estado (programada, confirmada, atendida, no asistió o cancelada).
-- `pago` y `cuota`: pertenecen a un plan, con método de pago (efectivo, Yape, Plin, tarjeta o transferencia).
+- `pago` y `cuota`: pertenecen a un plan. Cada pago tiene un solo método (efectivo, Yape, Plin, tarjeta o transferencia); un pago mixto son varios pagos. `pago_aplicacion` reparte cada pago entre ítems y/o cuotas. Los pagos no se editan: se anulan y se registran de nuevo.
 - `seguimiento`: tipo (presupuesto, tratamiento detenido, cuota vencida o control), fecha programada, resultado y nota.
 - `auditoria`: quién cambió qué y cuándo, para datos clínicos y pagos.
 
 ## Reglas de negocio que NO se rompen
 
-1. Un ítem realizado debe tener una nota de evolución. Un ítem cobrado debe tener un pago asociado.
+1. Un ítem realizado debe tener una nota de evolución. Un ítem cobrado debe tener un pago asociado (se cumple por construcción: "cobrado" se calcula desde `pago_aplicacion`).
 2. Los datos clínicos no se borran nunca. Se anulan con un registro en la auditoría y la historia clínica se conserva a largo plazo.
 3. Al terminar un plan, el sistema crea automáticamente un seguimiento de control.
 4. Un plan se considera detenido cuando tiene ítems aceptados sin realizar y no tiene cita en los próximos 30 días.
