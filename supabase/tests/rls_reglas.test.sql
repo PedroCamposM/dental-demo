@@ -1,34 +1,8 @@
 -- Pruebas de RLS, permisos y reglas de negocio en la base.
--- Se ejecutan con scripts/test-db.sh sobre un Postgres efímero.
+-- Se ejecutan con scripts/test-db.sh (Postgres efímero) y scripts/test-db-supabase.sh (Supabase local).
 -- Cada aserción lanza una excepción si falla (ON_ERROR_STOP detiene todo).
 
-create schema pruebas;
-grant usage on schema pruebas to anon, authenticated;
-
--- Ejecuta sql y exige que falle con un mensaje que contenga patron.
-create function pruebas.debe_fallar(sql text, patron text) returns void
-language plpgsql as $$
-begin
-  execute sql;
-  raise exception 'Se esperaba un error (%) y no hubo: %', patron, sql;
-exception when others then
-  if sqlerrm not ilike '%' || patron || '%' then
-    raise exception 'Error inesperado en "%": % (se esperaba "%")', sql, sqlerrm, patron;
-  end if;
-end $$;
-
-create function pruebas.igual(obtenido bigint, esperado bigint, que text) returns void
-language plpgsql as $$
-begin
-  if obtenido is distinct from esperado then
-    raise exception '%: se obtuvo %, se esperaba %', que, obtenido, esperado;
-  end if;
-end $$;
-
-create function pruebas.como(usuario uuid) returns void
-language sql as $$ select set_config('request.jwt.claim.sub', usuario::text, false) $$;
-
-grant execute on all functions in schema pruebas to anon, authenticated;
+\ir _ayudantes.sql
 
 -- ---------------------------------------------------------------------------
 -- Datos: dos clínicas. A: admin, odontólogo, recepción. B: admin.
@@ -222,6 +196,7 @@ reset role;
 -- ---------------------------------------------------------------------------
 -- Regla 4 (detenido) y regla 3 (control al terminar)
 -- ---------------------------------------------------------------------------
+select pruebas.como(null);   -- preparación como sistema, sin usuario
 update public.plan_tratamiento set estado = 'en_curso' where id = 'aaaaaaaa-0000-0000-0000-0000000000e1';
 set role authenticated;
 select pruebas.como('a0000000-0000-0000-0000-00000000000a');

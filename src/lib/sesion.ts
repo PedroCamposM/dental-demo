@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 
-export type Rol = "admin" | "odontologo" | "recepcion";
+export type Rol = "admin" | "odontologo" | "asistente" | "recepcion";
 
 export type Sesion = {
   usuarioId: string;
@@ -16,6 +16,7 @@ export type Sesion = {
 export const NOMBRE_ROL: Record<Rol, string> = {
   admin: "Administrador",
   odontologo: "Odontólogo",
+  asistente: "Asistente",
   recepcion: "Recepción",
 };
 

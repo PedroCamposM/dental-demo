@@ -22,12 +22,19 @@ for f in supabase/migrations/*.sql; do
   echo "migración: $(basename "$f")"
   psql_ -1 -f "$f"
 done
-for f in supabase/tests/*.test.sql; do
+for f in supabase/tests/*.test.sql; do  # _ayudantes.sql se incluye desde cada test
   echo "test: $(basename "$f")"
   psql_ -o /dev/null -f "$f"
 done
 echo "seed: supabase/seed.sql"
 psql_ -o /dev/null -f supabase/seed.sql
+psql_ -o /dev/null -f supabase/seed_etapa1.sql
+psql_ -o /dev/null -f supabase/seed_etapa1.sql   # idempotente: la segunda vez no cambia nada
 psql_ -o /dev/null -f supabase/tests/seed.check.sql
 echo "seed: verificaciones OK"
+for f in supabase/verificaciones/2*.sql; do
+  [ -e "$f" ] || continue
+  echo "verificación: $(basename "$f")"
+  psql_ -o /dev/null -f "$f"
+done
 echo "OK"

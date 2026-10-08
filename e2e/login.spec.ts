@@ -21,6 +21,7 @@ test("contraseña incorrecta muestra un error claro", async ({ page }) => {
 for (const [email, nombre, rol] of [
   ["valverde@clinica-demo.example", "Dra. Lucía Valverde Ríos", "Administrador"],
   ["alvarado@clinica-demo.example", "Dr. Martín Alvarado Cruz", "Odontólogo"],
+  ["asistente@clinica-demo.example", "Milagros Ruiz Arana", "Asistente"],
   ["recepcion@clinica-demo.example", "Rosa Chávez Liñán", "Recepción"],
 ] as const) {
   test(`${rol} entra, ve su clínica y cierra sesión`, async ({ page }) => {

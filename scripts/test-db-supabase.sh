@@ -10,6 +10,11 @@ psql_() { psql "$DB_URL" -X -q -v ON_ERROR_STOP=1 "$@"; }
 npx supabase db reset --local
 echo "seed: verificaciones"
 psql_ -o /dev/null -f supabase/tests/seed.check.sql
+for f in supabase/verificaciones/2*.sql; do
+  [ -e "$f" ] || continue
+  echo "verificación: $(basename "$f")"
+  psql_ -o /dev/null -f "$f"
+done
 for f in supabase/tests/*.test.sql; do
   echo "test: $(basename "$f")"
   psql_ -o /dev/null -f "$f"

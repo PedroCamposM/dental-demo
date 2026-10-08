@@ -35,6 +35,21 @@ select pg_temp.ninguno((select count(*) from paciente, pg_temp.c
                         where clinica_id = c.id and fecha_nacimiento > c.hoy - interval '18 years'
                           and apoderado_nombre is null), 'menores sin apoderado');
 
+-- Etapa 1: asistente y filiación
+select pg_temp.al_menos((select count(*) from usuario, pg_temp.c where clinica_id = c.id and rol = 'asistente'), 1,
+                        'asistente');
+select pg_temp.ninguno((select count(*) - 1 from usuario, pg_temp.c where clinica_id = c.id and rol = 'asistente'),
+                       'asistentes duplicados (el complemento no es idempotente)');
+select pg_temp.ninguno((select count(*) from paciente, pg_temp.c
+                        where clinica_id = c.id and (sexo is null or ocupacion is null or direccion is null
+                                                     or numero_documento is null)), 'pacientes sin filiación completa');
+select pg_temp.ninguno((select count(*) from paciente, pg_temp.c
+                        where clinica_id = c.id and apoderado_nombre is not null and apoderado_parentesco is null),
+                       'apoderados sin parentesco');
+select pg_temp.ninguno((select count(*) from paciente, pg_temp.c
+                        where clinica_id = c.id and apoderado_nombre is null and contacto_emergencia_telefono is null),
+                       'adultos sin contacto de emergencia');
+
 -- Indicadores del tablero
 select pg_temp.al_menos((select count(*) from plan_tratamiento, pg_temp.c
                          where clinica_id = c.id and presentado_at >= c.mes), 10, 'presupuestos presentados este mes');
