@@ -27,16 +27,12 @@ set role authenticated;
 -- ---------------------------------------------------------------------------
 -- Cuestionario versionado
 -- ---------------------------------------------------------------------------
--- El asistente ve la historia y registra signos vitales, pero no el cuestionario
+-- El asistente registra la primera versión (decisión de Pedro: el asistente también llena el cuestionario)
 select pruebas.como('a8000000-0000-0000-0000-00000000000c');
-select pruebas.debe_fallar($$insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, motivo_consulta)
-  values ('a8a8a8a8-0000-0000-0000-000000000000', 'a8a8a8a8-0000-0000-0000-0000000000f1',
-          'a8000000-0000-0000-0000-00000000000c', 'Intento del asistente')$$, 'row-level security');
-
-select pruebas.como('a8000000-0000-0000-0000-00000000000b');   -- la odontóloga registra la primera versión
 insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, motivo_consulta, alergias)
 values ('a8a8a8a8-0000-0000-0000-000000000000', 'a8a8a8a8-0000-0000-0000-0000000000f1',
-        'a8000000-0000-0000-0000-00000000000b', 'Dolor en molar inferior', array['Penicilina']);
+        'a8000000-0000-0000-0000-00000000000c', 'Dolor en molar inferior', array['Penicilina']);
+select pruebas.como('a8000000-0000-0000-0000-00000000000b');
 select pruebas.debe_fallar($$insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, motivo_consulta)
   values ('a8a8a8a8-0000-0000-0000-000000000000', 'a8a8a8a8-0000-0000-0000-0000000000f1',
           'a8000000-0000-0000-0000-00000000000a', 'A nombre de otro')$$, 'row-level security');

@@ -30,7 +30,7 @@ export async function guardarCuestionario(_previo: EstadoCuestionario, form: For
   if (!modulos.etapa3) return fallo("Este módulo aún no está habilitado.");
   if (!UUID.test(pacienteId)) return fallo("Paciente inválido.");
   const sesion = await obtenerSesion();
-  if (!sesion?.esDentista) return fallo("La historia clínica la registra el odontólogo.");
+  if (!sesion?.veClinico) return fallo("Tu rol no registra la historia clínica.");
 
   const supabase = await createClient();
   const { data: paciente } = await supabase.from("paciente")

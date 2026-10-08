@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { AlertasPaciente } from "@/components/alertas-paciente";
 import { Encabezado } from "@/components/encabezado";
 import { registrarError } from "@/lib/registro";
@@ -15,7 +15,6 @@ export default async function NuevaVersion({ params }: { params: Promise<{ id: s
   const { id } = await params;
   const { sesion, paciente } = await abrirHistoria(id);
   if (paciente.anulado_at) notFound();
-  if (!sesion.esDentista) redirect(`/pacientes/${id}/historia`);
   const supabase = await createClient();
   const { data: vigente, error } = await supabase.from("cuestionario_salud").select(COLUMNAS_VERSION).eq("paciente_id", id)
     .order("registrado_at", { ascending: false }).order("version", { ascending: false }).limit(1).maybeSingle<Version>();

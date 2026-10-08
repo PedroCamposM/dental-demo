@@ -162,14 +162,14 @@ create trigger auditar after insert or update on public.signos_vitales
   for each row execute function privado.auditar();
 
 -- ---------------------------------------------------------------------------
--- RLS: la historia la ven los cirujanos dentistas y el asistente (ve_clinico);
--- el cuestionario solo lo registran los cirujanos dentistas; los signos vitales
--- también el asistente. Recepción no ve nada de esto. Nada se borra.
+-- RLS: la historia la ven y registran los cirujanos dentistas y el asistente
+-- (ve_clinico; decisión de Pedro, 2026-10-08). Recepción no ve nada de esto.
+-- Nada se borra.
 -- ---------------------------------------------------------------------------
 create policy cuestionario_select on public.cuestionario_salud for select to authenticated
   using (clinica_id = (select privado.clinica_actual()) and (select privado.ve_clinico()));
 create policy cuestionario_insert on public.cuestionario_salud for insert to authenticated
-  with check (clinica_id = (select privado.clinica_actual()) and (select privado.es_dentista())
+  with check (clinica_id = (select privado.clinica_actual()) and (select privado.ve_clinico())
               and registrado_por = (select auth.uid()));
 
 create policy signos_select on public.signos_vitales for select to authenticated

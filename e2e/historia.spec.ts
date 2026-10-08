@@ -64,14 +64,15 @@ test("la odontóloga registra la historia y la actualiza en una versión nueva",
   await expect(page.getByText("Dolor en molar inferior derecho")).toBeVisible();
 });
 
-test("la asistente ve la historia pero no la modifica", async ({ page }) => {
+test("la asistente ve la historia y también la actualiza", async ({ page }) => {
   await entrar(page, "asistente@clinica-demo.example");
   await page.goto(`/pacientes/${pacienteId}/historia`);
-  await expect(page.getByText("Dolor en molar inferior derecho")).toHaveCount(0);   // muestra la vigente (versión 2)
   await expect(page.getByText("Versión vigente 2")).toBeVisible();
-  await expect(page.getByRole("link", { name: "Actualizar historia" })).toHaveCount(0);
-  await page.goto(`/pacientes/${pacienteId}/historia/nueva`);
-  await expect(page).toHaveURL(new RegExp(`/pacientes/${pacienteId}/historia$`));
+  await page.getByRole("link", { name: "Actualizar historia" }).click();
+  await page.locator("#h-motivo_consulta").fill("Control con la asistente");
+  await page.getByRole("button", { name: "Guardar versión nueva" }).click();
+  await expect(page.getByText("Historia guardada como versión 3.")).toBeVisible();
+  await expect(page.getByRole("note", { name: "Alertas clínicas" })).toContainText("Alergia: Penicilina");
 });
 
 test("la asistente registra signos vitales y anula uno mal digitado", async ({ page }) => {

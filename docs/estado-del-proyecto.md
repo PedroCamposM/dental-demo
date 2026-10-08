@@ -193,11 +193,10 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   vez cada 10 min). La fusión mueve historia y signos y crea una **versión
   conciliada** (unión de alergias, condiciones, anticoagulación; embarazo «sí»
   prevalece) para que ninguna alerta se pierda.
-- Permisos: la historia la **ven** dentistas y asistente; el cuestionario lo
-  **registran solo dentistas** (admin u odontólogo con COP); la asistente registra
-  signos vitales. Recepción no ve nada clínico, solo el banner de alertas.
-  (Decisión tomada por seguridad según CLAUDE.md y lo aprobado: «asistente ve, no
-  firma». Pedro puede cambiarla.)
+- Permisos: la historia la ven y registran dentistas y asistente (decisión de
+  Pedro, 2026-10-08: «sí», la asistente también llena el cuestionario); la
+  asistente también registra signos vitales. Recepción no ve nada clínico, solo el
+  banner de alertas.
 - Pantallas: pestañas Filiación · Historia clínica · Signos vitales; banner fijo de
   alertas en toda vista del paciente y en la agenda (texto y al pasar el cursor),
   con la fecha de la historia; si no se pueden cargar, lo dice (no «sin alertas»).
@@ -205,10 +204,14 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   atendió; penicilina, AINES, látex, anticoagulados, hipertensos, diabéticos, una
   gestante (registrada hace una semana), hábitos, versiones 2 y signos vitales.
 - Revisión independiente: 15 hallazgos; corregidos los de severidad alta y media.
-- **Pendiente de Pedro (decisión clínica, no se inventa):** qué condiciones
-  sistémicas deben alertar. Hoy, al equipo clínico se le muestran todas las
-  registradas; a recepción, solo que hay alguna.
+- Condiciones que alertan (Pedro: «decide tú»): todas las de la lista del
+  cuestionario (hipertensión, diabetes, cardiopatía, asma, epilepsia, hepatitis,
+  VIH, coagulación, renal, tiroides, cáncer, osteoporosis). El equipo clínico ve
+  el nombre; recepción, solo que hay una condición registrada (dato sensible).
 - Falta en `/docs`: NTS 139-MINSA/2018/DGAIN (historia clínica) para alinear campos.
+  Pedro dice que la subió antes, pero en esta sesión solo llegó la NTS 188 (las
+  sesiones se reinician y lo no guardado en el repo se pierde; gob.pe está bloqueado
+  en la red del entorno). Se le pidió subirla otra vez: guardarla en `/docs` al llegar.
 - Para el remoto: «Aplicar migraciones» (0906–0908), cargar `seed_etapa2.sql` y
   `seed_etapa3.sql`, y encender `HABILITAR_ETAPA2=1` y `HABILITAR_ETAPA3=1` en Vercel.
 
