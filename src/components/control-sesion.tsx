@@ -78,9 +78,11 @@ export function ControlSesion({ minutos, bloqueadoInicial, ahoraServidor }: Prop
   }, [minutos, ahoraServidor, registrarActividad]);
 
   async function bloquear() {
-    setBloqueado(true);
-    escribir(CLAVE_BLOQUEO, `1:${ahora()}`);
+    // Primero lo guarda el servidor: si se recarga o se abre otra pestaña enseguida,
+    // ya aparece bloqueada.
     await bloquearPantalla();
+    escribir(CLAVE_BLOQUEO, `1:${ahora()}`);
+    setBloqueado(true);
   }
 
   function alDesbloquear() {
