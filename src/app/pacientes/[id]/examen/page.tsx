@@ -152,6 +152,10 @@ export default async function ExamenDiagnostico({ params, searchParams }: {
                           <Link href={`/pacientes/${id}/examen?confirmar=${d.id}#nuevo-diagnostico`}
                             className="text-sm text-teal-700 hover:underline">Confirmar como definitivo</Link>
                         )}
+                        {modulos.etapa5 && (
+                          <Link href={`/pacientes/${id}/plan?diagnostico=${d.id}#agregar-item`}
+                            className="text-sm text-teal-700 hover:underline">Agregar al plan</Link>
+                        )}
                         <Adenda pacienteId={id} diagnosticoId={d.id} />
                         <Anular pacienteId={id} id={d.id} tabla="diagnostico" descripcion={`el diagnóstico ${d.cie10}`} />
                       </div>

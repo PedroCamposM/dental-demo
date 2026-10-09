@@ -26,4 +26,11 @@ export const modulos = {
    */
   etapa4: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA2 === "1"
     && process.env.HABILITAR_ETAPA3 === "1" && process.env.HABILITAR_ETAPA4 === "1",
+  /**
+   * Etapa 5: plan de tratamiento con fases, dependencias, alternativas y versiones.
+   * Requiere la migración 0911 (y las etapas 1 a 4).
+   */
+  etapa5: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA2 === "1"
+    && process.env.HABILITAR_ETAPA3 === "1" && process.env.HABILITAR_ETAPA4 === "1"
+    && process.env.HABILITAR_ETAPA5 === "1",
 };

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { modulos } from "@/lib/funciones";
 
-type Pestana = "filiacion" | "historia" | "signos" | "odontograma" | "examen";
+type Pestana = "filiacion" | "historia" | "signos" | "odontograma" | "examen" | "plan";
 
 /** Pestañas de la ficha del paciente. La historia solo para quien la ve (RLS lo exige igual). */
 export function PestanasPaciente({ id, actual, veClinico }: { id: string; actual: Pestana; veClinico: boolean }) {
@@ -15,6 +15,8 @@ export function PestanasPaciente({ id, actual, veClinico }: { id: string; actual
       { clave: "odontograma" as const, href: `/pacientes/${id}/odontograma`, texto: "Odontograma" },
       { clave: "examen" as const, href: `/pacientes/${id}/examen`, texto: "Examen y diagnóstico" },
     ] : []),
+    // El plan lo ve toda la clínica: recepción registra si el paciente acepta el presupuesto.
+    ...(modulos.etapa5 ? [{ clave: "plan" as const, href: `/pacientes/${id}/plan`, texto: "Plan de tratamiento" }] : []),
   ];
   if (pestanas.length < 2) return null;
   return (

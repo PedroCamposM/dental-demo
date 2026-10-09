@@ -55,3 +55,6 @@ export const conEtapa3 = conEtapa2 && process.env.HABILITAR_ETAPA3 === "1";
 
 /** Examen clínico, diagnóstico CIE-10 y odontograma encendidos (CI con HABILITAR_ETAPA4=1). */
 export const conEtapa4 = conEtapa3 && process.env.HABILITAR_ETAPA4 === "1";
+
+/** Plan de tratamiento con fases y versiones encendido (CI con HABILITAR_ETAPA5=1). */
+export const conEtapa5 = conEtapa4 && process.env.HABILITAR_ETAPA5 === "1";
