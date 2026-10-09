@@ -265,6 +265,16 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
 - `seed_etapa4.sql`: examen por paciente y diagnósticos desde los hallazgos con
   CIE-10 (pulpitis presuntiva con adenda). `scripts/test-db.sh` ahora carga los seeds
   en una sesión, como el Supabase CLI.
+- Revisión independiente: 0 altos, 3 medios y 9 bajos; corregidos. Solo quien firmó
+  el odontograma anula sus hallazgos; adendas auditadas; un presuntivo se confirma una
+  vez; diagnóstico coherente con su hallazgo y con superficies posibles; pieza
+  coherente con la dentición; copia fila por fila; formularios que no pierden lo
+  escrito; fusión dibujada con círculos que se cruzan. `test-db.sh` aplica la última
+  migración sobre el seed. CI en verde: run 37876599600 (commit 75163b9).
+- Lección: en SVG solo lo pintado recibe el clic; cada pieza lleva un fondo
+  transparente. `<Link>` de Next dentro de `<svg>` se cambió por `<a>` nativo.
+- Para el remoto: «Aplicar migraciones» (0910), cargar `seed_etapa4.sql` y
+  `HABILITAR_ETAPA4=1` en Vercel Preview. Checklist: `docs/checklist-etapa4.md`.
 - Pendiente para cerrar la Etapa 4: índices CPOD/ceod e IHO-S y riesgo
   estomatológico (NTS 139, 12.x) necesitan una norma en `/docs` que los defina; la
   NTS 188 no los trata.
