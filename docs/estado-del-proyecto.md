@@ -279,9 +279,31 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   estomatológico (NTS 139, 12.x) necesitan una norma en `/docs` que los defina; la
   NTS 188 no los trata.
 
+## v2 — Etapa 5 (plan con fases y versiones): en la rama, falta migrar el remoto
+
+- Hallazgo de la auditoría: el estado de cobro ya estaba separado desde la v1
+  (`item_plan.estado` no tiene «cobrado»; `v_item_cobro` lo calcula desde los pagos).
+  No hay ítems «cobrado» que migrar.
+- **0911** (`plan_fases_versiones`): `plan_fase` (las nombra el odontólogo; no se
+  inventa una clasificación), `item_plan.fase / duracion_minutos / diagnostico_id`
+  (el CIE-10 del ítem viene del diagnóstico de origen), `item_dependencia` (sin ciclos;
+  un ítem no se marca realizado antes que lo que requiere), `grupo_id` que une versiones
+  y alternativas (relleno: las B del seed v1 se unen a la A del mismo paciente y día),
+  estado `reemplazado`. Sin DELETE: si el orden cambia, se hace una versión nueva.
+  - `aceptar_plan()`: el paciente elige una alternativa (o algunos ítems); las demás
+    quedan «rechazado» con motivo y la versión anterior en marcha queda «reemplazado»
+    (lo hecho se conserva; lo pendiente se cancela con motivo). Lo registra recepción o
+    un dentista. Usa la marca `dental.proceso` para que los triggers de rol acepten
+    esas consecuencias.
+  - `copiar_plan()`: versión nueva o alternativa, con fases, ítems pendientes y orden.
+- Pantalla (`HABILITAR_ETAPA5`): pestaña «Plan de tratamiento» para toda la clínica
+  (recepción no ve el Dx de los ítems). «Agregar al plan» desde un diagnóstico.
+- `seed_etapa5.sql`: une las alternativas del seed v1 a su plan A.
+- Checklist: `docs/checklist-etapa5.md`.
+
 ## Próximas etapas (CLAUDE.md)
 
-5 plan con fases · 6 evolución firmada · 7 consentimientos, recetas, imágenes ·
+6 evolución firmada · 7 consentimientos, recetas, imágenes ·
 8 tablero clínico y caja · 9 especialidades · 10 laboratorio · 11 PDF · 12 seed y guion.
 Falta en `/docs`: formatos de la clínica piloto (historia y consentimientos),
 necesarios antes de la Etapa 7. La Etapa 4 incluye además lo de las fichas
