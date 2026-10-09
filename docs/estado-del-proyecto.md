@@ -145,7 +145,7 @@ Decisión de Pedro (2026-10-08): «es un demo»; los permisos finos se dejan par
 después. Hoy el asistente no ve el Tablero de gestión en pantalla, pero RLS aún le
 deja leer cuotas, pagos y seguimientos por API. Pendiente para una etapa futura.
 
-## v2 — Etapa 2 (catálogo, horarios y agenda): CI en verde, falta migrar el remoto
+## v2 — Etapa 2 (catálogo, horarios y agenda): aplicada en el remoto
 
 Pedro pidió avanzar sin esperar aprobación etapa por etapa («quiero que tú
 desarrolles y mejores la plataforma»). Rebanadas con commit y CI en verde cada una:
@@ -183,7 +183,7 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
 `seed_etapa2.sql` y encender `HABILITAR_ETAPA2=1` en Vercel. Checklist:
 `docs/checklist-etapa2.md`.
 
-## v2 — Etapa 3 (historia clínica, signos vitales y alertas): hecha en la rama
+## v2 — Etapa 3 (historia clínica, signos vitales y alertas): aplicada en el remoto
 
 - **0908** (`filiacion_nts139`): filiación según el Formato de Filiación de la NTS 139:
   lugar de nacimiento, procedencia, grupo sanguíneo y Rh, estado civil, grado de
@@ -222,13 +222,55 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   (tiempo de enfermedad, forma de inicio, funciones biológicas, antecedentes
   familiares), filiación (0908), «Historia clínica N°» = documento y autor con COP.
   Qué cubre y qué falta: `docs/nts139-cumplimiento.md`.
-- Para el remoto: «Aplicar migraciones» (0906–0909), cargar `seed_etapa2.sql` y
-  `seed_etapa3.sql`, y encender `HABILITAR_ETAPA2=1` y `HABILITAR_ETAPA3=1` en Vercel.
+- **Remoto (2026-10-09):** Pedro autorizó («Hazlo») y Claude lanzó «Aplicar
+  migraciones» (run 37872665811: respaldo cifrado, 0906–0909 aplicadas,
+  verificaciones OK). Se cargaron `seed_etapa2.sql` y `seed_etapa3.sql` por la API
+  de gestión: 23 procedimientos, 3 sillones, 18 horarios, 1 feriado, 130 versiones de
+  historia (120 pacientes), 84 signos, 70 pacientes con filiación NTS 139.
+  `HABILITAR_ETAPA3=1` en Vercel Preview: se le explicó a Pedro cómo agregarlo.
+- **Desfase de la demo con el tiempo:** `seed.check` en el remoto marca 3 citas del
+  8-oct aún «programadas» y 1 cita futura superpuesta (los datos v1 se generaron
+  relativos a la fecha de carga). Corregirlas modifica la base real: el clasificador
+  de permisos lo bloqueó y queda pendiente de que Pedro lo autorice. En la Etapa 12,
+  script para «refrescar» las fechas de la demo.
+- Checklist manual: `docs/checklist-etapa3.md`.
+
+## v2 — Etapa 4 (examen, odontograma y CIE-10): en la rama, falta migrar el remoto
+
+- **0910** (`examen_diagnostico`):
+  - `catalogo_cie10`: 130 códigos (K00–K14 y S02.5, S03.2, Z01.2, Z46.3, Z46.4,
+    B37.0, B00.2, A69.0) del paquete npm `cie10` 0.0.2 (MIT); solo se restituyeron
+    tildes. Global y de solo lectura, como `catalogo_hallazgo`.
+  - `examen_clinico` (extraoral e intraoral), `diagnostico` (presuntivo o definitivo,
+    pieza y superficies, desde un hallazgo, confirmación del presuntivo) y
+    `diagnostico_adenda`. Solo inserción; se anulan con motivo (reglas 1 y 2). Los
+    ven dentistas y asistente; los registra el cirujano dentista (RLS).
+  - Odontograma: `denticion` (rellena los 115 existentes por sus piezas o por la
+    edad), tipo `alta` (NTS 188, 5.10), piezas vecinas en diastema, supernumeraria y
+    transposición (esta, en el mismo cuadrante), sigla obligatoria del defecto de
+    esmalte. Verificación: `supabase/verificaciones/20261012000910_examen_diagnostico.sql`.
+- `docs/nts188-resumen.md`: la NTS 188 sección por sección (lo hizo un subagente que
+  leyó las 24 páginas). Lo que la norma **no** define: qué zona de la corona es cada
+  superficie, dentición permanente/temporal/mixta (el gráfico es único, con 4 filas),
+  índices CPOD/IHO-S y CIE-10.
+- **Convención de superficies (pendiente de confirmar con un odontólogo):** superiores,
+  vestibular hacia la raíz y palatino hacia el centro; inferiores, lingual hacia el
+  centro y vestibular hacia la raíz; mesial hacia la línea media; centro = oclusal o
+  incisal. Está en un solo lugar: `src/lib/odontograma/geometria.ts`.
+- Pantallas (`HABILITAR_ETAPA4`): pestañas «Odontograma» y «Examen y diagnóstico».
+  Odontograma en SVG con los 38 hallazgos; tocar una pieza la carga en el
+  formulario; uno nuevo (evolución o alta) parte de los hallazgos vigentes del
+  anterior. Del hallazgo al diagnóstico con un clic. Buscador CIE-10 sin
+  sugerencias (regla 11).
+- `seed_etapa4.sql`: examen por paciente y diagnósticos desde los hallazgos con
+  CIE-10 (pulpitis presuntiva con adenda). `scripts/test-db.sh` ahora carga los seeds
+  en una sesión, como el Supabase CLI.
+- Pendiente para cerrar la Etapa 4: índices CPOD/ceod e IHO-S y riesgo
+  estomatológico (NTS 139, 12.x) necesitan una norma en `/docs` que los defina; la
+  NTS 188 no los trata.
 
 ## Próximas etapas (CLAUDE.md)
 
-4 examen, odontograma y
-CIE-10 (revisar el catálogo de 38 hallazgos contra las 24 páginas de la NTS 188) ·
 5 plan con fases · 6 evolución firmada · 7 consentimientos, recetas, imágenes ·
 8 tablero clínico y caja · 9 especialidades · 10 laboratorio · 11 PDF · 12 seed y guion.
 Falta en `/docs`: formatos de la clínica piloto (historia y consentimientos),
