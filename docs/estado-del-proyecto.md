@@ -300,6 +300,18 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   (recepción no ve el Dx de los ítems). «Agregar al plan» desde un diagnóstico.
 - `seed_etapa5.sql`: une las alternativas del seed v1 a su plan A.
 - Checklist: `docs/checklist-etapa5.md`.
+- Revisión independiente: 1 alta, 4 medias, 5 bajas; corregidas. Alta: `grupo_id` lo
+  podía fijar el cliente y `aceptar_plan` no filtraba por clínica/paciente (un dentista
+  podía reemplazar planes ajenos); ahora se calcula, no cambia y todo filtra por clínica
+  y paciente. Además: al aceptar se reemplaza cualquier otro plan en marcha del grupo;
+  alternativas solo desde un plan propuesto; la aceptación parcial no deja dependencias
+  colgando; no se reemplaza un plan con cuotas por cobrar, pagos o citas futuras en lo
+  pendiente; `rechazar_plan()` atómico; tablero agrupado por `grupo_id` y con
+  «reemplazado». CI en verde: run 37929559304 (commit 93c30e7).
+- Para el remoto: «Aplicar migraciones» (0910 y 0911), cargar `seed_etapa4.sql` y
+  `seed_etapa5.sql`, y `HABILITAR_ETAPA4=1` y `HABILITAR_ETAPA5=1` en Vercel Preview.
+  Se verificó en el remoto (solo lectura) que no hay dos planes de la misma letra del
+  mismo paciente el mismo día (el relleno de grupos no choca).
 
 ## Próximas etapas (CLAUDE.md)
 
