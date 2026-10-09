@@ -1,7 +1,6 @@
 // Dibujo del odontograma (SVG) según la NTS 188: gráfico base en negro y hallazgos
 // solo en azul (buen estado) o rojo (mal estado, temporal o patológico) — 5.12, 5.13.
 // Cada hallazgo se dibuja como indica la sección 6.1 (docs/nts188-resumen.md, tabla 2).
-import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   ALTO_TOTAL, ANCHO, ANCHO_TOTAL, aTexto, CORONA, centroX, centrosDeRaiz, corona, esSuperior, FILAS, fila, interior,
@@ -263,7 +262,8 @@ export function Odontograma({ hallazgos, seleccionada, enlace, titulo }: Props) 
             ))}
           </g>
         );
-        return enlace ? <Link key={p} href={enlace(p)} aria-label={`Elegir la pieza ${p}`}>{dibujo}</Link> : dibujo;
+        // Enlace SVG nativo: <Link> de Next dentro de <svg> no navega de forma fiable.
+        return enlace ? <a key={p} href={enlace(p)} aria-label={`Elegir la pieza ${p}`} className="cursor-pointer">{dibujo}</a> : dibujo;
       })}
       {/* Hallazgos encima del gráfico base */}
       <g pointerEvents="none">
