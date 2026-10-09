@@ -61,3 +61,6 @@ export const conEtapa5 = conEtapa4 && process.env.HABILITAR_ETAPA5 === "1";
 
 /** Evolución por sesión firmada y «Atender» en la agenda (CI con HABILITAR_ETAPA6=1). */
 export const conEtapa6 = conEtapa5 && process.env.HABILITAR_ETAPA6 === "1";
+
+/** Imágenes, consentimientos, recetas y documentos clínicos (CI con HABILITAR_ETAPA7=1). */
+export const conEtapa7 = conEtapa6 && process.env.HABILITAR_ETAPA7 === "1";

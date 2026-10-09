@@ -40,4 +40,12 @@ export const modulos = {
   etapa6: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA2 === "1"
     && process.env.HABILITAR_ETAPA3 === "1" && process.env.HABILITAR_ETAPA4 === "1"
     && process.env.HABILITAR_ETAPA5 === "1" && process.env.HABILITAR_ETAPA6 === "1",
+  /**
+   * Etapa 7: imágenes y archivos, consentimientos, recetas, constancias e interconsultas.
+   * Requiere las migraciones 0913 en adelante (y las etapas 1 a 6).
+   */
+  etapa7: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA2 === "1"
+    && process.env.HABILITAR_ETAPA3 === "1" && process.env.HABILITAR_ETAPA4 === "1"
+    && process.env.HABILITAR_ETAPA5 === "1" && process.env.HABILITAR_ETAPA6 === "1"
+    && process.env.HABILITAR_ETAPA7 === "1",
 };
