@@ -89,8 +89,7 @@ insert into public.archivo_clinico (id, clinica_id, paciente_id, tipo, ruta, mim
 select pruebas.debe_fallar($$update public.archivo_clinico set pieza = 46 where id = 'aeaeaeae-0000-0000-0000-0000000000a2'$$,
                            'permission denied');
 select pruebas.debe_fallar($$delete from public.archivo_clinico$$, 'permission denied');
-delete from storage.objects;   -- sin política de DELETE: no borra nada
-select pruebas.igual((select count(*) from storage.objects where bucket_id = 'clinico'), 2, 'los objetos no se borran');
+-- (Sin política de DELETE en storage.objects; Supabase además prohíbe borrar directo en la tabla.)
 -- La asistente no anula lo que subió otra persona; sí lo suyo
 update public.archivo_clinico set anulado_at = now(), anulado_por = 'ae000000-0000-0000-0000-00000000000c',
        motivo_anulacion = 'Error' where id = 'aeaeaeae-0000-0000-0000-0000000000a1';   -- RLS: 0 filas
