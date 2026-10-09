@@ -227,7 +227,7 @@ select pruebas.como(null);
 
 -- ---------------------------------------------------------------------------
 -- Regla 8: toda tabla de public tiene RLS y clinica_id (excepto el tenant y el
--- catálogo NTS 188), anon no tiene permisos y nadie puede borrar datos.
+-- catálogos globales NTS 188 y CIE-10), anon no tiene permisos y nadie puede borrar datos.
 -- ---------------------------------------------------------------------------
 select pruebas.igual((
   select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
@@ -235,7 +235,7 @@ select pruebas.igual((
 select pruebas.igual((
   select count(*) from information_schema.tables t
   where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
-    and t.table_name not in ('clinica', 'catalogo_hallazgo')
+    and t.table_name not in ('clinica', 'catalogo_hallazgo', 'catalogo_cie10')
     and not exists (select 1 from information_schema.columns k
                     where k.table_schema = 'public' and k.table_name = t.table_name and k.column_name = 'clinica_id')),
   0, 'tablas sin clinica_id');
