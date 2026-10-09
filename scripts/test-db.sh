@@ -27,15 +27,14 @@ for f in supabase/tests/*.test.sql; do  # _ayudantes.sql se incluye desde cada t
   psql_ -o /dev/null -f "$f"
 done
 echo "seed: supabase/seed.sql"
-psql_ -o /dev/null -f supabase/seed.sql
-psql_ -o /dev/null -f supabase/seed_etapa1.sql
-psql_ -o /dev/null -f supabase/seed_etapa1.sql   # idempotente: la segunda vez no cambia nada
-psql_ -o /dev/null -f supabase/seed_etapa2.sql
-psql_ -o /dev/null -f supabase/seed_etapa2.sql   # idempotente
-psql_ -o /dev/null -f supabase/seed_etapa3.sql
-psql_ -o /dev/null -f supabase/seed_etapa3.sql   # idempotente
-psql_ -o /dev/null -f supabase/seed_etapa4.sql
-psql_ -o /dev/null -f supabase/seed_etapa4.sql   # idempotente
+# Como `supabase db reset`: todos los seeds de config.toml en UNA sesión (las
+# funciones y tablas pg_temp de un seed siguen existiendo en el siguiente).
+cat supabase/seed.sql supabase/seed_etapa1.sql supabase/seed_etapa2.sql supabase/seed_etapa3.sql \
+    supabase/seed_etapa4.sql | psql_ -o /dev/null
+# Idempotentes: cada uno, otra vez y por separado (como se cargan en el remoto).
+for f in supabase/seed_etapa1.sql supabase/seed_etapa2.sql supabase/seed_etapa3.sql supabase/seed_etapa4.sql; do
+  psql_ -o /dev/null -f "$f"
+done
 psql_ -o /dev/null -f supabase/tests/seed.check.sql
 echo "seed: verificaciones OK"
 for f in supabase/verificaciones/2*.sql; do

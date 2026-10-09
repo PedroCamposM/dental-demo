@@ -6,7 +6,7 @@
 -- con código CIE-10 pasa a ser un diagnóstico (la pulpitis, presuntivo; el resto,
 -- definitivo).
 
-create function pg_temp.h(p uuid, sal text) returns int
+create or replace function pg_temp.h(p uuid, sal text) returns int
 language sql immutable as $$ select (('x' || substr(md5(p::text || sal), 1, 7))::bit(28)::int % 100) $$;
 
 -- Examen clínico en la fecha del odontograma inicial
