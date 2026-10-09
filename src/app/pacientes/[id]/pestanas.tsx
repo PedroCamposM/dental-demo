@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { modulos } from "@/lib/funciones";
 
-type Pestana = "filiacion" | "historia" | "signos" | "examen";
+type Pestana = "filiacion" | "historia" | "signos" | "odontograma" | "examen";
 
 /** Pestañas de la ficha del paciente. La historia solo para quien la ve (RLS lo exige igual). */
 export function PestanasPaciente({ id, actual, veClinico }: { id: string; actual: Pestana; veClinico: boolean }) {
@@ -12,6 +12,7 @@ export function PestanasPaciente({ id, actual, veClinico }: { id: string; actual
       { clave: "signos" as const, href: `/pacientes/${id}/signos`, texto: "Signos vitales" },
     ] : []),
     ...(modulos.etapa4 && veClinico ? [
+      { clave: "odontograma" as const, href: `/pacientes/${id}/odontograma`, texto: "Odontograma" },
       { clave: "examen" as const, href: `/pacientes/${id}/examen`, texto: "Examen y diagnóstico" },
     ] : []),
   ];
