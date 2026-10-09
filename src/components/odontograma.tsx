@@ -246,6 +246,9 @@ export function Odontograma({ hallazgos, seleccionada, enlace, titulo }: Props) 
         const dibujo = (
           <g key={p} data-pieza={p}>
             <title>{`Pieza ${p}`}</title>
+            {/* Fondo transparente: en SVG solo lo pintado recibe el clic; así toda la columna de la pieza responde. */}
+            <rect x={centroX(p) - ANCHO / 2} y={Math.min(fp.recuadroY, c.y) - 2} width={ANCHO}
+              height={Math.abs(fp.recuadroY - c.y) + (esSuperior(p) ? CORONA : RECUADRO) + 4} fill="transparent" />
             {p === seleccionada && (
               <rect x={centroX(p) - ANCHO / 2 + 1} y={Math.min(fp.recuadroY, c.y) - 2} width={ANCHO - 2}
                 height={Math.abs(fp.recuadroY - c.y) + (esSuperior(p) ? CORONA : RECUADRO) + 4} fill="#ccfbf1" />
