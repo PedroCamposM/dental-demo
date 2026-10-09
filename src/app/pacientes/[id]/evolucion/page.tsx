@@ -148,11 +148,12 @@ export default async function Evolucion({ params }: { params: Promise<{ id: stri
                     className={`scroll-mt-4 rounded-xl border border-gray-200 bg-white p-5 ${n.anulado_at ? "opacity-60" : ""}`}>
                     <header className="flex flex-wrap items-baseline justify-between gap-2">
                       <p className="font-semibold">
-                        {fechaHora(n.firmada_at ?? n.fecha)}
+                        {fechaHora(n.fecha)}
                         {n.cita && <span className="font-normal text-gray-600"> · cita del {fechaHora(n.cita.inicio)}</span>}
                       </p>
                       <p className="text-sm text-gray-600">
                         {n.firmada_at ? "Firmada por" : "Borrador anulado ·"} {autor.get(n.odontologo_id) ?? "Profesional"}
+                        {n.firmada_at && fechaLima(n.firmada_at) !== fechaLima(n.fecha) && ` el ${fechaHora(n.firmada_at)}`}
                       </p>
                     </header>
                     {n.anulado_at && (

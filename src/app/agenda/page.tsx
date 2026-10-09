@@ -136,7 +136,7 @@ export default async function Agenda({ searchParams }: { searchParams: Promise<{
                         <Cita key={c.id} c={c} sillon={c.sillon_id ? d.sillones.get(c.sillon_id) : undefined}
                           alertas={c.paciente ? alertas.get(c.paciente.id) : undefined}
                           evolucion={evoluciones.get(c.id)} esHoy={fecha === hoy} pasada={fecha <= hoy}
-                          esDentista={sesion.esDentista} />
+                          esDentista={sesion.esDentista} usuarioId={sesion.usuarioId} />
                       ))}
                     </ol>
                   )}
@@ -156,15 +156,17 @@ export default async function Agenda({ searchParams }: { searchParams: Promise<{
   );
 }
 
-function Cita({ c, sillon, alertas, evolucion, esHoy, pasada, esDentista }: {
+function Cita({ c, sillon, alertas, evolucion, esHoy, pasada, esDentista, usuarioId }: {
   c: CitaDia; sillon?: string; alertas?: AlertasPaciente; evolucion?: EvolucionCita;
-  esHoy: boolean; pasada: boolean; esDentista: boolean;
+  esHoy: boolean; pasada: boolean; esDentista: boolean; usuarioId: string;
 }) {
   const nombre = c.paciente ? `${c.paciente.nombres} ${c.paciente.apellidos}` : "Paciente";
   const activa = c.estado === "programada" || c.estado === "confirmada" || c.estado === "en_sala";
-  // «Atender» abre la evolución (o retoma el borrador). Una evolución firmada se consulta.
-  const atender = modulos.etapa6 && esDentista && pasada && !evolucion?.firmada
-    ? (evolucion ? "continuar" as const : "atender" as const) : null;
+  // «Atender» abre la evolución; «Continuar» retoma el borrador propio. La firmada o el
+  // borrador de otro profesional se consultan con el enlace.
+  const atender = !modulos.etapa6 || !esDentista || !pasada ? null
+    : !evolucion ? "atender" as const
+    : !evolucion.firmada && evolucion.autor === usuarioId ? "continuar" as const : null;
   const descripcion = `la cita de ${nombre} a las ${horaLima(c.inicio)}`;
   const frases = alertas?.frases ?? [];
   return (
@@ -189,7 +191,7 @@ function Cita({ c, sillon, alertas, evolucion, esHoy, pasada, esDentista }: {
       {c.forzada_motivo && (
         <p className="mt-1 text-xs text-amber-800">Fuera del horario (autorizado): {c.forzada_motivo}</p>
       )}
-      {evolucion && c.paciente && (evolucion.firmada || !activa) && (
+      {evolucion && c.paciente && !atender && (
         <Link href={`/pacientes/${c.paciente.id}/evolucion#evolucion-${evolucion.id}`}
           className="mt-1 inline-block text-xs font-medium text-teal-700 hover:underline">
           {evolucion.firmada ? "Ver evolución firmada" : "Evolución en borrador"}

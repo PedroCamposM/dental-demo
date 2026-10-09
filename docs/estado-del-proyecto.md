@@ -337,6 +337,17 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   Playwright `e2e/evolucion.spec.ts` (recepción → en sala; odontóloga → atiende, firma,
   adenda; asistente solo lee).
 - Checklist: `docs/checklist-etapa6.md`.
+- Revisión independiente: 1 alta, 2 medias y 5 bajas; corregidas. Alta: al firmar dos
+  ítems dependientes terminados en la misma sesión, la firma fallaba según el orden de
+  las filas; ahora se marcan en orden de dependencias. Medias: un dentista podía marcar
+  realizado un ítem citando cualquier evolución firmada (ahora solo al firmar la sesión
+  en que se terminó) y otro dentista podía reescribir un borrador ajeno al anularlo
+  (ahora solo el autor lo anula y sin cambiar el texto). Bajas: una cita «en sala» no
+  se mueve de día; la firma conserva la fecha de la sesión; `GRANT INSERT` por columna
+  efectivo; «Continuar evolución» solo para el autor; `seed_etapa3` determinista (usaba
+  el id aleatorio del paciente y a veces no llegaba a los mínimos del guion).
+  `plan.test.sql` y `rls_reglas.test.sql` actualizados a propósito: el ítem pasa a
+  realizado firmando la evolución, no con un UPDATE directo.
 - Para el remoto: «Aplicar migraciones» (0910, 0911 y 0912), cargar `seed_etapa4.sql` y
   `seed_etapa5.sql`, y `HABILITAR_ETAPA4/5/6=1` en Vercel Preview.
 

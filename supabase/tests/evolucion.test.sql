@@ -51,6 +51,8 @@ select pruebas.debe_fallar($$update public.cita set estado = 'en_sala' where id 
 update public.cita set estado = 'en_sala' where id = 'adadadad-0000-0000-0000-0000000000c1';
 select pruebas.igual((select count(*) from public.cita where id = 'adadadad-0000-0000-0000-0000000000c1' and estado = 'en_sala'),
                      1, 'cita en sala');
+select pruebas.debe_fallar($$update public.cita set inicio = inicio + interval '3 days', fin = fin + interval '3 days'
+                               where id = 'adadadad-0000-0000-0000-0000000000c1'$$, 'el día de la cita');
 select pruebas.debe_fallar($$select public.abrir_evolucion('adadadad-0000-0000-0000-0000000000c1')$$, 'cirujano dentista');
 
 -- ---------------------------------------------------------------------------
@@ -148,9 +150,38 @@ insert into public.evolucion_item (clinica_id, nota_id, item_id, terminado) valu
 select pruebas.debe_fallar($$select public.firmar_evolucion('adadadad-0000-0000-0000-0000000000b2')$$, 'Primero debe realizarse');
 select pruebas.igual((select count(*) from public.nota_evolucion where id = 'adadadad-0000-0000-0000-0000000000b2'
                         and firmada_at is null), 1, 'si falla, nada se firma');
--- El borrador se puede descartar (anular con motivo)
+-- Regla 3: no se marca realizado a mano citando otra evolución firmada
+select pruebas.debe_fallar($$update public.item_plan set estado = 'realizado', realizado_at = now(),
+                               nota_evolucion_id = (select id from ids where clave = 'n')
+                             where id = 'adadadad-0000-0000-0000-0000000000e3'$$, 'sesión en que se terminó');
+-- Al marcar también lo requerido, firma en orden aunque se haya marcado después
+insert into public.evolucion_item (clinica_id, nota_id, item_id, terminado) values
+  ('adadadad-0000-0000-0000-000000000000', 'adadadad-0000-0000-0000-0000000000b2', 'adadadad-0000-0000-0000-0000000000e3', true);
+select public.firmar_evolucion('adadadad-0000-0000-0000-0000000000b2');
+select pruebas.igual((select count(*) from public.item_plan where id in ('adadadad-0000-0000-0000-0000000000e3',
+                        'adadadad-0000-0000-0000-0000000000e4') and estado = 'realizado'
+                        and nota_evolucion_id = 'adadadad-0000-0000-0000-0000000000b2'), 2, 'firma en orden de dependencias');
+select pruebas.igual((select count(*) from public.nota_evolucion where id = 'adadadad-0000-0000-0000-0000000000b2'
+                        and fecha < firmada_at), 1, 'la fecha de la sesión se conserva al firmar');
+
+-- El borrador se puede descartar (anular con motivo), solo su autor y sin cambiar lo escrito
+insert into public.nota_evolucion (id, clinica_id, paciente_id, odontologo_id, texto) values
+  ('adadadad-0000-0000-0000-0000000000b3', 'adadadad-0000-0000-0000-000000000000', 'adadadad-0000-0000-0000-0000000000f1',
+   'ad000000-0000-0000-0000-00000000000b', 'Borrador a descartar');
+select pruebas.debe_fallar($$update public.nota_evolucion set anulado_por = 'ad000000-0000-0000-0000-00000000000b'
+                             where id = 'adadadad-0000-0000-0000-0000000000b3'$$, 'completa');
+select pruebas.debe_fallar($$update public.nota_evolucion set texto = 'Otro', anulado_at = now(),
+                               anulado_por = 'ad000000-0000-0000-0000-00000000000b', motivo_anulacion = 'Duplicada'
+                             where id = 'adadadad-0000-0000-0000-0000000000b3'$$, 'contenido');
+select pruebas.como('ad000000-0000-0000-0000-00000000000a');
+select pruebas.debe_fallar($$update public.nota_evolucion set anulado_at = now(),
+                               anulado_por = 'ad000000-0000-0000-0000-00000000000a', motivo_anulacion = 'Duplicada'
+                             where id = 'adadadad-0000-0000-0000-0000000000b3'$$, 'autor');
+select pruebas.como('ad000000-0000-0000-0000-00000000000b');
 update public.nota_evolucion set anulado_at = now(), anulado_por = 'ad000000-0000-0000-0000-00000000000b',
-       motivo_anulacion = 'Se registra en otra sesión' where id = 'adadadad-0000-0000-0000-0000000000b2';
+       motivo_anulacion = 'Se registra en otra sesión' where id = 'adadadad-0000-0000-0000-0000000000b3';
+select pruebas.igual((select count(*) from public.nota_evolucion where id = 'adadadad-0000-0000-0000-0000000000b3'
+                        and anulado_at is not null and texto = 'Borrador a descartar'), 1, 'borrador anulado con su texto');
 
 -- Otra clínica y visitante
 select pruebas.como('bd000000-0000-0000-0000-00000000000a');

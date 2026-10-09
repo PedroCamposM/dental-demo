@@ -72,13 +72,18 @@ begin
     if new.anulado_por is distinct from auth.uid() then
       raise exception 'Solo se anula a nombre propio, con motivo';
     end if;
+    -- Un borrador lo anula solo su autor (otro dentista no descarta el trabajo ajeno).
+    if old.firmada_at is null and old.odontologo_id is distinct from auth.uid() then
+      raise exception 'Solo el autor anula su evolución en borrador';
+    end if;
     if old.firmada_at is not null
        and exists (select 1 from public.item_plan i where i.nota_evolucion_id = old.id and i.estado = 'realizado') then
       raise exception 'Esta evolución respalda ítems realizados: agrega una adenda en lugar de anularla';
     end if;
-    if old.firmada_at is not null and (to_jsonb(new) - array['anulado_at', 'anulado_por', 'motivo_anulacion', 'updated_at'])
+    -- Al anular no se cambia nada más (lo escrito se conserva, firmado o no).
+    if (to_jsonb(new) - array['anulado_at', 'anulado_por', 'motivo_anulacion', 'updated_at'])
        is distinct from (to_jsonb(old) - array['anulado_at', 'anulado_por', 'motivo_anulacion', 'updated_at']) then
-      raise exception 'Una evolución firmada no se edita: agrega una adenda';
+      raise exception 'Al anular una evolución no se modifica su contenido';
     end if;
     new.anulado_at := now();
     return new;
@@ -97,8 +102,12 @@ begin
     raise exception 'Solo el autor edita su evolución en borrador';
   end if;
   if new.paciente_id is distinct from old.paciente_id or new.odontologo_id is distinct from old.odontologo_id
-     or new.cita_id is distinct from old.cita_id or new.clinica_id is distinct from old.clinica_id then
-    raise exception 'El paciente, la cita y el autor de la evolución no cambian';
+     or new.cita_id is distinct from old.cita_id or new.clinica_id is distinct from old.clinica_id
+     or new.fecha is distinct from old.fecha then
+    raise exception 'El paciente, la cita, la fecha y el autor de la evolución no cambian';
+  end if;
+  if new.anulado_por is distinct from old.anulado_por or new.motivo_anulacion is distinct from old.motivo_anulacion then
+    raise exception 'La anulación se registra completa: fecha, autor y motivo';
   end if;
   new.updated_at := now();
   return new;
@@ -125,6 +134,16 @@ begin
         and n.firmada_at is not null
     ) then
       raise exception 'Un ítem se marca realizado con una evolución firmada, del mismo paciente y vigente';
+    end if;
+    -- Desde la app, solo al firmar la evolución de la sesión en que se terminó
+    -- (no citando una evolución antigua o ajena). Las cargas del sistema (seed, sin el rol
+    -- `authenticated` de la API) no pasan por aquí. `role` sigue siendo el de la sesión
+    -- dentro de esta función SECURITY DEFINER.
+    if current_setting('role', true) = 'authenticated' and not exists (
+      select 1 from public.evolucion_item e
+       where e.nota_id = new.nota_evolucion_id and e.item_id = new.id and e.trabajado and e.terminado
+    ) then
+      raise exception 'Un ítem se marca realizado al firmar la evolución de la sesión en que se terminó';
     end if;
   end if;
   return new;
@@ -203,6 +222,8 @@ returns void
 language plpgsql security definer set search_path = '' as $$
 declare
   v_nota public.nota_evolucion;
+  v_item uuid;
+  v_n int;
 begin
   select * into v_nota from public.nota_evolucion
    where id = id_nota and clinica_id = privado.clinica_actual() for update;
@@ -223,9 +244,26 @@ begin
   end if;
 
   perform set_config('dental.proceso', 'on', true);
-  update public.nota_evolucion set firmada_at = now(), fecha = now() where id = id_nota;
-  -- Los ítems terminados, en el orden del plan (validar_item y validar_item_dependencias
-  -- corren igual: un ítem que requiere otro no realizado hace fallar toda la firma).
+  -- La fecha de la evolución es la de la sesión (al abrirla); la firma lleva la suya.
+  update public.nota_evolucion set firmada_at = now() where id = id_nota;
+  -- Los ítems terminados, en orden de dependencias: primero los que no requieren otro
+  -- pendiente, uno por sentencia, hasta que no quede ninguno listo.
+  loop
+    v_n := 0;
+    for v_item in
+      select i.id from public.item_plan i join public.evolucion_item e on e.item_id = i.id
+       where e.nota_id = id_nota and e.trabajado and e.terminado and i.estado in ('aceptado', 'programado')
+         and not exists (select 1 from public.item_dependencia d join public.item_plan r on r.id = d.requiere_id
+                          where d.item_id = i.id and r.estado not in ('realizado', 'cancelado'))
+       order by i.fase nulls first, i.orden
+    loop
+      update public.item_plan set estado = 'realizado', realizado_at = now(), nota_evolucion_id = id_nota
+       where id = v_item;
+      v_n := v_n + 1;
+    end loop;
+    exit when v_n = 0;
+  end loop;
+  -- Lo que quedó requiere algo no realizado: el trigger lo rechaza y no se firma nada.
   update public.item_plan i set estado = 'realizado', realizado_at = now(), nota_evolucion_id = id_nota
     from public.evolucion_item e
    where e.nota_id = id_nota and e.trabajado and e.terminado and e.item_id = i.id and i.estado in ('aceptado', 'programado');
@@ -331,7 +369,7 @@ begin
   end if;
 
   -- «En sala»: el paciente llegó; solo el día de la cita.
-  if new.estado = 'en_sala' and (tg_op = 'INSERT' or old.estado <> 'en_sala')
+  if new.estado = 'en_sala' and (tg_op = 'INSERT' or old.estado <> 'en_sala' or new.inicio <> old.inicio)
      and (new.inicio at time zone 'America/Lima')::date <> (now() at time zone 'America/Lima')::date then
     raise exception 'Solo se marca «en sala» el día de la cita' using hint = 'agenda';
   end if;
@@ -440,6 +478,7 @@ create policy nota_update on public.nota_evolucion for update to authenticated
                    or (anulado_at is null and odontologo_id = (select auth.uid()))));
 grant update (texto, cie10, anestesia_tipo, anestesia_cantidad, materiales, incidencias, indicaciones, proxima_cita)
   on public.nota_evolucion to authenticated;
+revoke insert on public.nota_evolucion from authenticated;
 grant insert (id, clinica_id, paciente_id, odontologo_id, texto, cie10, cita_id, anestesia_tipo, anestesia_cantidad,
               materiales, incidencias, indicaciones, proxima_cita)
   on public.nota_evolucion to authenticated;

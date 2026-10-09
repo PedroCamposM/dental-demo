@@ -137,7 +137,8 @@ insert into public.nota_evolucion (id, clinica_id, paciente_id, odontologo_id, t
 select pruebas.debe_fallar($$update public.item_plan set estado = 'realizado', realizado_at = now(),
   nota_evolucion_id = 'aaaaaaaa-0000-0000-0000-0000000000b1' where id = 'aaaaaaaa-0000-0000-0000-0000000000c1'$$,
   'evolución firmada');
-select public.firmar_evolucion('aaaaaaaa-0000-0000-0000-0000000000b1');
+insert into public.evolucion_item (clinica_id, nota_id, item_id, terminado) values
+  ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-0000000000b1', 'aaaaaaaa-0000-0000-0000-0000000000c1', true);
 reset role;
 
 -- Recepción no puede marcar realizado (aunque haya nota)
@@ -147,9 +148,12 @@ select pruebas.debe_fallar($$update public.item_plan set estado = 'realizado', r
   nota_evolucion_id = 'aaaaaaaa-0000-0000-0000-0000000000b1' where id = 'aaaaaaaa-0000-0000-0000-0000000000c1'$$,
   'cirujano dentista');
 
+-- El dentista firma la evolución: el ítem terminado en esa sesión queda realizado.
 select pruebas.como('a0000000-0000-0000-0000-00000000000b');
-update public.item_plan set estado = 'realizado', realizado_at = now(),
-  nota_evolucion_id = 'aaaaaaaa-0000-0000-0000-0000000000b1' where id = 'aaaaaaaa-0000-0000-0000-0000000000c1';
+select public.firmar_evolucion('aaaaaaaa-0000-0000-0000-0000000000b1');
+select pruebas.igual((select count(*) from public.item_plan where id = 'aaaaaaaa-0000-0000-0000-0000000000c1'
+                        and estado = 'realizado' and nota_evolucion_id = 'aaaaaaaa-0000-0000-0000-0000000000b1'), 1,
+                     'realizado al firmar');
 select pruebas.debe_fallar($$update public.item_plan set estado = 'aceptado'
   where id = 'aaaaaaaa-0000-0000-0000-0000000000c1'$$, 'no puede cambiar de estado');
 reset role;

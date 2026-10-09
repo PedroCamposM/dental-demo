@@ -105,18 +105,20 @@ select pruebas.debe_fallar($$select public.aceptar_plan((select id from ids wher
 -- ---------------------------------------------------------------------------
 -- Regla 3: en orden. La corona no se marca realizada antes que la endodoncia.
 -- ---------------------------------------------------------------------------
-reset role;
+-- (Etapa 6: el ítem pasa a realizado al firmar la evolución de la sesión.)
+select pruebas.como('ac000000-0000-0000-0000-00000000000b');
 insert into public.nota_evolucion (id, clinica_id, paciente_id, odontologo_id, texto) values
   ('acacacac-0000-0000-0000-0000000000c1', 'acacacac-0000-0000-0000-000000000000', 'acacacac-0000-0000-0000-0000000000f1',
    'ac000000-0000-0000-0000-00000000000b', 'Endodoncia de la 36 en dos sesiones');
-set role authenticated;
-select pruebas.como('ac000000-0000-0000-0000-00000000000b');
-select pruebas.debe_fallar($$update public.item_plan set estado = 'realizado', realizado_at = now(),
-                               nota_evolucion_id = 'acacacac-0000-0000-0000-0000000000c1'
-                             where plan_id = (select id from ids where clave = 'b') and procedimiento like 'Corona%'$$,
-                           'Primero debe realizarse');
-update public.item_plan set estado = 'realizado', realizado_at = now(), nota_evolucion_id = 'acacacac-0000-0000-0000-0000000000c1'
- where plan_id = (select id from ids where clave = 'b') and procedimiento like 'Endodoncia%';
+insert into public.evolucion_item (clinica_id, nota_id, item_id, terminado)
+select 'acacacac-0000-0000-0000-000000000000', 'acacacac-0000-0000-0000-0000000000c1', i.id, true from public.item_plan i
+ where i.plan_id = (select id from ids where clave = 'b') and i.procedimiento like 'Corona%';
+select pruebas.debe_fallar($$select public.firmar_evolucion('acacacac-0000-0000-0000-0000000000c1')$$, 'Primero debe realizarse');
+update public.evolucion_item set trabajado = false, terminado = false where nota_id = 'acacacac-0000-0000-0000-0000000000c1';
+insert into public.evolucion_item (clinica_id, nota_id, item_id, terminado)
+select 'acacacac-0000-0000-0000-000000000000', 'acacacac-0000-0000-0000-0000000000c1', i.id, true from public.item_plan i
+ where i.plan_id = (select id from ids where clave = 'b') and i.procedimiento like 'Endodoncia%';
+select public.firmar_evolucion('acacacac-0000-0000-0000-0000000000c1');
 
 -- ---------------------------------------------------------------------------
 -- Versión 2 de la B: copia solo lo pendiente; al aceptarla, la B queda reemplazada
