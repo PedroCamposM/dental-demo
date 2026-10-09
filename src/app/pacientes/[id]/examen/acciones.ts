@@ -22,10 +22,11 @@ async function dentista(pacienteId: string): Promise<{ error: string } | { error
 }
 
 function mensajeDeError(error: { code?: string; message: string }, contexto: string, que: string): string {
-  if (error.code === "P0001" && error.message.includes("anulado")) {
+  if (error.code === "P0001" && error.message.startsWith("El paciente está anulado")) {
     return "Este paciente está anulado o fusionado: regístralo en el paciente vigente.";
   }
   if (error.code === "P0001") return error.message;
+  if (error.code === "23505") return "Ese diagnóstico presuntivo ya fue confirmado.";
   registrarError(contexto, error);
   return `No se pudo guardar ${que}. Inténtalo de nuevo.`;
 }
@@ -105,43 +106,48 @@ export async function registrarDiagnostico(_previo: EstadoDiagnostico, form: For
 // ---------------------------------------------------------------------------
 // Adenda y anulación
 // ---------------------------------------------------------------------------
-export type EstadoSimple = { error: string | null; ok: boolean };
+/** `intento` cambia en cada envío (remonta el formulario); `texto` conserva lo escrito si hubo error. */
+export type EstadoSimple = { error: string | null; ok: boolean; intento: number; texto: string };
 
-export async function agregarAdenda(_previo: EstadoSimple, form: FormData): Promise<EstadoSimple> {
+export async function agregarAdenda(previo: EstadoSimple, form: FormData): Promise<EstadoSimple> {
   const pacienteId = String(form.get("paciente_id") ?? "");
   const diagnosticoId = String(form.get("diagnostico_id") ?? "");
   const texto = String(form.get("texto") ?? "").trim();
+  const intento = previo.intento + 1;
+  const fallo = (error: string): EstadoSimple => ({ error, ok: false, intento, texto });
   const d = await dentista(pacienteId);
-  if (d.error !== null) return { error: d.error, ok: false };
-  if (!UUID.test(diagnosticoId)) return { error: "Diagnóstico inválido.", ok: false };
-  if (texto.length < 3) return { error: "Escribe la adenda.", ok: false };
-  if (texto.length > 2000) return { error: "Máximo 2000 caracteres.", ok: false };
+  if (d.error !== null) return fallo(d.error);
+  if (!UUID.test(diagnosticoId)) return fallo("Diagnóstico inválido.");
+  if (texto.length < 3) return fallo("Escribe la adenda.");
+  if (texto.length > 2000) return fallo("Máximo 2000 caracteres.");
   const supabase = await createClient();
   const { error } = await supabase.from("diagnostico_adenda").insert({
     clinica_id: d.sesion.clinicaId, diagnostico_id: diagnosticoId, texto, registrado_por: d.sesion.usuarioId,
   });
-  if (error) return { error: mensajeDeError(error, "diagnostico.adenda", "la adenda"), ok: false };
+  if (error) return fallo(mensajeDeError(error, "diagnostico.adenda", "la adenda"));
   revalidatePath(`/pacientes/${pacienteId}/examen`);
-  return { error: null, ok: true };
+  return { error: null, ok: true, intento, texto: "" };
 }
 
-export async function anularRegistro(_previo: EstadoSimple, form: FormData): Promise<EstadoSimple> {
+export async function anularRegistro(previo: EstadoSimple, form: FormData): Promise<EstadoSimple> {
   const pacienteId = String(form.get("paciente_id") ?? "");
   const id = String(form.get("id") ?? "");
   const tabla = String(form.get("tabla") ?? "");
   const motivo = String(form.get("motivo") ?? "").trim();
+  const intento = previo.intento + 1;
+  const fallo = (error: string): EstadoSimple => ({ error, ok: false, intento, texto: motivo });
   const d = await dentista(pacienteId);
-  if (d.error !== null) return { error: d.error, ok: false };
-  if (!UUID.test(id) || (tabla !== "diagnostico" && tabla !== "examen_clinico")) return { error: "Registro inválido.", ok: false };
-  if (motivo.length < 3) return { error: "Escribe por qué se anula.", ok: false };
+  if (d.error !== null) return fallo(d.error);
+  if (!UUID.test(id) || (tabla !== "diagnostico" && tabla !== "examen_clinico")) return fallo("Registro inválido.");
+  if (motivo.length < 3) return fallo("Escribe por qué se anula.");
   const supabase = await createClient();
   const { data, error } = await supabase.from(tabla)
     .update({ anulado_at: new Date().toISOString(), anulado_por: d.sesion.usuarioId, motivo_anulacion: motivo })
     .eq("id", id).eq("paciente_id", pacienteId).is("anulado_at", null).select("id").maybeSingle();
   if (error || !data) {
     if (error) registrarError("examen.anular", error, { id, tabla });
-    return { error: "No se pudo anular el registro. Recarga la página.", ok: false };
+    return fallo("No se pudo anular el registro. Recarga la página.");
   }
   revalidatePath(`/pacientes/${pacienteId}/examen`);
-  return { error: null, ok: true };
+  return { error: null, ok: true, intento, texto: "" };
 }

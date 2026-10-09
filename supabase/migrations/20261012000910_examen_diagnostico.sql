@@ -250,6 +250,13 @@ begin
     end if;
   end if;
 
+  -- La pieza debe existir en la dentición del odontograma (mixta admite ambas).
+  if exists (select 1 from public.odontograma o where o.id = new.odontograma_id
+               and ((o.denticion = 'permanente' and (new.pieza / 10 >= 5 or new.pieza_hasta / 10 >= 5))
+                 or (o.denticion = 'temporal' and (new.pieza / 10 <= 4 or new.pieza_hasta / 10 <= 4)))) then
+    raise exception '%: la pieza no corresponde a la dentición de este odontograma', c.nombre;
+  end if;
+
   if c.ambito = 'superficie' then
     if coalesce(cardinality(new.superficies), 0) = 0 then
       raise exception '%: indique al menos una superficie', c.nombre;
@@ -282,6 +289,15 @@ begin
 
   return new;
 end $$;
+
+-- NTS 188, 5.6: el odontograma no se enmienda. Sus hallazgos los anula solo quien
+-- lo firmó (antes bastaba ser dentista); un cambio de otro va en uno de evolución.
+drop policy hallazgo_anular on public.odontograma_hallazgo;
+create policy hallazgo_anular on public.odontograma_hallazgo for update to authenticated
+  using (clinica_id = (select privado.clinica_actual()) and (select privado.es_dentista())
+         and exists (select 1 from public.odontograma o
+                      where o.id = odontograma_id and o.odontologo_id = (select auth.uid())))
+  with check (clinica_id = (select privado.clinica_actual()) and anulado_por = (select auth.uid()));
 
 -- ---------------------------------------------------------------------------
 -- Examen clínico (extraoral e intraoral). Lo registra el cirujano dentista;
@@ -368,8 +384,22 @@ create table public.diagnostico (
 );
 alter table public.diagnostico enable row level security;
 create index diagnostico_paciente_idx on public.diagnostico (paciente_id, registrado_at desc);
+-- Un presuntivo se confirma una sola vez (doble envío o dos pestañas).
+create unique index diagnostico_confirma_unico on public.diagnostico (confirma_id)
+  where confirma_id is not null and anulado_at is null;
 create trigger paciente_vigente before insert on public.diagnostico
   for each row execute function privado.validar_paciente_vigente_bloqueando();
+
+-- Superficies que existen en la pieza (FDI): palatino en superiores, lingual en
+-- inferiores, incisal en anteriores (x1–x3) y oclusal en posteriores.
+create function privado.superficies_posibles(p smallint, superficies text[]) returns boolean
+language sql immutable set search_path = '' as $$
+  select not (
+       ('palatino' = any (superficies) and p / 10 not in (1, 2, 5, 6))
+    or ('lingual'  = any (superficies) and p / 10 not in (3, 4, 7, 8))
+    or ('incisal'  = any (superficies) and p % 10 > 3)
+    or ('oclusal'  = any (superficies) and p % 10 <= 3))
+$$;
 
 create function privado.validar_diagnostico() returns trigger
 language plpgsql set search_path = '' as $$
@@ -381,8 +411,13 @@ begin
     end if;
     if new.hallazgo_id is not null and not exists (
          select 1 from public.odontograma_hallazgo h join public.odontograma o on o.id = h.odontograma_id
-          where h.id = new.hallazgo_id and o.paciente_id = new.paciente_id and h.anulado_at is null) then
-      raise exception 'El hallazgo no corresponde a este paciente o está anulado';
+          where h.id = new.hallazgo_id and o.paciente_id = new.paciente_id and h.anulado_at is null
+            and o.anulado_at is null and h.pieza is not distinct from new.pieza) then
+      raise exception 'El hallazgo no corresponde a este paciente o a esta pieza, o ya no está vigente';
+    end if;
+    if new.superficies is not null and not privado.superficies_posibles(new.pieza, new.superficies) then
+      raise exception 'Superficie imposible para la pieza %: palatino solo en superiores, lingual en inferiores, '
+                      'incisal en anteriores y oclusal en posteriores', new.pieza;
     end if;
     if new.examen_id is not null
        and not exists (select 1 from public.examen_clinico e where e.id = new.examen_id and e.paciente_id = new.paciente_id) then
@@ -419,8 +454,9 @@ create table public.diagnostico_adenda (
 );
 alter table public.diagnostico_adenda enable row level security;
 create index diagnostico_adenda_idx on public.diagnostico_adenda (diagnostico_id, registrado_at);
--- No pasa por privado.auditar (que espera columnas de anulación): la tabla es de
--- solo inserción y cada fila ya guarda autor y hora.
+-- Sin columnas de anulación: se audita con privado.auditar_simple.
+create trigger auditar after insert on public.diagnostico_adenda
+  for each row execute function privado.auditar_simple();
 
 -- ---------------------------------------------------------------------------
 -- RLS: ven dentistas y asistente; registra, anula y agrega adendas solo el

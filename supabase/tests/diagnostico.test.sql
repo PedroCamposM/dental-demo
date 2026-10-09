@@ -196,6 +196,48 @@ select pruebas.debe_fallar($$insert into public.diagnostico (clinica_id, pacient
           'a9000000-0000-0000-0000-00000000000a')$$, 'anulado');
 
 -- ---------------------------------------------------------------------------
+-- Correcciones de la revisión: coherencia, doble confirmación, autoría, auditoría
+-- ---------------------------------------------------------------------------
+select pruebas.como('a9000000-0000-0000-0000-00000000000b');
+-- El diagnóstico desde un hallazgo va en la misma pieza
+select pruebas.debe_fallar($$insert into public.diagnostico (clinica_id, paciente_id, cie10, tipo, pieza, hallazgo_id, registrado_por)
+  values ('a9a9a9a9-0000-0000-0000-000000000000', 'a9a9a9a9-0000-0000-0000-0000000000f1', 'K02.1', 'definitivo', 11,
+          'a9a9a9a9-0000-0000-0000-0000000000e1', 'a9000000-0000-0000-0000-00000000000b')$$, 'a esta pieza');
+-- Superficies imposibles
+select pruebas.debe_fallar($$insert into public.diagnostico (clinica_id, paciente_id, cie10, tipo, pieza, superficies, registrado_por)
+  values ('a9a9a9a9-0000-0000-0000-000000000000', 'a9a9a9a9-0000-0000-0000-0000000000f1', 'K02.1', 'definitivo', 46,
+          array['palatino'], 'a9000000-0000-0000-0000-00000000000b')$$, 'Superficie imposible');
+select pruebas.debe_fallar($$insert into public.diagnostico (clinica_id, paciente_id, cie10, tipo, pieza, superficies, registrado_por)
+  values ('a9a9a9a9-0000-0000-0000-000000000000', 'a9a9a9a9-0000-0000-0000-0000000000f1', 'K02.1', 'definitivo', 11,
+          array['oclusal'], 'a9000000-0000-0000-0000-00000000000b')$$, 'Superficie imposible');
+-- Un presuntivo se confirma una sola vez
+insert into public.diagnostico (id, clinica_id, paciente_id, cie10, tipo, registrado_por)
+values ('a9a9a9a9-0000-0000-0000-0000000000b5', 'a9a9a9a9-0000-0000-0000-000000000000',
+        'a9a9a9a9-0000-0000-0000-0000000000f1', 'K04.0', 'presuntivo', 'a9000000-0000-0000-0000-00000000000b');
+insert into public.diagnostico (clinica_id, paciente_id, cie10, tipo, confirma_id, registrado_por)
+values ('a9a9a9a9-0000-0000-0000-000000000000', 'a9a9a9a9-0000-0000-0000-0000000000f1', 'K04.0', 'definitivo',
+        'a9a9a9a9-0000-0000-0000-0000000000b5', 'a9000000-0000-0000-0000-00000000000b');
+select pruebas.debe_fallar($$insert into public.diagnostico (clinica_id, paciente_id, cie10, tipo, confirma_id, registrado_por)
+  values ('a9a9a9a9-0000-0000-0000-000000000000', 'a9a9a9a9-0000-0000-0000-0000000000f1', 'K04.0', 'definitivo',
+          'a9a9a9a9-0000-0000-0000-0000000000b5', 'a9000000-0000-0000-0000-00000000000b')$$, 'diagnostico_confirma_unico');
+-- La pieza debe existir en la dentición del odontograma (el d1 es permanente)
+select pruebas.debe_fallar($$insert into public.odontograma_hallazgo (clinica_id, odontograma_id, hallazgo_codigo, pieza, siglas)
+  values ('a9a9a9a9-0000-0000-0000-000000000000', 'a9a9a9a9-0000-0000-0000-0000000000d1', 'remanente_radicular', 55,
+          array['RR'])$$, 'dentición');
+-- Solo quien firmó el odontograma anula sus hallazgos (NTS 188, 5.6)
+select pruebas.como('a9000000-0000-0000-0000-00000000000a');   -- admin con COP, no firmó d1
+update public.odontograma_hallazgo set anulado_at = now(), anulado_por = 'a9000000-0000-0000-0000-00000000000a',
+                                       motivo_anulacion = 'Intento de otro dentista'
+ where id = 'a9a9a9a9-0000-0000-0000-0000000000e1';
+select pruebas.igual((select count(*) from public.odontograma_hallazgo
+                      where id = 'a9a9a9a9-0000-0000-0000-0000000000e1' and anulado_at is null), 1,
+                     'otro dentista no anula los hallazgos de un odontograma ajeno');
+reset role;
+select pruebas.igual((select count(*) from public.auditoria where tabla = 'diagnostico_adenda'), 1,
+                     'la adenda queda en la auditoría');
+set role authenticated;
+
+-- ---------------------------------------------------------------------------
 -- Otra clínica y visitante sin sesión
 -- ---------------------------------------------------------------------------
 select pruebas.como('b9000000-0000-0000-0000-00000000000a');

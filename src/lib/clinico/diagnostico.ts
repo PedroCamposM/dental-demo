@@ -69,6 +69,16 @@ export function esPiezaFdi(n: number): boolean {
   return Number.isInteger(n) && ((c >= 1 && c <= 4 && p >= 1 && p <= 8) || (c >= 5 && c <= 8 && p >= 1 && p <= 5));
 }
 
+/** Superficies que existen en la pieza: palatino en superiores, lingual en inferiores,
+ *  incisal en anteriores (x1–x3) y oclusal en posteriores. Devuelve las imposibles. */
+export function superficiesImposibles(pieza: number, superficies: Superficie[]): Superficie[] {
+  const c = Math.floor(pieza / 10);
+  const superior = [1, 2, 5, 6].includes(c);
+  const anterior = pieza % 10 <= 3;
+  return superficies.filter((s) => (s === "palatino" && !superior) || (s === "lingual" && superior)
+    || (s === "incisal" && !anterior) || (s === "oclusal" && anterior));
+}
+
 /** «K02.1 — Caries de la dentina» o «k021» → «K02.1». null si no tiene forma de código. */
 export function leerCodigoCie10(texto: string): string | null {
   const m = /^\s*([A-Za-z])\s*(\d{2})\.?(\d)?/.exec(texto);
@@ -111,6 +121,12 @@ export function validarDiagnostico(
   }
   const sup = [...new Set(e.lista("superficies"))].filter((s): s is Superficie => Object.hasOwn(SUPERFICIES, s));
   if (sup.length > 0 && !textoPieza) errores.superficies = "Indica la pieza de esas superficies.";
+  else if (sup.length > 0 && pieza !== null && esPiezaFdi(pieza)) {
+    const malas = superficiesImposibles(pieza, sup);
+    if (malas.length > 0) {
+      errores.superficies = `La pieza ${pieza} no tiene superficie ${malas.map((m) => SUPERFICIES[m].toLowerCase()).join(" ni ")}.`;
+    }
+  }
 
   const observacion = e.texto("observacion").trim() || null;
   if (observacion && observacion.length > 1000) errores.observacion = "Máximo 1000 caracteres.";

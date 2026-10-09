@@ -210,7 +210,7 @@ export default async function PaginaOdontograma({ params, searchParams }: {
                                     Registrar diagnóstico
                                   </Link>
                                 )}
-                                <AnularHallazgo pacienteId={id} id={h.id} descripcion={`${h.nombre} ${ubicacion(h)}`} />
+                                {esAutor && <AnularHallazgo pacienteId={id} id={h.id} descripcion={`${h.nombre} ${ubicacion(h)}`} />}
                               </div>
                             )}
                           </td>

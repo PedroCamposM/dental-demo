@@ -97,8 +97,8 @@ function porPieza(h: HallazgoDibujo, p: number): ReactNode[] {
           stroke={color} strokeWidth={2.2} />,
       ];
     case "pieza_en_clavija": {
-      const y = sup ? f.apiceY - 2 : f.apiceY + 2;
-      const t = sup ? -8 : 8;
+      const y = sup ? f.apiceY + 1 : f.apiceY - 1;
+      const t = sup ? -6 : 6;
       return [<polygon key={k} points={aTexto([[cx - 6, y], [cx + 6, y], [cx, y + t]])} fill="none" stroke={color} strokeWidth={1.6} />];
     }
     case "pieza_en_erupcion": {
@@ -185,8 +185,13 @@ function porConjunto(h: HallazgoDibujo): ReactNode[] {
       ];
     }
     case "fusion": {
+      // 6.1.11: dos circunferencias que se cruzan, encerrando los números de las piezas.
       const y = fa.numeroY + NUMERO / 2;
-      return [xa, xb].map((x) => <circle key={`${k}${x}`} cx={x + (x === xa ? 6 : -6)} cy={y} r={11} fill="none" stroke={color} strokeWidth={1.6} />);
+      const desplazamiento = Math.max(0, (xb - xa - 24) / 2);
+      const r = Math.max(15, desplazamiento + 8);
+      return [xa + desplazamiento, xb - desplazamiento].map((x, n) => (
+        <circle key={`${k}${n}`} cx={x} cy={y} r={r} fill="none" stroke={color} strokeWidth={1.6} />
+      ));
     }
     case "pieza_supernumeraria":
       return [

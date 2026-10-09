@@ -42,4 +42,22 @@ for f in supabase/verificaciones/2*.sql; do
   echo "verificación: $(basename "$f")"
   psql_ -o /dev/null -f "$f"
 done
+
+# Migración de datos sobre datos: en otra base, se aplican las migraciones hasta la
+# anterior a la última, se carga el seed de esas etapas y recién entonces la última
+# migración y su verificación (así el relleno toca filas, como en el remoto).
+ULTIMA="$(ls supabase/migrations/*.sql | tail -1)"
+echo "migración de datos sobre el seed: $(basename "$ULTIMA")"
+psql_ -c "create database datos" >/dev/null
+psqld() { "$PGBIN/psql" -h "$TMP" -p "$PORT" -U postgres -d datos -X -q -v ON_ERROR_STOP=1 "$@"; }
+psqld -o /dev/null -f supabase/tests/00_stub_supabase.sql
+for f in supabase/migrations/*.sql; do
+  [ "$f" = "$ULTIMA" ] && continue
+  psqld -o /dev/null -1 -f "$f"
+done
+cat supabase/seed.sql supabase/seed_etapa1.sql supabase/seed_etapa2.sql supabase/seed_etapa3.sql | psqld -o /dev/null
+psqld -o /dev/null -1 -f "$ULTIMA"
+for f in supabase/verificaciones/2*.sql; do psqld -o /dev/null -f "$f"; done
+psqld -o /dev/null -f supabase/seed_etapa4.sql
+psqld -o /dev/null -f supabase/tests/seed.check.sql
 echo "OK"

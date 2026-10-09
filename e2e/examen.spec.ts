@@ -86,6 +86,7 @@ test("la odontóloga registra el examen y un diagnóstico, lo confirma y le agre
 });
 
 test("la asistente ve el examen y los diagnósticos, pero no los registra", async ({ page }) => {
+  expect(pacienteId, "depende de la primera prueba de este archivo").not.toBe("");
   await entrar(page, "asistente@clinica-demo.example");
   await page.goto(`/pacientes/${pacienteId}/examen`);
   await expect(diagnostico(page, "K02.1").first()).toBeVisible();
@@ -95,6 +96,7 @@ test("la asistente ve el examen y los diagnósticos, pero no los registra", asyn
 });
 
 test("recepción no ve la pestaña ni la página", async ({ page }) => {
+  expect(pacienteId, "depende de la primera prueba de este archivo").not.toBe("");
   await entrar(page, "recepcion@clinica-demo.example");
   await page.goto(`/pacientes/${pacienteId}`);
   await expect(page.getByRole("link", { name: "Examen y diagnóstico" })).toHaveCount(0);

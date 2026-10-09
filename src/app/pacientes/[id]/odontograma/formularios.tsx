@@ -79,7 +79,8 @@ export function FormularioHallazgo({ pacienteId, odontogramaId, catalogo, pieza 
   pacienteId: string; odontogramaId: string; catalogo: ItemCatalogo[]; pieza: number | null;
 }) {
   const [estado, accion, guardando] = useActionState<EstadoHallazgo, FormData>(agregarHallazgo, {
-    errores: {}, mensaje: null, valores: { textos: { pieza: pieza ? String(pieza) : "" }, superficies: [], siglas: [] },
+    errores: {}, mensaje: null, intento: 0,
+    valores: { textos: { pieza: pieza ? String(pieza) : "" }, superficies: [], siglas: [] },
   });
   const v = estado.valores;
   const [codigo, setCodigo] = useState(v.textos.hallazgo_codigo ?? "");
@@ -90,12 +91,13 @@ export function FormularioHallazgo({ pacienteId, odontogramaId, catalogo, pieza 
   const piezaInicial = t("pieza") || (pieza ? String(pieza) : "");
 
   return (
-    <form key={JSON.stringify(v) + String(estado.mensaje)} action={accion} className="flex flex-col gap-4" noValidate>
+    <form key={JSON.stringify(v) + String(estado.mensaje) + estado.intento} action={accion} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="paciente_id" value={pacienteId} />
       <input type="hidden" name="odontograma_id" value={odontogramaId} />
       <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
         <label htmlFor="h-codigo">Hallazgo (NTS 188, 6.1)</label>
-        <select id="h-codigo" name="hallazgo_codigo" value={codigo} onChange={(ev) => setCodigo(ev.target.value)}
+        {/* No controlado: React 19 reinicia el formulario tras cada envío y un select controlado quedaría en «Elegir…». */}
+        <select id="h-codigo" name="hallazgo_codigo" defaultValue={codigo} onChange={(ev) => setCodigo(ev.target.value)}
           aria-invalid={!!e.hallazgo_codigo} className={ENTRADA}>
           <option value="">Elegir…</option>
           {catalogo.map((x) => <option key={x.codigo} value={x.codigo}>{x.numeral} {x.nombre}</option>)}
@@ -214,14 +216,14 @@ export function FormularioHallazgo({ pacienteId, odontogramaId, catalogo, pieza 
 }
 
 export function AnularHallazgo({ pacienteId, id, descripcion }: { pacienteId: string; id: string; descripcion: string }) {
-  const [estado, accion, enviando] = useActionState<EstadoAnular, FormData>(anularHallazgo, { error: null });
+  const [estado, accion, enviando] = useActionState<EstadoAnular, FormData>(anularHallazgo, { error: null, intento: 0, texto: "" });
   return (
     <details className="text-sm">
       <summary className="cursor-pointer text-gray-600 hover:underline">Anular</summary>
-      <form action={accion} className="mt-2 flex flex-wrap items-end gap-2" noValidate>
+      <form key={estado.intento} action={accion} className="mt-2 flex flex-wrap items-end gap-2" noValidate>
         <input type="hidden" name="paciente_id" value={pacienteId} />
         <input type="hidden" name="id" value={id} />
-        <input name="motivo" maxLength={200} aria-label={`Motivo para anular ${descripcion}`} placeholder="Motivo"
+        <input name="motivo" maxLength={200} defaultValue={estado.texto} aria-label={`Motivo para anular ${descripcion}`} placeholder="Motivo"
           className="min-w-48 flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm" />
         <button type="submit" disabled={enviando} className="rounded-md border border-gray-300 px-3 py-1.5 hover:bg-gray-50">
           {enviando ? "Anulando…" : "Confirmar anulación"}

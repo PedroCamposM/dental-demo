@@ -59,14 +59,20 @@ export async function crearOdontograma(_previo: EstadoNuevo, form: FormData): Pr
         + "odontograma!inner(paciente_id)")
       .eq("odontograma_id", copiarDe).eq("odontograma.paciente_id", pacienteId).is("anulado_at", null)
       .returns<Record<string, unknown>[]>();
-    const filas = (previos ?? []).map((h) => {
+    // Fila por fila: si un hallazgo antiguo ya no cumple (otra dentición, reglas nuevas), los demás se copian igual.
+    let fallidos = errorPrevios ? 1 : 0;
+    if (errorPrevios) registrarError("odontograma.copiar", errorPrevios, { paciente: pacienteId });
+    for (const h of previos ?? []) {
       const { odontograma: _origen, ...copia } = h;
       void _origen;
-      return { ...copia, clinica_id: d.sesion.clinicaId, odontograma_id: nuevo.id };
-    });
-    const copia = filas.length > 0 ? await supabase.from("odontograma_hallazgo").insert(filas) : { error: null };
-    if (errorPrevios || copia.error) {
-      registrarError("odontograma.copiar", errorPrevios ?? copia.error, { paciente: pacienteId });
+      const { error: e } = await supabase.from("odontograma_hallazgo")
+        .insert({ ...copia, clinica_id: d.sesion.clinicaId, odontograma_id: nuevo.id });
+      if (e) {
+        fallidos++;
+        if (e.code !== "P0001") registrarError("odontograma.copiar", e, { paciente: pacienteId });
+      }
+    }
+    if (fallidos > 0) {
       revalidatePath(`/pacientes/${pacienteId}/odontograma`);
       redirect(`/pacientes/${pacienteId}/odontograma?o=${nuevo.id}&aviso=copia`);
     }
@@ -79,18 +85,19 @@ export async function crearOdontograma(_previo: EstadoNuevo, form: FormData): Pr
 // Hallazgos
 // ---------------------------------------------------------------------------
 export type EstadoHallazgo = {
-  errores: Partial<Record<CampoHallazgo | "general", string>>; mensaje: string | null;
+  errores: Partial<Record<CampoHallazgo | "general", string>>; mensaje: string | null; intento: number;
   valores: { textos: Record<string, string>; superficies: string[]; siglas: string[] };
 };
 
-export async function agregarHallazgo(_previo: EstadoHallazgo, form: FormData): Promise<EstadoHallazgo> {
+export async function agregarHallazgo(previo: EstadoHallazgo, form: FormData): Promise<EstadoHallazgo> {
+  const intento = previo.intento + 1;
   const valores = {
     textos: Object.fromEntries(["hallazgo_codigo", "pieza", "pieza_hasta", "arcada", "estado", "grado", "especificacion"]
       .map((c) => [c, String(form.get(c) ?? "")])),
     superficies: form.getAll("superficies").map(String),
     siglas: form.getAll("siglas").map(String),
   };
-  const fallo = (errores: EstadoHallazgo["errores"]): EstadoHallazgo => ({ errores, mensaje: null, valores });
+  const fallo = (errores: EstadoHallazgo["errores"]): EstadoHallazgo => ({ errores, mensaje: null, intento, valores });
   const pacienteId = String(form.get("paciente_id") ?? "");
   const odontogramaId = String(form.get("odontograma_id") ?? "");
   const d = await dentista(pacienteId);
@@ -117,27 +124,34 @@ export async function agregarHallazgo(_previo: EstadoHallazgo, form: FormData): 
   }
   revalidatePath(`/pacientes/${pacienteId}/odontograma`);
   const nombre = catalogo.find((c) => c.codigo === r.datos.hallazgo_codigo)?.nombre ?? "Hallazgo";
-  return { errores: {}, mensaje: `Hallazgo registrado: ${nombre}.`, valores: { textos: {}, superficies: [], siglas: [] } };
+  return { errores: {}, mensaje: `Hallazgo registrado: ${nombre}.`, intento, valores: { textos: {}, superficies: [], siglas: [] } };
 }
 
-export type EstadoAnular = { error: string | null };
+/** `intento` cambia en cada envío (remonta el formulario); `texto` conserva el motivo si hubo error. */
+export type EstadoAnular = { error: string | null; intento: number; texto: string };
 
-export async function anularHallazgo(_previo: EstadoAnular, form: FormData): Promise<EstadoAnular> {
+export async function anularHallazgo(previo: EstadoAnular, form: FormData): Promise<EstadoAnular> {
   const pacienteId = String(form.get("paciente_id") ?? "");
   const id = String(form.get("id") ?? "");
   const motivo = String(form.get("motivo") ?? "").trim();
+  const intento = previo.intento + 1;
+  const fallo = (error: string): EstadoAnular => ({ error, intento, texto: motivo });
   const d = await dentista(pacienteId);
-  if (d.error !== null) return { error: d.error };
-  if (!UUID.test(id)) return { error: "Hallazgo inválido." };
-  if (motivo.length < 3) return { error: "Escribe por qué se anula." };
+  if (d.error !== null) return fallo(d.error);
+  if (!UUID.test(id)) return fallo("Hallazgo inválido.");
+  if (motivo.length < 3) return fallo("Escribe por qué se anula.");
   const supabase = await createClient();
+  // Solo hallazgos de odontogramas de este paciente; RLS exige además que lo firmara quien anula.
+  const { data: odontogramas } = await supabase.from("odontograma").select("id").eq("paciente_id", pacienteId)
+    .returns<{ id: string }[]>();
   const { data, error } = await supabase.from("odontograma_hallazgo")
     .update({ anulado_at: new Date().toISOString(), anulado_por: d.sesion.usuarioId, motivo_anulacion: motivo })
-    .eq("id", id).is("anulado_at", null).select("id").maybeSingle();
+    .eq("id", id).is("anulado_at", null).in("odontograma_id", (odontogramas ?? []).map((o) => o.id))
+    .select("id").maybeSingle();
   if (error || !data) {
     if (error) registrarError("odontograma.anular", error, { id });
-    return { error: "No se pudo anular el hallazgo. Recarga la página." };
+    return fallo("No se pudo anular el hallazgo: solo lo anula quien firmó el odontograma. Recarga la página.");
   }
   revalidatePath(`/pacientes/${pacienteId}/odontograma`);
-  return { error: null };
+  return { error: null, intento, texto: "" };
 }

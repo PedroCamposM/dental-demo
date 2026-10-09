@@ -68,6 +68,7 @@ test("la odontóloga crea el odontograma inicial, registra hallazgos y pasa uno 
 });
 
 test("un odontograma de evolución parte de los hallazgos vigentes y conserva el anterior", async ({ page }) => {
+  expect(pacienteId, "depende de la primera prueba de este archivo").not.toBe("");
   await entrar(page, "mendoza@clinica-demo.example");
   await page.goto(`/pacientes/${pacienteId}/odontograma`);
   await page.getByRole("link", { name: "Nuevo odontograma" }).click();
@@ -90,6 +91,7 @@ test("un odontograma de evolución parte de los hallazgos vigentes y conserva el
 });
 
 test("la asistente ve el odontograma pero no lo modifica", async ({ page }) => {
+  expect(pacienteId, "depende de la primera prueba de este archivo").not.toBe("");
   await entrar(page, "asistente@clinica-demo.example");
   await page.goto(`/pacientes/${pacienteId}/odontograma`);
   await expect(page.getByRole("img", { name: /Odontograma evolución/ })).toBeVisible();
@@ -99,6 +101,7 @@ test("la asistente ve el odontograma pero no lo modifica", async ({ page }) => {
 });
 
 test("recepción no ve el odontograma", async ({ page }) => {
+  expect(pacienteId, "depende de la primera prueba de este archivo").not.toBe("");
   await entrar(page, "recepcion@clinica-demo.example");
   await page.goto(`/pacientes/${pacienteId}/odontograma`);
   await expect(page).toHaveURL(new RegExp(`/pacientes/${pacienteId}$`));

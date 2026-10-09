@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
-  codigosElegibles, esPiezaFdi, leerCodigoCie10, validarDiagnostico, validarExamen, type CodigoCie10,
+  codigosElegibles, esPiezaFdi, leerCodigoCie10, superficiesImposibles, validarDiagnostico, validarExamen,
+  type CodigoCie10,
 } from "./diagnostico";
 
 const entrada = (textos: Record<string, string>, listas: Record<string, string[]> = {}) => ({
@@ -46,6 +47,13 @@ describe("validarDiagnostico", () => {
     expect(r.ok === false && Object.keys(r.errores).sort()).toEqual(["cie10", "pieza", "tipo"]);
     const sinPieza = validarDiagnostico(entrada({ cie10: "K02.1", tipo: "definitivo" }, { superficies: ["oclusal"] }), ELEGIBLES);
     expect(sinPieza.ok === false && sinPieza.errores.superficies).toBe("Indica la pieza de esas superficies.");
+  });
+
+  it("rechaza superficies que la pieza no tiene", () => {
+    const r = validarDiagnostico(entrada({ cie10: "K02.1", tipo: "definitivo", pieza: "46" }, { superficies: ["palatino", "oclusal"] }), ELEGIBLES);
+    expect(r.ok === false && r.errores.superficies).toBe("La pieza 46 no tiene superficie palatino.");
+    expect(superficiesImposibles(11, ["oclusal", "incisal", "lingual"])).toEqual(["oclusal", "lingual"]);
+    expect(superficiesImposibles(74, ["oclusal", "lingual"])).toEqual([]);
   });
 
   it("piezas FDI permanentes y temporales", () => {

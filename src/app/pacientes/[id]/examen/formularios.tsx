@@ -167,14 +167,16 @@ export function FormularioDiagnostico({ pacienteId, opciones, inicial }: {
 // Adenda y anulación
 // ---------------------------------------------------------------------------
 export function Adenda({ pacienteId, diagnosticoId }: { pacienteId: string; diagnosticoId: string }) {
-  const [estado, accion, enviando] = useActionState<EstadoSimple, FormData>(agregarAdenda, { error: null, ok: false });
+  const [estado, accion, enviando] = useActionState<EstadoSimple, FormData>(agregarAdenda, {
+    error: null, ok: false, intento: 0, texto: "",
+  });
   return (
     <details className="text-sm">
       <summary className="cursor-pointer text-teal-700 hover:underline">Agregar adenda</summary>
-      <form key={String(estado.ok)} action={accion} className="mt-2 flex flex-col gap-2" noValidate>
+      <form key={estado.intento} action={accion} className="mt-2 flex flex-col gap-2" noValidate>
         <input type="hidden" name="paciente_id" value={pacienteId} />
         <input type="hidden" name="diagnostico_id" value={diagnosticoId} />
-        <textarea name="texto" rows={2} maxLength={2000} aria-label="Texto de la adenda"
+        <textarea name="texto" rows={2} maxLength={2000} aria-label="Texto de la adenda" defaultValue={estado.texto}
           placeholder="Lo que se agrega o precisa (p. ej. resultado de la radiografía)" className={ENTRADA} />
         <div className="flex items-center gap-3">
           <button type="submit" disabled={enviando} className="rounded-md border border-gray-300 px-3 py-1.5 hover:bg-gray-50">
@@ -190,15 +192,17 @@ export function Adenda({ pacienteId, diagnosticoId }: { pacienteId: string; diag
 export function Anular({ pacienteId, id, tabla, descripcion }: {
   pacienteId: string; id: string; tabla: "diagnostico" | "examen_clinico"; descripcion: string;
 }) {
-  const [estado, accion, enviando] = useActionState<EstadoSimple, FormData>(anularRegistro, { error: null, ok: false });
+  const [estado, accion, enviando] = useActionState<EstadoSimple, FormData>(anularRegistro, {
+    error: null, ok: false, intento: 0, texto: "",
+  });
   return (
     <details className="text-sm">
       <summary className="cursor-pointer text-gray-600 hover:underline">Anular</summary>
-      <form action={accion} className="mt-2 flex flex-wrap items-end gap-2" noValidate>
+      <form key={estado.intento} action={accion} className="mt-2 flex flex-wrap items-end gap-2" noValidate>
         <input type="hidden" name="paciente_id" value={pacienteId} />
         <input type="hidden" name="id" value={id} />
         <input type="hidden" name="tabla" value={tabla} />
-        <input name="motivo" maxLength={200} aria-label={`Motivo para anular ${descripcion}`}
+        <input name="motivo" maxLength={200} defaultValue={estado.texto} aria-label={`Motivo para anular ${descripcion}`}
           placeholder="Motivo (p. ej. registrado en el paciente equivocado)"
           className="min-w-64 flex-1 rounded-md border border-gray-300 px-2 py-1.5 text-sm" />
         <button type="submit" disabled={enviando} className="rounded-md border border-gray-300 px-3 py-1.5 hover:bg-gray-50">

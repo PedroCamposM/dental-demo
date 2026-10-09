@@ -1,8 +1,13 @@
 -- Imitación mínima de lo que Supabase trae de fábrica, para probar las
 -- migraciones en un Postgres local (scripts/test-db.sh). NO es una migración.
-create role anon nologin;
-create role authenticated nologin;
-create role service_role nologin bypassrls;
+-- Los roles son del clúster: test-db.sh crea una segunda base y no los repite.
+do $$ begin
+  if not exists (select 1 from pg_roles where rolname = 'anon') then
+    create role anon nologin;
+    create role authenticated nologin;
+    create role service_role nologin bypassrls;
+  end if;
+end $$;
 
 create schema extensions;
 create extension pgcrypto with schema extensions;
