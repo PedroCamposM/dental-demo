@@ -129,10 +129,15 @@ insert into public.item_plan (id, clinica_id, plan_id, pieza, procedimiento, pre
    36, 'Corona', 80000, 'a0000000-0000-0000-0000-00000000000b', 'aceptado');
 
 select pruebas.debe_fallar($$update public.item_plan set estado = 'realizado', realizado_at = now()
-  where id = 'aaaaaaaa-0000-0000-0000-0000000000c1'$$, 'nota de evolución');
+  where id = 'aaaaaaaa-0000-0000-0000-0000000000c1'$$, 'evolución firmada');
 insert into public.nota_evolucion (id, clinica_id, paciente_id, odontologo_id, texto, cie10) values
   ('aaaaaaaa-0000-0000-0000-0000000000b1', 'aaaaaaaa-0000-0000-0000-000000000000',
    'aaaaaaaa-0000-0000-0000-0000000000f1', 'a0000000-0000-0000-0000-00000000000b', 'Resina oclusal 1.6', 'K02.1');
+-- v2 (Etapa 6, cambio intencional): la nota nace en borrador; realizado exige firmarla.
+select pruebas.debe_fallar($$update public.item_plan set estado = 'realizado', realizado_at = now(),
+  nota_evolucion_id = 'aaaaaaaa-0000-0000-0000-0000000000b1' where id = 'aaaaaaaa-0000-0000-0000-0000000000c1'$$,
+  'evolución firmada');
+select public.firmar_evolucion('aaaaaaaa-0000-0000-0000-0000000000b1');
 reset role;
 
 -- Recepción no puede marcar realizado (aunque haya nota)
