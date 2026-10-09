@@ -233,7 +233,8 @@ select pruebas.igual((select count(*) from public.odontograma_hallazgo
                       where id = 'a9a9a9a9-0000-0000-0000-0000000000e1' and anulado_at is null), 1,
                      'otro dentista no anula los hallazgos de un odontograma ajeno');
 reset role;
-select pruebas.igual((select count(*) from public.auditoria where tabla = 'diagnostico_adenda'), 1,
+select pruebas.igual((select count(*) from public.auditoria where tabla = 'diagnostico_adenda'
+                        and clinica_id = 'a9a9a9a9-0000-0000-0000-000000000000'), 1,
                      'la adenda queda en la auditoría');
 set role authenticated;
 
