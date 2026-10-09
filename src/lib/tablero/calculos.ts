@@ -5,7 +5,7 @@ import { diasEntre, fechaLima, inicioMesLima } from "@/lib/fechas";
 // ---------------------------------------------------------------------------
 // Filas de entrada (mismos nombres que las columnas de la base)
 // ---------------------------------------------------------------------------
-export type EstadoPlan = "propuesto" | "aceptado" | "en_curso" | "detenido" | "terminado" | "rechazado";
+export type EstadoPlan = "propuesto" | "aceptado" | "en_curso" | "detenido" | "terminado" | "rechazado" | "reemplazado";
 export type EstadoItem = "propuesto" | "aceptado" | "programado" | "realizado" | "cancelado";
 export type EstadoCita = "programada" | "confirmada" | "atendida" | "no_asistio" | "cancelada";
 export type ResultadoSeguimiento =
@@ -27,6 +27,8 @@ export type PlanFila = {
   presentado_at: string;
   aceptado_at: string | null;
   fecha_vencimiento: string | null;
+  /** Etapa 5: versiones y alternativas de una misma propuesta (si la base ya lo tiene). */
+  grupo_id?: string | null;
 };
 export type ItemFila = { id: string; plan_id: string; estado: EstadoItem; precio_centimos: number };
 export type CuotaFila = {
@@ -171,7 +173,8 @@ export function calcularTablero(datos: DatosTablero, ahora: Date): Tablero {
   });
   listaMes.sort((a, b) => b.presentado.localeCompare(a.presentado) || b.centimos - a.centimos);
   const presentado = listaMes.map((x) => x.centimos);
-  const aceptados = datos.planes.filter((p) => p.aceptado_at && Date.parse(p.aceptado_at) >= inicioMes);
+  // Una versión reemplazada ya cuenta en la que la reemplazó.
+  const aceptados = datos.planes.filter((p) => p.aceptado_at && Date.parse(p.aceptado_at) >= inicioMes && p.estado !== "reemplazado");
   const centimosPresentado = suma(presentado);
   const centimosAceptado = suma(aceptados.map((p) => valorPlan.get(p.id) ?? 0));
 
@@ -338,11 +341,14 @@ function noShow(
 // Ayudantes
 // ---------------------------------------------------------------------------
 
-/** Alternativas (A, B…) de un mismo presupuesto: mismo paciente, presentadas el mismo día. */
-export function agruparAlternativas<P extends Pick<PlanFila, "paciente_id" | "presentado_at">>(planes: P[]): P[][] {
+/**
+ * Alternativas (A, B…) y versiones de un mismo presupuesto. Con la Etapa 5, el grupo
+ * de la base; antes, mismo paciente y mismo día de presentación.
+ */
+export function agruparAlternativas<P extends Pick<PlanFila, "paciente_id" | "presentado_at" | "grupo_id">>(planes: P[]): P[][] {
   const grupos = new Map<string, P[]>();
   for (const p of planes) {
-    const clave = `${p.paciente_id}|${fechaLima(p.presentado_at)}`;
+    const clave = p.grupo_id ?? `${p.paciente_id}|${fechaLima(p.presentado_at)}`;
     grupos.set(clave, [...(grupos.get(clave) ?? []), p]);
   }
   return [...grupos.values()];

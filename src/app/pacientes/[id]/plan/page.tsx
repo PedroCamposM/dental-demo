@@ -140,9 +140,11 @@ export default async function PlanTratamiento({ params, searchParams }: {
         )}
 
         {esDentista && (
-          <details open={planes.length === 0} className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
+          <details open={planes.length === 0 || (!!diagnostico && !propuestoReciente)} className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
             <summary className="cursor-pointer text-lg font-semibold">Nuevo plan de tratamiento</summary>
-            <div className="mt-4"><NuevoPlan pacienteId={id} /></div>
+            <div className="mt-4">
+              <NuevoPlan pacienteId={id} diagnostico={diagnostico && UUID.test(diagnostico) && !propuestoReciente ? diagnostico : undefined} />
+            </div>
           </details>
         )}
 
@@ -192,7 +194,7 @@ export default async function PlanTratamiento({ params, searchParams }: {
                   </dl>
                   {esDentista && ["propuesto", "aceptado", "en_curso", "detenido"].includes(actual.estado) && (
                     <div className="mt-4 border-t border-gray-100 pt-3">
-                      <CopiarPlan pacienteId={id} planId={actual.id} />
+                      <CopiarPlan pacienteId={id} planId={actual.id} alternativa={actual.estado === "propuesto"} />
                       <p className="mt-1 text-xs text-gray-500">
                         La versión nueva reemplaza a esta cuando el paciente la acepta; la alternativa se presenta junto a esta.
                       </p>

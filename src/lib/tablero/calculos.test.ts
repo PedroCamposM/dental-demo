@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  agruparAlternativas,
   calcularTablero,
   resumenDelMes,
   type CitaFila,
@@ -277,5 +278,24 @@ describe("total en riesgo", () => {
     expect(t.cuotasVencidas.centimos).toBe(35000);
     // 100000 abierto + 480000 detenido + 15000 de la cuota del plan al día
     expect(t.enRiesgo).toBe(595000);
+  });
+});
+
+describe("Etapa 5: versiones y alternativas", () => {
+  it("con grupo_id, agrupa por grupo aunque se presenten en días distintos", () => {
+    const planes = [
+      { paciente_id: "p", presentado_at: "2026-10-01T15:00:00Z", grupo_id: "g1" },
+      { paciente_id: "p", presentado_at: "2026-10-05T15:00:00Z", grupo_id: "g1" },
+      { paciente_id: "p", presentado_at: "2026-10-05T16:00:00Z", grupo_id: "g2" },
+    ];
+    expect(agruparAlternativas(planes).map((g) => g.length).sort()).toEqual([1, 2]);
+  });
+
+  it("sin grupo_id (antes de la Etapa 5), por paciente y día", () => {
+    const planes = [
+      { paciente_id: "p", presentado_at: "2026-10-01T15:00:00Z" },
+      { paciente_id: "p", presentado_at: "2026-10-01T18:00:00Z" },
+    ];
+    expect(agruparAlternativas(planes)).toHaveLength(1);
   });
 });

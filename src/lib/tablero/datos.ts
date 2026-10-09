@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { fechaLima } from "@/lib/fechas";
+import { modulos } from "@/lib/funciones";
 import { createClient } from "@/lib/supabase/server";
 import {
   calcularTablero,
@@ -14,6 +15,10 @@ import {
   type Tablero,
 } from "./calculos";
 import type { TipoSeguimiento } from "./mensajes";
+
+// grupo_id llega con la migración 0911 (Etapa 5); antes, las alternativas se agrupan por paciente y día.
+const COLUMNAS_PLAN: string = "id, paciente_id, titulo, estado, presentado_at, aceptado_at, fecha_vencimiento"
+  + (modulos.etapa5 ? ", grupo_id" : "");
 
 export type Plantilla = { id: string; cuerpo: string };
 
@@ -52,8 +57,8 @@ export const cargarTablero = cache(async (): Promise<TableroCargado> => {
       .select("id, nombres, apellidos, telefono, apoderado_nombre, apoderado_telefono")
       .is("anulado_at", null).order("id").range(a, b)),
     todas<PlanFila>((a, b) => supabase.from("plan_tratamiento")
-      .select("id, paciente_id, titulo, estado, presentado_at, aceptado_at, fecha_vencimiento")
-      .order("id").range(a, b)),
+      .select(COLUMNAS_PLAN)
+      .order("id").range(a, b).returns<PlanFila[]>()),
     todas<ItemFila>((a, b) => supabase.from("item_plan")
       .select("id, plan_id, estado, precio_centimos").order("id").range(a, b)),
     todas<CuotaFila>((a, b) => supabase.from("v_cuota_saldo")

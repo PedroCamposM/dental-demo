@@ -132,24 +132,62 @@ select pruebas.igual((select count(*) from public.plan_tratamiento p join ids on
                       where p.estado = 'reemplazado'), 1, 'la versión anterior queda reemplazada');
 select pruebas.igual((select count(*) from public.item_plan i join ids on ids.id = i.plan_id and ids.clave = 'b'
                       where (i.estado = 'realizado' and i.procedimiento like 'Endodoncia%')
-                         or (i.estado = 'cancelado' and i.motivo_cancelacion = 'Reemplazado por la versión 2')), 2,
+                         or (i.estado = 'cancelado' and i.motivo_cancelacion = 'Reemplazado por la versión 2 (alternativa B)')), 2,
                      'lo hecho se conserva y lo pendiente se cancela con motivo');
-select pruebas.debe_fallar($$insert into public.plan_tratamiento (clinica_id, paciente_id, odontologo_id, titulo, grupo_id, version, alternativa)
-  values ('acacacac-0000-0000-0000-000000000000', 'acacacac-0000-0000-0000-0000000000f1', 'ac000000-0000-0000-0000-00000000000b',
-          'Duplicado', 'acacacac-0000-0000-0000-0000000000a1', 2, 'B')$$, 'plan_grupo_version_alternativa');
+-- El grupo no lo elige el cliente: un grupo ajeno se ignora (revisión: alta)
+insert into public.plan_tratamiento (id, clinica_id, paciente_id, odontologo_id, titulo, grupo_id, version, alternativa)
+values ('acacacac-0000-0000-0000-0000000000a9', 'acacacac-0000-0000-0000-000000000000', 'acacacac-0000-0000-0000-0000000000f2',
+        'ac000000-0000-0000-0000-00000000000b', 'Intento de colarse', 'acacacac-0000-0000-0000-0000000000a1', 3, 'A');
+select pruebas.igual((select count(*) from public.plan_tratamiento where id = 'acacacac-0000-0000-0000-0000000000a9'
+                        and grupo_id = id), 1, 'un grupo_id enviado por el cliente se ignora');
+select pruebas.debe_fallar($$update public.plan_tratamiento set grupo_id = 'acacacac-0000-0000-0000-0000000000a1'
+                             where id = 'acacacac-0000-0000-0000-0000000000a9'$$, 'no se modifica');
+select pruebas.debe_fallar($$insert into public.plan_tratamiento (clinica_id, paciente_id, odontologo_id, titulo, plan_origen_id)
+  values ('acacacac-0000-0000-0000-000000000000', 'acacacac-0000-0000-0000-0000000000f2', 'ac000000-0000-0000-0000-00000000000b',
+          'Origen ajeno', 'acacacac-0000-0000-0000-0000000000a1')$$, 'no es de este paciente');
+-- Una alternativa solo junto a un plan propuesto
+select pruebas.debe_fallar($$select public.copiar_plan((select id from ids where clave = 'b2'), 'alternativa')$$, 'propuesto');
 
 -- Aceptación parcial: solo los ítems elegidos; el resto se cancela
-insert into ids select 'c', public.copiar_plan((select id from ids where clave = 'b2'), 'alternativa');
+insert into ids select 'c', public.copiar_plan((select id from ids where clave = 'b2'), 'version');
 insert into public.item_plan (clinica_id, plan_id, procedimiento, precio_centimos, odontologo_id, fase)
 select 'acacacac-0000-0000-0000-000000000000', id, 'Profilaxis', 15000, 'ac000000-0000-0000-0000-00000000000b', 1
   from ids where clave = 'c';
 select pruebas.debe_fallar($$select public.aceptar_plan((select id from ids where clave = 'c'), array[]::uuid[])$$, 'Elige ítems');
+-- Lo aceptado no puede requerir algo no aceptado
+insert into public.item_dependencia (clinica_id, item_id, requiere_id)
+select 'acacacac-0000-0000-0000-000000000000', p.id, c.id
+  from public.item_plan p join public.item_plan c on c.plan_id = p.plan_id and c.procedimiento like 'Corona%'
+ where p.plan_id = (select id from ids where clave = 'c') and p.procedimiento = 'Profilaxis';
+select pruebas.debe_fallar($$select public.aceptar_plan((select id from ids where clave = 'c'),
+  array(select i.id from public.item_plan i join ids on ids.id = i.plan_id and ids.clave = 'c' where i.procedimiento = 'Profilaxis'))$$,
+  'después de otro que no se acepta');
+-- (se prueba la aceptación parcial con la corona sola)
 select public.aceptar_plan((select id from ids where clave = 'c'),
-  array(select i.id from public.item_plan i join ids on ids.id = i.plan_id and ids.clave = 'c' where i.procedimiento = 'Profilaxis'));
+  array(select i.id from public.item_plan i join ids on ids.id = i.plan_id and ids.clave = 'c' where i.procedimiento like 'Corona%'));
 select pruebas.igual((select count(*) from public.item_plan i join ids on ids.id = i.plan_id and ids.clave = 'c'
-                      where (i.procedimiento = 'Profilaxis' and i.estado = 'aceptado')
-                         or (i.procedimiento like 'Corona%' and i.estado = 'cancelado' and i.motivo_cancelacion = 'El paciente no lo aceptó')), 2,
+                      where (i.procedimiento like 'Corona%' and i.estado = 'aceptado')
+                         or (i.procedimiento = 'Profilaxis' and i.estado = 'cancelado' and i.motivo_cancelacion = 'El paciente no lo aceptó')), 2,
                      'aceptación parcial');
+select pruebas.igual((select count(*) from public.plan_tratamiento p join ids on ids.id = p.id and ids.clave = 'b2'
+                      where p.estado = 'reemplazado'), 1, 'al aceptar la versión 3, la 2 en marcha queda reemplazada');
+
+-- No se reemplaza un plan con cuotas por cobrar
+insert into ids select 'd', public.copiar_plan((select id from ids where clave = 'c'), 'version');
+reset role;
+insert into public.cuota (clinica_id, plan_id, numero, monto_centimos, vence_el)
+select 'acacacac-0000-0000-0000-000000000000', id, 1, 50000, current_date + 30 from ids where clave = 'c';
+set role authenticated;
+select pruebas.como('ac000000-0000-0000-0000-00000000000d');
+select pruebas.debe_fallar($$select public.aceptar_plan((select id from ids where clave = 'd'))$$, 'cuotas por cobrar');
+-- El rechazo es atómico: el plan y sus ítems propuestos
+select public.rechazar_plan((select id from ids where clave = 'd'), 'Prefiere esperar');
+select pruebas.igual((select count(*) from public.plan_tratamiento p join ids on ids.id = p.id and ids.clave = 'd'
+                      where p.estado = 'rechazado' and p.motivo_rechazo = 'Prefiere esperar'), 1, 'rechazo con motivo');
+select pruebas.igual((select count(*) from public.item_plan i join ids on ids.id = i.plan_id and ids.clave = 'd'
+                      where i.estado <> 'cancelado'), 0, 'los ítems del plan rechazado quedan cancelados');
+select pruebas.como('ac000000-0000-0000-0000-00000000000c');
+select pruebas.debe_fallar($$select public.rechazar_plan('acacacac-0000-0000-0000-0000000000a1', 'x x x')$$, 'no registra');
 
 -- Otra clínica no ve ni acepta
 select pruebas.como('bc000000-0000-0000-0000-00000000000a');

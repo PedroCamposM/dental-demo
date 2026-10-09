@@ -21,11 +21,12 @@ const MensajeError = ({ texto }: { texto: string | null | undefined }) =>
 // ---------------------------------------------------------------------------
 // Nuevo plan y fases
 // ---------------------------------------------------------------------------
-export function NuevoPlan({ pacienteId }: { pacienteId: string }) {
+export function NuevoPlan({ pacienteId, diagnostico }: { pacienteId: string; diagnostico?: string }) {
   const [estado, accion, guardando] = useActionState(crearPlan, INICIAL);
   return (
     <form key={estado.intento} action={accion} className="grid gap-4 sm:grid-cols-[2fr_1fr_auto] sm:items-end" noValidate>
       <input type="hidden" name="paciente_id" value={pacienteId} />
+      {diagnostico && <input type="hidden" name="diagnostico" value={diagnostico} />}
       <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
         <label htmlFor="p-titulo">Título del plan</label>
         <input id="p-titulo" name="titulo" maxLength={120} defaultValue={estado.valores.titulo ?? ""}
@@ -73,10 +74,18 @@ export function NuevoItem({ pacienteId, planId, opciones, diagnosticoInicial }: 
 }) {
   const inicialPieza = opciones.diagnosticos.find((d) => d.id === diagnosticoInicial)?.pieza;
   const [estado, accion, guardando] = useActionState<EstadoItemForm, FormData>(agregarItem, {
-    errores: {}, mensaje: null, intento: 0,
+    errores: {}, mensaje: null, intento: 0, exitos: 0,
     valores: { textos: { fase: "1", diagnostico_id: diagnosticoInicial ?? "", pieza: inicialPieza ? String(inicialPieza) : "" },
       superficies: [], requiere: [] },
   });
+  return <CamposItem key={estado.exitos} {...{ pacienteId, planId, opciones, estado, accion, guardando }} />;
+}
+
+/** Remontado tras cada ítem agregado (`exitos`): así también se vacía el procedimiento elegido. */
+function CamposItem({ pacienteId, planId, opciones, estado, accion, guardando }: {
+  pacienteId: string; planId: string; opciones: OpcionesItem; estado: EstadoItemForm;
+  accion: (form: FormData) => void; guardando: boolean;
+}) {
   const v = estado.valores;
   const e = estado.errores;
   const t = (c: string) => v.textos[c] ?? "";
@@ -204,6 +213,7 @@ export function DecisionPlan({ pacienteId, planId, items }: {
   const [aceptado, aceptar, aceptando] = useActionState(aceptarPlan, INICIAL);
   const [rechazado, rechazar, rechazando] = useActionState(rechazarPlan, INICIAL);
   const [parcial, setParcial] = useState(false);
+  const elegidos = (aceptado.valores.items ?? "").split(",");
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <form key={aceptado.intento} action={aceptar} className="flex flex-col gap-2 rounded-lg border border-teal-200 bg-teal-50/40 p-3" noValidate>
@@ -217,7 +227,9 @@ export function DecisionPlan({ pacienteId, planId, items }: {
         {parcial && (
           <div className="flex flex-col gap-1 pl-6 text-sm">
             {items.map((i) => (
-              <label key={i.id} className="flex items-center gap-2"><input type="checkbox" name="items" value={i.id} /> {i.texto}</label>
+              <label key={i.id} className="flex items-center gap-2">
+                <input type="checkbox" name="items" value={i.id} defaultChecked={elegidos.includes(i.id)} /> {i.texto}
+              </label>
             ))}
           </div>
         )}
@@ -237,14 +249,16 @@ export function DecisionPlan({ pacienteId, planId, items }: {
   );
 }
 
-export function CopiarPlan({ pacienteId, planId }: { pacienteId: string; planId: string }) {
+export function CopiarPlan({ pacienteId, planId, alternativa }: { pacienteId: string; planId: string; alternativa: boolean }) {
   const [estado, accion, copiando] = useActionState(copiarPlan, INICIAL);
   return (
     <form key={estado.intento} action={accion} className="flex flex-wrap items-center gap-2" noValidate>
       <input type="hidden" name="paciente_id" value={pacienteId} />
       <input type="hidden" name="plan_id" value={planId} />
       <button type="submit" name="como" value="version" disabled={copiando} className={BOTON_SECUNDARIO}>Nueva versión</button>
-      <button type="submit" name="como" value="alternativa" disabled={copiando} className={BOTON_SECUNDARIO}>Nueva alternativa</button>
+      {alternativa && (
+        <button type="submit" name="como" value="alternativa" disabled={copiando} className={BOTON_SECUNDARIO}>Nueva alternativa</button>
+      )}
       <MensajeError texto={estado.error} />
     </form>
   );

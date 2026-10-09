@@ -34,7 +34,7 @@ type Fila = {
 
 const ESTADO_PLAN: Record<EstadoPlan, string> = {
   propuesto: "Sin respuesta", aceptado: "Aceptado", en_curso: "En curso", detenido: "Detenido",
-  terminado: "Terminado", rechazado: "Rechazado",
+  terminado: "Terminado", rechazado: "Rechazado", reemplazado: "Reemplazado por otra versión",
 };
 
 

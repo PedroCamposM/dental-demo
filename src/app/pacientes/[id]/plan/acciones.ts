@@ -46,6 +46,7 @@ export type EstadoSimple = { error: string | null; intento: number; valores: Rec
 // ---------------------------------------------------------------------------
 export async function crearPlan(previo: EstadoSimple, form: FormData): Promise<EstadoSimple> {
   const valores = { titulo: String(form.get("titulo") ?? "").trim(), fase: String(form.get("fase") ?? "").trim() };
+  const diagnostico = String(form.get("diagnostico") ?? "");
   const fallo = (error: string): EstadoSimple => ({ error, intento: previo.intento + 1, valores });
   const pacienteId = String(form.get("paciente_id") ?? "");
   const p = await permitir(pacienteId, "dentista");
@@ -63,7 +64,8 @@ export async function crearPlan(previo: EstadoSimple, form: FormData): Promise<E
   });
   if (errorFase) registrarError("plan.fase", errorFase, { plan: plan.id });
   revalidatePath(`/pacientes/${pacienteId}/plan`);
-  redirect(`/pacientes/${pacienteId}/plan?p=${plan.id}`);
+  // Si venía de «Agregar al plan», el diagnóstico sigue elegido en el formulario del ítem.
+  redirect(`/pacientes/${pacienteId}/plan?p=${plan.id}${UUID.test(diagnostico) ? `&diagnostico=${diagnostico}#agregar-item` : ""}`);
 }
 
 export async function agregarFase(previo: EstadoSimple, form: FormData): Promise<EstadoSimple> {
@@ -89,7 +91,8 @@ export async function agregarFase(previo: EstadoSimple, form: FormData): Promise
 // Ítems
 // ---------------------------------------------------------------------------
 export type EstadoItemForm = {
-  errores: Partial<Record<CampoItem | "general", string>>; mensaje: string | null; intento: number;
+  /** `exitos` cambia solo al agregar: el formulario se vacía (también el procedimiento elegido). */
+  errores: Partial<Record<CampoItem | "general", string>>; mensaje: string | null; intento: number; exitos: number;
   valores: { textos: Record<string, string>; superficies: string[]; requiere: string[] };
 };
 
@@ -101,7 +104,7 @@ export async function agregarItem(previo: EstadoItemForm, form: FormData): Promi
     superficies: form.getAll("superficies").map(String),
     requiere: form.getAll("requiere").map(String),
   };
-  const fallo = (errores: EstadoItemForm["errores"]): EstadoItemForm => ({ errores, mensaje: null, intento, valores });
+  const fallo = (errores: EstadoItemForm["errores"]): EstadoItemForm => ({ errores, mensaje: null, intento, exitos: previo.exitos, valores });
   const pacienteId = String(form.get("paciente_id") ?? "");
   const planId = String(form.get("plan_id") ?? "");
   const p = await permitir(pacienteId, "dentista");
@@ -146,7 +149,7 @@ export async function agregarItem(previo: EstadoItemForm, form: FormData): Promi
     }
   }
   revalidatePath(`/pacientes/${pacienteId}/plan`);
-  return { errores: {}, mensaje: `Agregado: ${datos.procedimiento}.`, intento, valores: { textos: { fase: valores.textos.fase ?? "1" }, superficies: [], requiere: [] } };
+  return { errores: {}, mensaje: `Agregado: ${datos.procedimiento}.`, intento, exitos: previo.exitos + 1, valores: { textos: { fase: valores.textos.fase ?? "1" }, superficies: [], requiere: [] } };
 }
 
 export async function cancelarItem(previo: EstadoSimple, form: FormData): Promise<EstadoSimple> {
@@ -177,7 +180,10 @@ export async function aceptarPlan(previo: EstadoSimple, form: FormData): Promise
   const planId = String(form.get("plan_id") ?? "");
   const parcial = form.get("parcial") === "1";
   const items = form.getAll("items").map(String);
-  const fallo = (error: string): EstadoSimple => ({ error, intento: previo.intento + 1, valores: {} });
+  // La selección vuelve en `valores` para no perderla si hay que corregir algo.
+  const fallo = (error: string): EstadoSimple => ({
+    error, intento: previo.intento + 1, valores: { parcial: parcial ? "1" : "", items: items.join(",") },
+  });
   const p = await permitir(pacienteId, "decision");
   if (p.error !== null) return fallo(p.error);
   if (!(await planDe(pacienteId, planId, ["propuesto"]))) return fallo("Este plan ya no está propuesto. Recarga la página.");
@@ -200,12 +206,9 @@ export async function rechazarPlan(previo: EstadoSimple, form: FormData): Promis
   if (valores.motivo.length < 3) return fallo("Escribe el motivo que dio el paciente.");
   if (!(await planDe(pacienteId, planId, ["propuesto"]))) return fallo("Este plan ya no está propuesto. Recarga la página.");
   const supabase = await createClient();
-  const { error } = await supabase.from("plan_tratamiento").update({ estado: "rechazado", motivo_rechazo: valores.motivo })
-    .eq("id", planId).eq("estado", "propuesto");
+  // En una sola transacción: el plan y sus ítems propuestos.
+  const { error } = await supabase.rpc("rechazar_plan", { id_plan: planId, motivo: valores.motivo });
   if (error) return fallo(mensaje(error, "plan.rechazar", "registrar el rechazo"));
-  const { error: errorItems } = await supabase.from("item_plan")
-    .update({ estado: "cancelado", motivo_cancelacion: "El paciente rechazó el plan" }).eq("plan_id", planId).eq("estado", "propuesto");
-  if (errorItems) registrarError("plan.rechazar.items", errorItems, { plan: planId });
   revalidatePath(`/pacientes/${pacienteId}/plan`);
   return { error: null, intento: previo.intento + 1, valores: {} };
 }

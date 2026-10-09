@@ -18,21 +18,49 @@ alter table public.plan_tratamiento add column grupo_id uuid;
 
 -- Relleno: cada plan es su propio grupo, salvo las alternativas (B, C…) del seed v1,
 -- que se presentaron el mismo día que la alternativa A del mismo paciente.
+-- Determinista: si hubiera dos A el mismo día se toma la primera creada, y cada letra
+-- entra una sola vez al grupo (las demás quedan como grupo propio).
 update public.plan_tratamiento set grupo_id = id;
-update public.plan_tratamiento b set grupo_id = a.id
-from public.plan_tratamiento a
-where b.alternativa <> 'A' and a.alternativa = 'A' and a.paciente_id = b.paciente_id and a.id <> b.id
-  and (a.presentado_at at time zone 'America/Lima')::date = (b.presentado_at at time zone 'America/Lima')::date;
+with pares as (
+  select distinct on (b.id) b.id as alternativa_id, a.id as plan_a, b.alternativa, b.created_at
+    from public.plan_tratamiento b
+    join public.plan_tratamiento a
+      on a.alternativa = 'A' and a.paciente_id = b.paciente_id and a.clinica_id = b.clinica_id and a.id <> b.id
+     and (a.presentado_at at time zone 'America/Lima')::date = (b.presentado_at at time zone 'America/Lima')::date
+   where b.alternativa <> 'A'
+   order by b.id, a.created_at, a.id),
+unicos as (
+  select distinct on (plan_a, alternativa) alternativa_id, plan_a from pares order by plan_a, alternativa, created_at)
+update public.plan_tratamiento b set grupo_id = u.plan_a from unicos u where b.id = u.alternativa_id;
 
+-- El grupo nunca lo elige el cliente: es el propio plan, o el del plan de origen, que
+-- debe ser de la misma clínica y del mismo paciente. Después no cambia (salvo el
+-- sistema: seed o migración, sin usuario).
 create function privado.completar_grupo_plan() returns trigger
-language plpgsql set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_origen public.plan_tratamiento;
 begin
-  if new.grupo_id is null then
-    new.grupo_id := coalesce((select grupo_id from public.plan_tratamiento where id = new.plan_origen_id), new.id);
+  if tg_op = 'UPDATE' then
+    if new.grupo_id is distinct from old.grupo_id and privado.rol_actual() is not null and not privado.en_fusion() then
+      raise exception 'El grupo del plan no se modifica';
+    end if;
+    return new;
   end if;
+  if new.plan_origen_id is null then
+    if privado.rol_actual() is not null or new.grupo_id is null then
+      new.grupo_id := new.id;
+    end if;
+    return new;
+  end if;
+  select * into v_origen from public.plan_tratamiento where id = new.plan_origen_id;
+  if v_origen.id is null or v_origen.clinica_id <> new.clinica_id or v_origen.paciente_id <> new.paciente_id then
+    raise exception 'El plan de origen no es de este paciente';
+  end if;
+  new.grupo_id := v_origen.grupo_id;
   return new;
 end $$;
-create trigger completar_grupo before insert on public.plan_tratamiento
+create trigger completar_grupo before insert or update on public.plan_tratamiento
   for each row execute function privado.completar_grupo_plan();
 alter table public.plan_tratamiento alter column grupo_id set not null;
 create index plan_grupo_idx on public.plan_tratamiento (grupo_id);
@@ -130,13 +158,14 @@ end $$;
 create trigger validar before insert on public.item_dependencia
   for each row execute function privado.validar_dependencia();
 
--- Un ítem no se marca realizado antes que los que requiere.
+-- Un ítem no se marca realizado antes que los que requiere (si el dentista canceló
+-- el requerido, ya no bloquea: fue su decisión clínica, con motivo).
 create function privado.validar_item_dependencias() returns trigger
 language plpgsql set search_path = '' as $$
 begin
   if new.estado = 'realizado' and (tg_op = 'INSERT' or old.estado <> 'realizado')
      and exists (select 1 from public.item_dependencia d join public.item_plan r on r.id = d.requiere_id
-                  where d.item_id = new.id and r.estado <> 'realizado') then
+                  where d.item_id = new.id and r.estado not in ('realizado', 'cancelado')) then
     raise exception 'Primero debe realizarse lo que este ítem requiere';
   end if;
   return new;
@@ -225,10 +254,35 @@ begin
   if exists (select 1 from public.paciente where id = v_plan.paciente_id and anulado_at is not null) then
     raise exception 'El paciente está anulado: registra el plan en el paciente vigente';
   end if;
+  -- Bloquea el grupo (solo de esta clínica y paciente) para decidir sin carreras.
+  perform 1 from public.plan_tratamiento
+   where grupo_id = v_plan.grupo_id and clinica_id = v_plan.clinica_id and paciente_id = v_plan.paciente_id for update;
   if items is not null and (cardinality(items) = 0 or exists (
        select 1 from unnest(items) x where not exists (
          select 1 from public.item_plan i where i.id = x and i.plan_id = id_plan and i.estado = 'propuesto'))) then
     raise exception 'Elige ítems propuestos de este plan';
+  end if;
+  -- Lo aceptado no puede depender de algo que no se acepta.
+  if items is not null and exists (
+       select 1 from public.item_dependencia d join public.item_plan r on r.id = d.requiere_id
+        where d.item_id = any (items) and r.estado = 'propuesto' and not (r.id = any (items))) then
+    raise exception 'Un ítem aceptado se hace después de otro que no se acepta: acéptalos juntos o pide al odontólogo una versión nueva';
+  end if;
+  -- Otro plan en marcha del grupo se reemplaza; si en lo pendiente hay pagos, cuotas
+  -- por cobrar o citas futuras, primero hay que resolverlo (no se pierden ni se duplican).
+  if exists (
+       select 1 from public.plan_tratamiento p
+        where p.grupo_id = v_plan.grupo_id and p.clinica_id = v_plan.clinica_id and p.paciente_id = v_plan.paciente_id
+          and p.id <> id_plan and p.estado in ('aceptado', 'en_curso', 'detenido')
+          and (exists (select 1 from public.v_cuota_saldo c where c.plan_id = p.id and c.saldo_centimos > 0)
+            or exists (select 1 from public.item_plan i join public.pago_aplicacion a on a.item_plan_id = i.id
+                        join public.pago g on g.id = a.pago_id and g.anulado_at is null
+                        where i.plan_id = p.id and i.estado in ('aceptado', 'programado'))
+            or exists (select 1 from public.item_plan i join public.cita_item ci on ci.item_plan_id = i.id
+                        join public.cita c on c.id = ci.cita_id
+                        where i.plan_id = p.id and i.estado in ('aceptado', 'programado')
+                          and c.estado in ('programada', 'confirmada') and c.inicio > now()))) then
+    raise exception 'El plan anterior tiene cuotas por cobrar, pagos o citas en lo pendiente: resuélvelos antes de reemplazarlo';
   end if;
 
   perform set_config('dental.proceso', 'on', true);
@@ -238,32 +292,72 @@ begin
   update public.item_plan set estado = 'cancelado', motivo_cancelacion = 'El paciente no lo aceptó'
    where plan_id = id_plan and estado = 'propuesto';
 
-  -- Otras alternativas pendientes del mismo grupo
-  update public.plan_tratamiento
-     set estado = 'rechazado', motivo_rechazo = 'Se eligió la alternativa ' || v_plan.alternativa
-   where grupo_id = v_plan.grupo_id and id <> id_plan and estado = 'propuesto';
-  update public.item_plan i set estado = 'cancelado', motivo_cancelacion = 'Se eligió otra alternativa'
+  -- Otras alternativas o versiones aún propuestas: rechazadas con motivo.
+  update public.item_plan i set estado = 'cancelado', motivo_cancelacion = 'Se eligió otra alternativa o versión'
     from public.plan_tratamiento p
-   where p.id = i.plan_id and p.grupo_id = v_plan.grupo_id and p.id <> id_plan
-     and p.estado = 'rechazado' and i.estado = 'propuesto';
+   where p.id = i.plan_id and p.grupo_id = v_plan.grupo_id and p.clinica_id = v_plan.clinica_id
+     and p.paciente_id = v_plan.paciente_id and p.id <> id_plan and p.estado = 'propuesto' and i.estado = 'propuesto';
+  update public.plan_tratamiento
+     set estado = 'rechazado',
+         motivo_rechazo = 'Se eligió la ' || case when alternativa <> v_plan.alternativa
+                                                  then 'alternativa ' || v_plan.alternativa
+                                                  else 'versión ' || v_plan.version end
+   where grupo_id = v_plan.grupo_id and clinica_id = v_plan.clinica_id and paciente_id = v_plan.paciente_id
+     and id <> id_plan and estado = 'propuesto';
 
-  -- Versiones anteriores en marcha: quedan reemplazadas; lo hecho se conserva.
+  -- Planes en marcha del grupo: reemplazados; lo hecho se conserva.
   update public.item_plan i set estado = 'cancelado',
          motivo_cancelacion = 'Reemplazado por la versión ' || v_plan.version
+                              || case when v_plan.alternativa <> 'A' then ' (alternativa ' || v_plan.alternativa || ')' else '' end
     from public.plan_tratamiento p
-   where p.id = i.plan_id and p.grupo_id = v_plan.grupo_id and p.version < v_plan.version
+   where p.id = i.plan_id and p.grupo_id = v_plan.grupo_id and p.clinica_id = v_plan.clinica_id
+     and p.paciente_id = v_plan.paciente_id and p.id <> id_plan
      and p.estado in ('aceptado', 'en_curso', 'detenido') and i.estado in ('propuesto', 'aceptado', 'programado');
   update public.plan_tratamiento set estado = 'reemplazado'
-   where grupo_id = v_plan.grupo_id and version < v_plan.version and estado in ('aceptado', 'en_curso', 'detenido');
+   where grupo_id = v_plan.grupo_id and clinica_id = v_plan.clinica_id and paciente_id = v_plan.paciente_id
+     and id <> id_plan and estado in ('aceptado', 'en_curso', 'detenido');
   perform set_config('dental.proceso', 'off', true);
 end $$;
 revoke all on function public.aceptar_plan(uuid, uuid[]) from public, anon;
 grant execute on function public.aceptar_plan(uuid, uuid[]) to authenticated;
 
+-- Rechazo del paciente: el plan y sus ítems propuestos, en una sola transacción.
+create function public.rechazar_plan(id_plan uuid, motivo text)
+returns void
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_plan public.plan_tratamiento;
+  v_rol text := privado.rol_actual();
+begin
+  if v_rol is null or v_rol = 'asistente' then
+    raise exception 'Tu rol no registra el rechazo del plan';
+  end if;
+  if char_length(btrim(coalesce(motivo, ''))) < 3 then
+    raise exception 'Escribe el motivo que dio el paciente';
+  end if;
+  select * into v_plan from public.plan_tratamiento
+   where id = id_plan and clinica_id = privado.clinica_actual() for update;
+  if v_plan.id is null then
+    raise exception 'Plan no encontrado';
+  end if;
+  if v_plan.estado <> 'propuesto' then
+    raise exception 'Solo se rechaza un plan propuesto';
+  end if;
+  perform set_config('dental.proceso', 'on', true);
+  update public.plan_tratamiento set estado = 'rechazado', motivo_rechazo = btrim(motivo) where id = id_plan;
+  update public.item_plan set estado = 'cancelado', motivo_cancelacion = 'El paciente rechazó el plan'
+   where plan_id = id_plan and estado = 'propuesto';
+  perform set_config('dental.proceso', 'off', true);
+end $$;
+revoke all on function public.rechazar_plan(uuid, text) from public, anon;
+grant execute on function public.rechazar_plan(uuid, text) to authenticated;
+
 -- ---------------------------------------------------------------------------
 -- Nueva versión (misma alternativa, versión + 1) o nueva alternativa (misma
 -- versión, letra siguiente) a partir de un plan: copia fases, ítems pendientes y
 -- dependencias. Solo un cirujano dentista. Devuelve el id del plan nuevo.
+-- La alternativa se presenta junto a un plan propuesto; la versión, desde uno
+-- propuesto o en marcha.
 -- ---------------------------------------------------------------------------
 create function public.copiar_plan(id_plan uuid, como text)
 returns uuid
@@ -284,18 +378,27 @@ begin
   if v_plan.id is null then
     raise exception 'Plan no encontrado';
   end if;
+  if como = 'alternativa' and v_plan.estado <> 'propuesto' then
+    raise exception 'Las alternativas se presentan junto a un plan propuesto; para cambiar uno aceptado, crea una versión';
+  end if;
+  if v_plan.estado not in ('propuesto', 'aceptado', 'en_curso', 'detenido') then
+    raise exception 'Este plan ya no se puede copiar';
+  end if;
   if exists (select 1 from public.paciente where id = v_plan.paciente_id and anulado_at is not null) then
     raise exception 'El paciente está anulado: registra el plan en el paciente vigente';
   end if;
   -- Bloquea el grupo para numerar sin choques.
-  perform 1 from public.plan_tratamiento where grupo_id = v_plan.grupo_id for update;
+  perform 1 from public.plan_tratamiento
+   where grupo_id = v_plan.grupo_id and clinica_id = v_plan.clinica_id and paciente_id = v_plan.paciente_id for update;
   if como = 'version' then
-    v_version := (select max(version) + 1 from public.plan_tratamiento where grupo_id = v_plan.grupo_id);
+    v_version := (select max(version) + 1 from public.plan_tratamiento
+                   where grupo_id = v_plan.grupo_id and clinica_id = v_plan.clinica_id);
     v_alternativa := v_plan.alternativa;
   else
     v_version := v_plan.version;
     v_alternativa := chr(ascii((select max(alternativa) from public.plan_tratamiento
-                                 where grupo_id = v_plan.grupo_id and version = v_plan.version)) + 1);
+                                 where grupo_id = v_plan.grupo_id and clinica_id = v_plan.clinica_id
+                                   and version = v_plan.version)) + 1);
     if v_alternativa > 'Z' then
       raise exception 'No caben más alternativas';
     end if;
