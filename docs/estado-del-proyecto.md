@@ -313,9 +313,36 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   Se verificó en el remoto (solo lectura) que no hay dos planes de la misma letra del
   mismo paciente el mismo día (el relleno de grupos no choca).
 
+## v2 — Etapa 6 (evolución por sesión firmada): en la rama, falta migrar el remoto
+
+- **0912** (`evolucion_firmada`): la «nota» de la v1 pasa a ser la evolución.
+  `nota_evolucion` suma cita, anestesia (tipo y cantidad), materiales, incidencias,
+  indicaciones, próxima cita sugerida y `firmada_at`. Las 132 notas de la v1 quedan
+  firmadas en su propia fecha. Estado de cita `en_sala`.
+  - Borrador → lo edita solo su autor. Firmada → no se edita; solo adendas
+    (`evolucion_adenda`, con fecha y autor, auditadas) o anulación con motivo si no
+    respalda ítems realizados.
+  - `evolucion_item`: ítems del plan trabajados y terminados en la sesión (sin DELETE:
+    se desmarcan).
+  - `abrir_evolucion(cita)` («Atender»): crea el borrador a nombre del dentista con los
+    ítems de la cita y deja la cita «en sala».
+  - `firmar_evolucion(nota)`: solo el autor; los ítems terminados pasan a realizado
+    (respetando dependencias: si el orden falla, no firma) y la cita queda atendida.
+  - Regla 3 ahora: realizado = evolución **firmada** (el consentimiento llega en la Etapa 7).
+- Pantalla (`HABILITAR_ETAPA6`): pestaña «Evolución» (dentistas y asistente) y en la
+  agenda «En sala» (toda la clínica, solo hoy) y «Atender» / «Continuar evolución»
+  (cirujano dentista). «Nueva evolución sin cita» para urgencias.
+- Tests: `supabase/tests/evolucion.test.sql`, `rls_reglas.test.sql` actualizado a
+  propósito (realizado exige evolución firmada), Vitest `src/lib/clinico/evolucion.test.ts`,
+  Playwright `e2e/evolucion.spec.ts` (recepción → en sala; odontóloga → atiende, firma,
+  adenda; asistente solo lee).
+- Checklist: `docs/checklist-etapa6.md`.
+- Para el remoto: «Aplicar migraciones» (0910, 0911 y 0912), cargar `seed_etapa4.sql` y
+  `seed_etapa5.sql`, y `HABILITAR_ETAPA4/5/6=1` en Vercel Preview.
+
 ## Próximas etapas (CLAUDE.md)
 
-6 evolución firmada · 7 consentimientos, recetas, imágenes ·
+7 consentimientos, recetas, imágenes ·
 8 tablero clínico y caja · 9 especialidades · 10 laboratorio · 11 PDF · 12 seed y guion.
 Falta en `/docs`: formatos de la clínica piloto (historia y consentimientos),
 necesarios antes de la Etapa 7. La Etapa 4 incluye además lo de las fichas
