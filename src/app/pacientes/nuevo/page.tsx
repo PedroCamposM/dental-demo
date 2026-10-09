@@ -18,7 +18,7 @@ export default async function NuevoPaciente() {
       <main className="mx-auto max-w-3xl px-4 py-8">
         <Link href="/pacientes" className="text-sm font-medium text-teal-700 hover:underline">← Pacientes</Link>
         <h1 className="mb-6 mt-3 text-2xl font-semibold">Nuevo paciente</h1>
-        <FormularioPaciente />
+        <FormularioPaciente nts139={modulos.etapa3} />
       </main>
     </>
   );

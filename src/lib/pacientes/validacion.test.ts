@@ -125,4 +125,44 @@ describe("validarPaciente", () => {
     const r = validarPaciente({ ...ADULTO, tipo_documento: "ruc", sexo: "x" }, HOY);
     expect(!r.ok && Object.keys(r.errores).sort()).toEqual(["sexo", "tipo_documento"]);
   });
+
+  describe("filiación NTS 139", () => {
+    it("todo es opcional: un adulto sin estos datos se guarda con null", () => {
+      const r = validarPaciente(ADULTO, HOY);
+      expect(r.ok && r.datos).toMatchObject({
+        grupo_sanguineo: null, estado_civil: null, grado_instruccion: null, seguro: null, seguro_numero: null,
+        lugar_nacimiento: null, procedencia: null, religion: null, apoderado_direccion: null,
+      });
+    });
+
+    it("guarda los datos válidos", () => {
+      const r = validarPaciente({
+        ...ADULTO, grupo_sanguineo: "O+", estado_civil: "casado", grado_instruccion: "superior_completa",
+        seguro: "essalud", seguro_numero: " 1234 5678 ", lugar_nacimiento: "Trujillo", procedencia: "Huanchaco",
+      }, HOY);
+      expect(r.ok && r.datos).toMatchObject({
+        grupo_sanguineo: "O+", estado_civil: "casado", grado_instruccion: "superior_completa",
+        seguro: "essalud", seguro_numero: "1234 5678", lugar_nacimiento: "Trujillo", procedencia: "Huanchaco",
+      });
+    });
+
+    it("rechaza valores fuera de la lista", () => {
+      const r = validarPaciente({ ...ADULTO, grupo_sanguineo: "C+", estado_civil: "x", grado_instruccion: "doctorado", seguro: "soat" }, HOY);
+      expect(!r.ok && Object.keys(r.errores).sort()).toEqual(["estado_civil", "grado_instruccion", "grupo_sanguineo", "seguro"]);
+    });
+
+    it("el número de seguro exige elegir el seguro y se descarta si es «ninguno»", () => {
+      const sinSeguro = validarPaciente({ ...ADULTO, seguro_numero: "123" }, HOY);
+      expect(!sinSeguro.ok && sinSeguro.errores.seguro).toBeTruthy();
+      const ninguno = validarPaciente({ ...ADULTO, seguro: "ninguno", seguro_numero: "123" }, HOY);
+      expect(ninguno.ok && ninguno.datos.seguro_numero).toBe(null);
+    });
+
+    it("el domicilio del apoderado solo se guarda en menores", () => {
+      const menor = validarPaciente({ ...MENOR, apoderado_direccion: "Jr. Pizarro 123" }, HOY);
+      expect(menor.ok && menor.datos.apoderado_direccion).toBe("Jr. Pizarro 123");
+      const adulto = validarPaciente({ ...ADULTO, apoderado_direccion: "Jr. Pizarro 123" }, HOY);
+      expect(adulto.ok && adulto.datos.apoderado_direccion).toBe(null);
+    });
+  });
 });

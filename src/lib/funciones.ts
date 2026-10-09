@@ -16,7 +16,7 @@ export const modulos = {
   etapa2: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA2 === "1",
   /**
    * Etapa 3: historia clínica versionada, signos vitales y alertas clínicas.
-   * Requiere la migración 0908 (y las etapas 1 y 2).
+   * Requiere las migraciones 0908 y 0909 (y las etapas 1 y 2).
    */
   etapa3: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA2 === "1"
     && process.env.HABILITAR_ETAPA3 === "1",

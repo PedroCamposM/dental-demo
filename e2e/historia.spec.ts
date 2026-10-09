@@ -15,10 +15,19 @@ async function crearPaciente(page: Page) {
   await page.getByLabel("Fecha de nacimiento").fill("1990-05-20");
   await page.getByLabel("Sexo").selectOption("femenino");
   await page.locator("#campo-telefono").fill("944111222");
+  // Filiación NTS 139 (opcional)
+  await page.getByLabel("Lugar de nacimiento").fill("Huamachuco");
+  await page.getByLabel("Grupo sanguíneo y factor Rh").selectOption("O+");
+  await page.getByLabel("Estado civil").selectOption("conviviente");
+  await page.getByLabel("Seguro", { exact: true }).selectOption("sis");
+  await page.getByLabel("N° de afiliación").fill("SIS-123456");
   await page.getByLabel(/autoriza el tratamiento de sus datos/).check();
   await registrarYEsperarFicha(page);
   pacienteId = page.url().split("/pacientes/")[1]?.split("?")[0] ?? "";
   expect(pacienteId).toMatch(/^[0-9a-f-]{36}$/);
+  await expect(page.getByText(/^Historia clínica N° \d{8} \(DNI\)/)).toBeVisible();
+  await expect(page.getByText("Huamachuco")).toBeVisible();
+  await expect(page.getByText("SIS · N° SIS-123456")).toBeVisible();
 }
 
 test("la odontóloga registra la historia y la actualiza en una versión nueva", async ({ page }) => {
@@ -31,6 +40,9 @@ test("la odontóloga registra la historia y la actualiza en una versión nueva",
   await expect(page.getByText("Aún no tiene historia clínica.")).toBeVisible();
   await page.getByRole("link", { name: "Registrar historia" }).click();
   await page.locator("#h-motivo_consulta").fill("Dolor en molar inferior derecho");
+  await page.locator("#h-tiempo_enfermedad").fill("5 días");
+  await page.getByRole("radio", { name: "Brusco" }).check();
+  await page.locator("#h-antecedentes_familiares").fill("Padre con diabetes");
   await page.locator("#h-alergias").fill("Penicilina");
   await page.getByLabel("Hipertensión arterial").check();
   await page.getByLabel("Bruxismo").check();
@@ -38,11 +50,16 @@ test("la odontóloga registra la historia y la actualiza en una versión nueva",
   await expect(page.getByText("Historia guardada como versión 1.")).toBeVisible();
   await expect(alertas).toContainText("Alergia: Penicilina");
   await expect(alertas).toContainText("Hipertensión arterial");
+  await expect(page.getByText("5 días")).toBeVisible();
+  await expect(page.getByText("Brusco")).toBeVisible();
 
   // Versión 2: falta el anticoagulante → error, sin perder lo escrito
   await page.getByRole("link", { name: "Actualizar historia" }).click();
   await expect(page.locator("#h-alergias")).toHaveValue("Penicilina");
   await expect(page.getByLabel("Hipertensión arterial")).toBeChecked();
+  // Lo de la consulta anterior empieza vacío; los antecedentes se arrastran
+  await expect(page.locator("#h-tiempo_enfermedad")).toHaveValue("");
+  await expect(page.locator("#h-antecedentes_familiares")).toHaveValue("Padre con diabetes");
   await page.locator("#h-motivo_consulta").fill("Control");
   await page.getByLabel(/Toma anticoagulantes/).check();
   await page.getByRole("radio", { name: "Sí" }).check();

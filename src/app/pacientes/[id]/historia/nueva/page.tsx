@@ -23,7 +23,9 @@ export default async function NuevaVersion({ params }: { params: Promise<{ id: s
   // La versión nueva parte de la vigente: se revisa y se corrige lo que cambió.
   const inicial: ValoresCuestionario = vigente ? {
     textos: {
-      motivo_consulta: "", enfermedad_actual: "",
+      // Lo propio de cada consulta (motivo y enfermedad actual) empieza vacío.
+      motivo_consulta: "", tiempo_enfermedad: "", forma_inicio: "", enfermedad_actual: "", funciones_biologicas: "",
+      antecedentes_familiares: vigente.antecedentes_familiares ?? "",
       enfermedades_otras: vigente.enfermedades_otras ?? "", cirugias: vigente.cirugias ?? "",
       hospitalizaciones: vigente.hospitalizaciones ?? "", medicacion: vigente.medicacion ?? "",
       anticoagulado: vigente.anticoagulado ? "1" : "", anticoagulante: vigente.anticoagulante ?? "",

@@ -36,9 +36,13 @@ create table public.cuestionario_salud (
   version                    smallint not null check (version >= 1),
   registrado_por             uuid default auth.uid(),
   registrado_at              timestamptz not null default now(),
-  -- Anamnesis
+  -- Anamnesis (NTS 139, 5.2.1: motivo de consulta, forma de inicio, tiempo de
+  -- enfermedad, síntomas y signos principales, funciones biológicas)
   motivo_consulta            text not null check (char_length(btrim(motivo_consulta)) between 3 and 500),
+  tiempo_enfermedad          text check (char_length(tiempo_enfermedad) <= 100),
+  forma_inicio               text check (forma_inicio in ('brusco', 'insidioso')),
   enfermedad_actual          text check (char_length(enfermedad_actual) <= 2000),
+  funciones_biologicas       text check (char_length(funciones_biologicas) <= 500),
   -- Antecedentes médicos
   enfermedades               text[] not null default '{}' check (enfermedades <@ array[
                                'hipertension', 'diabetes', 'cardiopatia', 'asma', 'epilepsia', 'hepatitis', 'vih',
@@ -46,6 +50,7 @@ create table public.cuestionario_salud (
   enfermedades_otras         text check (char_length(enfermedades_otras) <= 500),
   cirugias                   text check (char_length(cirugias) <= 1000),
   hospitalizaciones          text check (char_length(hospitalizaciones) <= 1000),
+  antecedentes_familiares    text check (char_length(antecedentes_familiares) <= 1000),
   medicacion                 text check (char_length(medicacion) <= 1000),
   anticoagulado              boolean not null default false,
   anticoagulante             text check (char_length(anticoagulante) <= 200),
@@ -183,8 +188,9 @@ create policy signos_anular on public.signos_vitales for update to authenticated
 
 revoke all on public.cuestionario_salud, public.signos_vitales from anon, authenticated;
 grant select on public.cuestionario_salud to authenticated;
-grant insert (id, clinica_id, paciente_id, registrado_por, motivo_consulta, enfermedad_actual, enfermedades,
-              enfermedades_otras, cirugias, hospitalizaciones, medicacion, anticoagulado, anticoagulante, alergias,
+grant insert (id, clinica_id, paciente_id, registrado_por, motivo_consulta, tiempo_enfermedad, forma_inicio,
+              enfermedad_actual, funciones_biologicas, enfermedades, enfermedades_otras, cirugias, hospitalizaciones,
+              antecedentes_familiares, medicacion, anticoagulado, anticoagulante, alergias,
               embarazo, semanas_gestacion, lactancia, habitos, habitos_otros, antecedentes_odontologicos, observaciones)
   on public.cuestionario_salud to authenticated;
 grant select on public.signos_vitales to authenticated;
@@ -298,11 +304,13 @@ begin
   -- marcada para revisión.
   if n_historia > 0 and v_desfase > 0 then
     insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, motivo_consulta, enfermedades,
-      enfermedades_otras, medicacion, anticoagulado, anticoagulante, alergias, embarazo, semanas_gestacion, lactancia,
+      enfermedades_otras, antecedentes_familiares, medicacion, anticoagulado, anticoagulante, alergias, embarazo, semanas_gestacion, lactancia,
       habitos, observaciones)
     select v_clinica, conservar, auth.uid(), 'Versión conciliada al fusionar registros duplicados',
            (select coalesce(array_agg(distinct e order by e), '{}') from unnest(a.enfermedades || b.enfermedades) e),
            nullif(concat_ws('; ', a.enfermedades_otras, nullif(b.enfermedades_otras, a.enfermedades_otras)), ''),
+           nullif(concat_ws('; ', a.antecedentes_familiares,
+                            nullif(b.antecedentes_familiares, a.antecedentes_familiares)), ''),
            nullif(concat_ws('; ', a.medicacion, nullif(b.medicacion, a.medicacion)), ''),
            a.anticoagulado or b.anticoagulado,
            nullif(concat_ws('; ', case when a.anticoagulado then a.anticoagulante end,
@@ -346,7 +354,16 @@ begin
     apoderado_nombre = coalesce(p.apoderado_nombre, v_dup.apoderado_nombre),
     apoderado_dni = coalesce(p.apoderado_dni, v_dup.apoderado_dni),
     apoderado_telefono = coalesce(p.apoderado_telefono, v_dup.apoderado_telefono),
-    apoderado_parentesco = coalesce(p.apoderado_parentesco, v_dup.apoderado_parentesco)
+    apoderado_parentesco = coalesce(p.apoderado_parentesco, v_dup.apoderado_parentesco),
+    apoderado_direccion = coalesce(p.apoderado_direccion, v_dup.apoderado_direccion),
+    lugar_nacimiento = coalesce(p.lugar_nacimiento, v_dup.lugar_nacimiento),
+    procedencia = coalesce(p.procedencia, v_dup.procedencia),
+    grupo_sanguineo = coalesce(p.grupo_sanguineo, v_dup.grupo_sanguineo),
+    estado_civil = coalesce(p.estado_civil, v_dup.estado_civil),
+    grado_instruccion = coalesce(p.grado_instruccion, v_dup.grado_instruccion),
+    seguro = coalesce(p.seguro, v_dup.seguro),
+    seguro_numero = coalesce(p.seguro_numero, v_dup.seguro_numero),
+    religion = coalesce(p.religion, v_dup.religion)
   where p.id = conservar;
 
   perform set_config('dental.fusion', 'on', true);

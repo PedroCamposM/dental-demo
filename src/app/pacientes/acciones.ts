@@ -4,7 +4,9 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { fechaLima } from "@/lib/fechas";
 import { modulos } from "@/lib/funciones";
-import { validarPaciente, type EntradaPaciente, type Errores, type CampoPaciente } from "@/lib/pacientes/validacion";
+import {
+  CAMPOS_NTS139, validarPaciente, type EntradaPaciente, type Errores, type CampoPaciente, type PacienteValidado,
+} from "@/lib/pacientes/validacion";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
@@ -27,7 +29,7 @@ export type EstadoFormulario = {
 const CAMPOS: CampoPaciente[] = [
   "tipo_documento", "numero_documento", "nombres", "apellidos", "fecha_nacimiento", "sexo", "telefono", "ocupacion",
   "direccion", "contacto_emergencia_nombre", "contacto_emergencia_telefono", "contacto_emergencia_parentesco",
-  "apoderado_nombre", "apoderado_dni", "apoderado_telefono", "apoderado_parentesco",
+  "apoderado_nombre", "apoderado_dni", "apoderado_telefono", "apoderado_parentesco", ...CAMPOS_NTS139,
 ];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -50,13 +52,15 @@ export async function guardarPaciente(_previo: EstadoFormulario, form: FormData)
   if (!resultado.ok || sinConsentimiento) {
     return { ...vacio, errores: resultado.ok ? {} : resultado.errores, consentimiento: sinConsentimiento };
   }
-  const datos = resultado.datos;
+  // Las columnas NTS 139 llegan con la migración 0908: sin la Etapa 3 no se envían.
+  const datos: Partial<PacienteValidado> = { ...resultado.datos };
+  if (!modulos.etapa3) for (const c of CAMPOS_NTS139) delete datos[c];
 
   const supabase = await createClient();
 
   if (!id && !confirmaDuplicado) {
     const { data: duplicados, error } = await supabase.rpc("posibles_duplicados", {
-      nombres: datos.nombres, apellidos: datos.apellidos, fecha_nacimiento: datos.fecha_nacimiento,
+      nombres: resultado.datos.nombres, apellidos: resultado.datos.apellidos, fecha_nacimiento: resultado.datos.fecha_nacimiento,
     });
     if (error) {
       registrarError("pacientes.duplicados", error);

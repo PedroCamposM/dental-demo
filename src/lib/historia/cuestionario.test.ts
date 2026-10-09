@@ -37,6 +37,17 @@ describe("validarCuestionario", () => {
     expect(r.ok === false && r.errores.semanas_gestacion).toBe("Entre 1 y 42 semanas.");
   });
 
+  it("anamnesis NTS 139: forma de inicio de la lista y textos opcionales", () => {
+    const ok = validarCuestionario(entrada({ motivo_consulta: "Dolor", forma_inicio: "brusco", tiempo_enfermedad: " 3 días ",
+      antecedentes_familiares: "Madre con HTA" }), false);
+    expect(ok.ok && ok.datos).toMatchObject({ forma_inicio: "brusco", tiempo_enfermedad: "3 días",
+      antecedentes_familiares: "Madre con HTA", funciones_biologicas: null });
+    const mal = validarCuestionario(entrada({ motivo_consulta: "Dolor", forma_inicio: "subito" }), false);
+    expect(mal.ok === false && mal.errores.forma_inicio).toBe("Elige brusco o insidioso.");
+    const largo = validarCuestionario(entrada({ motivo_consulta: "Dolor", tiempo_enfermedad: "x".repeat(101) }), false);
+    expect(largo.ok === false && largo.errores.tiempo_enfermedad).toBe("Máximo 100 caracteres.");
+  });
+
   it("lee alergias separadas por comas, punto y coma o líneas", () => {
     expect(leerAlergias("AINES; Penicilina\n  aines ")).toEqual(["AINES", "Penicilina"]);
   });

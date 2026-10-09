@@ -12,6 +12,29 @@ export const TIPOS_DOCUMENTO: Record<TipoDocumento, string> = {
 };
 export const SEXOS: Record<Sexo, string> = { femenino: "Femenino", masculino: "Masculino" };
 
+// Formato de Filiación de la NTS 139-MINSA/2018/DGAIN (formatos especiales, 1).
+export const GRUPOS_SANGUINEOS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"] as const;
+export const ESTADOS_CIVILES = {
+  soltero: "Soltero(a)", conviviente: "Conviviente", casado: "Casado(a)", separado: "Separado(a)",
+  divorciado: "Divorciado(a)", viudo: "Viudo(a)", otro: "Otro",
+} as const;
+export const GRADOS_INSTRUCCION = {
+  sin_instruccion: "Sin instrucción", inicial: "Inicial",
+  primaria_incompleta: "Primaria incompleta", primaria_completa: "Primaria completa",
+  secundaria_incompleta: "Secundaria incompleta", secundaria_completa: "Secundaria completa",
+  superior_incompleta: "Superior incompleta", superior_completa: "Superior completa",
+} as const;
+export const SEGUROS = {
+  ninguno: "Ninguno", sis: "SIS", essalud: "EsSalud", eps: "EPS", privado: "Seguro privado", otro: "Otro",
+} as const;
+
+/** Campos de la filiación NTS 139 (migración 0908). Se guardan solo con la Etapa 3 encendida. */
+export const CAMPOS_NTS139 = [
+  "lugar_nacimiento", "procedencia", "grupo_sanguineo", "estado_civil", "grado_instruccion",
+  "seguro", "seguro_numero", "religion", "apoderado_direccion",
+] as const;
+export type CampoNts139 = (typeof CAMPOS_NTS139)[number];
+
 /** Lo que llega del formulario: todo texto, todo opcional. */
 export type EntradaPaciente = Partial<Record<CampoPaciente, string>>;
 
@@ -19,7 +42,8 @@ export type CampoPaciente =
   | "tipo_documento" | "numero_documento" | "nombres" | "apellidos" | "fecha_nacimiento" | "sexo"
   | "telefono" | "ocupacion" | "direccion"
   | "contacto_emergencia_nombre" | "contacto_emergencia_telefono" | "contacto_emergencia_parentesco"
-  | "apoderado_nombre" | "apoderado_dni" | "apoderado_telefono" | "apoderado_parentesco";
+  | "apoderado_nombre" | "apoderado_dni" | "apoderado_telefono" | "apoderado_parentesco"
+  | CampoNts139;
 
 /** Fila lista para insertar o actualizar en `paciente`. */
 export type PacienteValidado = {
@@ -39,6 +63,15 @@ export type PacienteValidado = {
   apoderado_dni: string | null;
   apoderado_telefono: string | null;
   apoderado_parentesco: string | null;
+  lugar_nacimiento: string | null;
+  procedencia: string | null;
+  grupo_sanguineo: (typeof GRUPOS_SANGUINEOS)[number] | null;
+  estado_civil: keyof typeof ESTADOS_CIVILES | null;
+  grado_instruccion: keyof typeof GRADOS_INSTRUCCION | null;
+  seguro: keyof typeof SEGUROS | null;
+  seguro_numero: string | null;
+  religion: string | null;
+  apoderado_direccion: string | null;
 };
 
 export type Errores = Partial<Record<CampoPaciente, string>>;
@@ -157,6 +190,21 @@ export function validarPaciente(entrada: EntradaPaciente, hoy: string): Resultad
     if (!apoderadoParentesco) errores.apoderado_parentesco = "Indica el parentesco del apoderado.";
   }
 
+  // Filiación NTS 139: todo opcional, pero si se elige algo debe ser de la lista.
+  function deLista<T extends string>(campo: CampoPaciente, opciones: readonly T[], mensaje: string): T | null {
+    const valor = (entrada[campo] ?? "").trim();
+    if (!valor) return null;
+    if ((opciones as readonly string[]).includes(valor)) return valor as T;
+    errores[campo] = mensaje;
+    return null;
+  }
+  const grupoSanguineo = deLista("grupo_sanguineo", GRUPOS_SANGUINEOS, "Elige el grupo sanguíneo y factor Rh de la lista.");
+  const estadoCivil = deLista("estado_civil", Object.keys(ESTADOS_CIVILES) as (keyof typeof ESTADOS_CIVILES)[], "Elige el estado civil de la lista.");
+  const gradoInstruccion = deLista("grado_instruccion", Object.keys(GRADOS_INSTRUCCION) as (keyof typeof GRADOS_INSTRUCCION)[], "Elige el grado de instrucción de la lista.");
+  const seguro = deLista("seguro", Object.keys(SEGUROS) as (keyof typeof SEGUROS)[], "Elige el seguro de la lista.");
+  const seguroNumero = seguro && seguro !== "ninguno" ? texto(entrada.seguro_numero, 30) : null;
+  if (!seguro && texto(entrada.seguro_numero)) errores.seguro = "Elige el seguro al que corresponde el número.";
+
   if (Object.keys(errores).length > 0) return { ok: false, errores };
   return {
     ok: true,
@@ -177,6 +225,15 @@ export function validarPaciente(entrada: EntradaPaciente, hoy: string): Resultad
       apoderado_dni: apoderadoDni,
       apoderado_telefono: apoderadoTelefono,
       apoderado_parentesco: apoderadoParentesco,
+      lugar_nacimiento: texto(entrada.lugar_nacimiento, 120),
+      procedencia: texto(entrada.procedencia, 200),
+      grupo_sanguineo: grupoSanguineo,
+      estado_civil: estadoCivil,
+      grado_instruccion: gradoInstruccion,
+      seguro,
+      seguro_numero: seguroNumero,
+      religion: texto(entrada.religion, 60),
+      apoderado_direccion: menor ? texto(entrada.apoderado_direccion, 200) : null,
     },
   };
 }

@@ -1,7 +1,7 @@
 import "server-only";
 import { notFound, redirect } from "next/navigation";
 import { fechaLima } from "@/lib/fechas";
-import type { Embarazo, Enfermedad, Habito } from "@/lib/historia/cuestionario";
+import type { Embarazo, Enfermedad, FormaInicio, Habito } from "@/lib/historia/cuestionario";
 import { modulos } from "@/lib/funciones";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion, type Sesion } from "@/lib/sesion";
@@ -11,8 +11,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type PacienteClinico = {
   id: string; nombres: string; apellidos: string; sexo: string | null; fecha_nacimiento: string | null;
-  anulado_at: string | null;
+  anulado_at: string | null; numero_documento: string | null;
 };
+export const COLUMNAS_PACIENTE = "id, nombres, apellidos, sexo, fecha_nacimiento, anulado_at, numero_documento";
 
 /** Mujer de 12 años o más: el cuestionario pregunta por embarazo y lactancia. */
 export function puedeGestar(p: PacienteClinico): boolean {
@@ -34,7 +35,7 @@ export async function abrirHistoria(id: string): Promise<{ sesion: Sesion; pacie
   if (!sesion.veClinico) redirect(`/pacientes/${id}`);
   const supabase = await createClient();
   const { data, error } = await supabase.from("paciente")
-    .select("id, nombres, apellidos, sexo, fecha_nacimiento, anulado_at").eq("id", id).maybeSingle<PacienteClinico>();
+    .select(COLUMNAS_PACIENTE).eq("id", id).maybeSingle<PacienteClinico>();
   if (error) registrarError("historia.paciente", error, { paciente: id });
   if (!data) notFound();
   // Todo acceso a la historia (también signos y el formulario) queda en la auditoría.
@@ -48,13 +49,15 @@ export async function abrirHistoria(id: string): Promise<{ sesion: Sesion; pacie
 
 export type Version = {
   id: string; version: number; registrado_at: string; registrado_por: string | null;
-  motivo_consulta: string; enfermedad_actual: string | null; enfermedades: Enfermedad[]; enfermedades_otras: string | null;
-  cirugias: string | null; hospitalizaciones: string | null; medicacion: string | null; anticoagulado: boolean;
+  motivo_consulta: string; tiempo_enfermedad: string | null; forma_inicio: FormaInicio | null;
+  enfermedad_actual: string | null; funciones_biologicas: string | null; enfermedades: Enfermedad[]; enfermedades_otras: string | null;
+  cirugias: string | null; hospitalizaciones: string | null; antecedentes_familiares: string | null; medicacion: string | null; anticoagulado: boolean;
   anticoagulante: string | null; alergias: string[]; embarazo: Embarazo; semanas_gestacion: number | null;
   lactancia: boolean; habitos: Habito[]; habitos_otros: string | null; antecedentes_odontologicos: string | null;
   observaciones: string | null;
 };
 
-export const COLUMNAS_VERSION = "id, version, registrado_at, registrado_por, motivo_consulta, enfermedad_actual, enfermedades, "
-  + "enfermedades_otras, cirugias, hospitalizaciones, medicacion, anticoagulado, anticoagulante, alergias, embarazo, "
+export const COLUMNAS_VERSION = "id, version, registrado_at, registrado_por, motivo_consulta, tiempo_enfermedad, forma_inicio, "
+  + "enfermedad_actual, funciones_biologicas, enfermedades, enfermedades_otras, cirugias, hospitalizaciones, "
+  + "antecedentes_familiares, medicacion, anticoagulado, anticoagulante, alergias, embarazo, "
   + "semanas_gestacion, lactancia, habitos, habitos_otros, antecedentes_odontologicos, observaciones";

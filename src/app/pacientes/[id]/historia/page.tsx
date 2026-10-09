@@ -3,7 +3,7 @@ import Link from "next/link";
 import { AlertasPaciente } from "@/components/alertas-paciente";
 import { Encabezado } from "@/components/encabezado";
 import { fechaLima, formatearFecha, horaLima } from "@/lib/fechas";
-import { EMBARAZO, ENFERMEDADES, HABITOS } from "@/lib/historia/cuestionario";
+import { EMBARAZO, ENFERMEDADES, FORMA_INICIO, HABITOS } from "@/lib/historia/cuestionario";
 import { registrarError } from "@/lib/registro";
 import { createClient } from "@/lib/supabase/server";
 import { abrirHistoria, COLUMNAS_VERSION, type Version } from "../datos-clinicos";
@@ -31,11 +31,12 @@ export default async function Historia({ params, searchParams }: {
   const [{ data: versiones, error }, { data: equipo }] = await Promise.all([
     supabase.from("cuestionario_salud").select(COLUMNAS_VERSION).eq("paciente_id", id)
       .order("registrado_at", { ascending: false }).order("version", { ascending: false }).returns<Version[]>(),
-    supabase.from("usuario").select("id, nombre").returns<{ id: string; nombre: string }[]>(),
+    supabase.from("usuario").select("id, nombre, cop").returns<{ id: string; nombre: string; cop: string | null }[]>(),
   ]);
   if (error) registrarError("historia.versiones", error, { paciente: id });
   const lista = versiones ?? [];
-  const autor = new Map((equipo ?? []).map((u) => [u.id, u.nombre]));
+  // NTS 139: cada registro identifica a quien lo hizo; el cirujano dentista, con su COP.
+  const autor = new Map((equipo ?? []).map((u) => [u.id, u.cop ? `${u.nombre} (COP ${u.cop})` : u.nombre]));
   const elegida = lista.find((v) => String(v.version) === version) ?? lista[0];
   const vigente = lista[0];
 
@@ -46,7 +47,12 @@ export default async function Historia({ params, searchParams }: {
         <AlertasPaciente pacienteId={id} />
         <Link href="/pacientes" className="text-sm font-medium text-teal-700 hover:underline">← Pacientes</Link>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
-          <h1 className="text-2xl font-semibold">{paciente.nombres} {paciente.apellidos}</h1>
+          <div>
+            <h1 className="text-2xl font-semibold">{paciente.nombres} {paciente.apellidos}</h1>
+            <p className="text-gray-600">
+              {paciente.numero_documento ? `Historia clínica N° ${paciente.numero_documento}` : "Historia clínica sin número: el paciente no tiene documento"}
+            </p>
+          </div>
           {!paciente.anulado_at && (
             <Link href={`/pacientes/${id}/historia/nueva`}
               className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800">
@@ -86,7 +92,12 @@ export default async function Historia({ params, searchParams }: {
               <h2 id="t-anamnesis" className="text-lg font-semibold">Anamnesis</h2>
               <dl className="mt-3 grid gap-4">
                 <Dato etiqueta="Motivo de consulta">{elegida.motivo_consulta}</Dato>
-                <Dato etiqueta="Enfermedad actual">{elegida.enfermedad_actual}</Dato>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Dato etiqueta="Tiempo de enfermedad">{elegida.tiempo_enfermedad}</Dato>
+                  <Dato etiqueta="Forma de inicio">{elegida.forma_inicio ? FORMA_INICIO[elegida.forma_inicio] : null}</Dato>
+                </div>
+                <Dato etiqueta="Relato de la enfermedad actual">{elegida.enfermedad_actual}</Dato>
+                <Dato etiqueta="Funciones biológicas">{elegida.funciones_biologicas}</Dato>
               </dl>
             </section>
 
@@ -102,6 +113,9 @@ export default async function Historia({ params, searchParams }: {
                 <Dato etiqueta="Anticoagulación">{elegida.anticoagulado ? elegida.anticoagulante : "No"}</Dato>
                 <Dato etiqueta="Cirugías">{elegida.cirugias ?? "No refiere"}</Dato>
                 <Dato etiqueta="Hospitalizaciones">{elegida.hospitalizaciones ?? "No refiere"}</Dato>
+                <div className="sm:col-span-2">
+                  <Dato etiqueta="Antecedentes familiares">{elegida.antecedentes_familiares ?? "No refiere"}</Dato>
+                </div>
                 {elegida.embarazo !== "no_aplica" && (
                   <>
                     <Dato etiqueta="Embarazo">

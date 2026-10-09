@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
-import { EMBARAZO, ENFERMEDADES, HABITOS, type CampoCuestionario } from "@/lib/historia/cuestionario";
+import { EMBARAZO, ENFERMEDADES, FORMA_INICIO, HABITOS, type CampoCuestionario } from "@/lib/historia/cuestionario";
 import { guardarCuestionario, type EstadoCuestionario, type ValoresCuestionario } from "../acciones";
 
 const ENTRADA =
@@ -48,7 +48,29 @@ export function FormularioCuestionario({ pacienteId, puedeGestar, inicial }: Pro
       <fieldset className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5">
         <legend className="px-1 text-lg font-semibold">Anamnesis</legend>
         {area("motivo_consulta", "Motivo de consulta *", 2)}
-        {area("enfermedad_actual", "Enfermedad actual", 3, "Qué siente, desde cuándo y cómo ha evolucionado, en palabras del paciente.")}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+            <label htmlFor="h-tiempo_enfermedad">Tiempo de enfermedad</label>
+            <input id="h-tiempo_enfermedad" name="tiempo_enfermedad" defaultValue={t("tiempo_enfermedad")} maxLength={100}
+              placeholder="p. ej. 3 días, 2 meses" aria-invalid={!!e.tiempo_enfermedad}
+              aria-describedby={e.tiempo_enfermedad ? "h-tiempo_enfermedad-error" : undefined} className={`${ENTRADA} font-normal`} />
+            {error("tiempo_enfermedad")}
+          </div>
+          <fieldset className="flex flex-col gap-2 text-sm font-medium text-gray-700">
+            <legend>Forma de inicio</legend>
+            <div className="flex flex-wrap gap-4 pt-2">
+              {Object.entries(FORMA_INICIO).map(([op, texto]) => (
+                <label key={op} className="flex items-center gap-2 font-normal">
+                  <input type="radio" name="forma_inicio" value={op} defaultChecked={t("forma_inicio") === op} />
+                  {texto}
+                </label>
+              ))}
+            </div>
+            {error("forma_inicio")}
+          </fieldset>
+        </div>
+        {area("enfermedad_actual", "Relato de la enfermedad actual", 3, "Signos y síntomas principales y cómo han evolucionado, en palabras del paciente.")}
+        {area("funciones_biologicas", "Funciones biológicas", 2, "Apetito, sed, sueño, orina y deposiciones.")}
       </fieldset>
 
       <fieldset className="flex flex-col gap-4 rounded-xl border border-gray-200 bg-white p-5">
@@ -76,6 +98,7 @@ export function FormularioCuestionario({ pacienteId, puedeGestar, inicial }: Pro
           {area("cirugias", "Cirugías")}
           {area("hospitalizaciones", "Hospitalizaciones")}
         </div>
+        {area("antecedentes_familiares", "Antecedentes familiares", 2, "Enfermedades de padres o hermanos (diabetes, hipertensión, cáncer…).")}
         {puedeGestar && (
           <div className="flex flex-col gap-3 rounded-lg bg-gray-50 p-3">
             <span className="text-sm font-medium text-gray-700">Embarazo</span>

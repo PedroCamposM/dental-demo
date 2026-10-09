@@ -5,7 +5,9 @@ import { AlertasPaciente } from "@/components/alertas-paciente";
 import { Encabezado } from "@/components/encabezado";
 import { ESTADOS_CITA, type EstadoCita } from "@/lib/agenda/citas";
 import { fechaLima, formatearFecha, horaLima } from "@/lib/fechas";
-import { esMenorDeEdad, SEXOS, TIPOS_DOCUMENTO, type EntradaPaciente } from "@/lib/pacientes/validacion";
+import {
+  ESTADOS_CIVILES, esMenorDeEdad, GRADOS_INSTRUCCION, SEGUROS, SEXOS, TIPOS_DOCUMENTO, type EntradaPaciente,
+} from "@/lib/pacientes/validacion";
 import { registrarError } from "@/lib/registro";
 import { modulos } from "@/lib/funciones";
 import { obtenerSesion } from "@/lib/sesion";
@@ -73,7 +75,9 @@ export default async function FichaPaciente({ params, searchParams }: {
           <div>
             <h1 className="text-2xl font-semibold">{p.nombres} {p.apellidos}</h1>
             <p className="text-gray-600">
-              {p.numero_documento ? `${TIPOS_DOCUMENTO[p.tipo_documento as keyof typeof TIPOS_DOCUMENTO] ?? ""} ${p.numero_documento}` : "Sin documento"}
+              {!p.numero_documento ? "Sin documento" : modulos.etapa3
+                ? `Historia clínica N° ${p.numero_documento} (${TIPOS_DOCUMENTO[p.tipo_documento as keyof typeof TIPOS_DOCUMENTO] ?? ""})`
+                : `${TIPOS_DOCUMENTO[p.tipo_documento as keyof typeof TIPOS_DOCUMENTO] ?? ""} ${p.numero_documento}`}
               {menor && " · Menor de edad"}
             </p>
           </div>
@@ -114,7 +118,7 @@ export default async function FichaPaciente({ params, searchParams }: {
         )}
 
         {editar && !p.anulado_at ? (
-          <section className="mt-6"><FormularioPaciente id={id} inicial={inicial} /></section>
+          <section className="mt-6"><FormularioPaciente id={id} inicial={inicial} nts139={modulos.etapa3} /></section>
         ) : (
           <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
             <h2 className="text-lg font-semibold">Filiación</h2>
@@ -123,7 +127,18 @@ export default async function FichaPaciente({ params, searchParams }: {
               {dato("Sexo", p.sexo ? SEXOS[p.sexo as keyof typeof SEXOS] : null)}
               {dato("Celular", p.telefono?.slice(2))}
               {dato("Ocupación", p.ocupacion)}
-              <div className="sm:col-span-2">{dato("Dirección", p.direccion)}</div>
+              <div className="sm:col-span-2">{dato(modulos.etapa3 ? "Domicilio actual" : "Dirección", p.direccion)}</div>
+              {modulos.etapa3 && (
+                <>
+                  {dato("Lugar de nacimiento", p.lugar_nacimiento)}
+                  <div className="sm:col-span-2">{dato("Domicilio de procedencia", p.procedencia)}</div>
+                  {dato("Grupo sanguíneo y Rh", p.grupo_sanguineo)}
+                  {dato("Estado civil", p.estado_civil ? ESTADOS_CIVILES[p.estado_civil as keyof typeof ESTADOS_CIVILES] : null)}
+                  {dato("Grado de instrucción", p.grado_instruccion ? GRADOS_INSTRUCCION[p.grado_instruccion as keyof typeof GRADOS_INSTRUCCION] : null)}
+                  {dato("Seguro", p.seguro ? `${SEGUROS[p.seguro as keyof typeof SEGUROS]}${p.seguro_numero ? ` · N° ${p.seguro_numero}` : ""}` : null)}
+                  {dato("Religión", p.religion)}
+                </>
+              )}
               {dato("Contacto de emergencia", p.contacto_emergencia_nombre &&
                 `${p.contacto_emergencia_nombre}${p.contacto_emergencia_parentesco ? ` (${p.contacto_emergencia_parentesco})` : ""}`)}
               {dato("Celular de emergencia", p.contacto_emergencia_telefono?.slice(2))}
@@ -136,6 +151,7 @@ export default async function FichaPaciente({ params, searchParams }: {
                   {dato("Nombre", `${p.apoderado_nombre}${p.apoderado_parentesco ? ` (${p.apoderado_parentesco})` : ""}`)}
                   {dato("DNI", p.apoderado_dni)}
                   {dato("Celular", p.apoderado_telefono?.slice(2))}
+                  {modulos.etapa3 && p.apoderado_direccion && <div className="sm:col-span-3">{dato("Domicilio", p.apoderado_direccion)}</div>}
                 </dl>
               </>
             )}

@@ -7,14 +7,15 @@ import { modulos } from "@/lib/funciones";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
-import { puedeGestar, type PacienteClinico } from "../datos-clinicos";
+import { COLUMNAS_PACIENTE, puedeGestar, type PacienteClinico } from "../datos-clinicos";
 
 export type ValoresCuestionario = { textos: Record<string, string>; listas: Record<string, string[]> };
 export type EstadoCuestionario = {
   errores: Partial<Record<CampoCuestionario, string>>; general: string | null; valores: ValoresCuestionario | null;
 };
 
-const TEXTOS = ["motivo_consulta", "enfermedad_actual", "enfermedades_otras", "cirugias", "hospitalizaciones", "medicacion",
+const TEXTOS = ["motivo_consulta", "tiempo_enfermedad", "forma_inicio", "enfermedad_actual", "funciones_biologicas",
+  "enfermedades_otras", "cirugias", "hospitalizaciones", "antecedentes_familiares", "medicacion",
   "anticoagulado", "anticoagulante", "alergias", "embarazo", "semanas_gestacion", "lactancia", "habitos_otros",
   "antecedentes_odontologicos", "observaciones"];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -34,7 +35,7 @@ export async function guardarCuestionario(_previo: EstadoCuestionario, form: For
 
   const supabase = await createClient();
   const { data: paciente } = await supabase.from("paciente")
-    .select("id, nombres, apellidos, sexo, fecha_nacimiento, anulado_at").eq("id", pacienteId)
+    .select(COLUMNAS_PACIENTE).eq("id", pacienteId)
     .maybeSingle<PacienteClinico>();
   if (!paciente) return fallo("Paciente no encontrado.");
 

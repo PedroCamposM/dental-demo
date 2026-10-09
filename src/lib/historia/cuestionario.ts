@@ -29,16 +29,24 @@ export const HABITOS = {
 } as const;
 export type Habito = keyof typeof HABITOS;
 
+/** Forma de inicio de la enfermedad actual (NTS 139: anamnesis). */
+export const FORMA_INICIO = { brusco: "Brusco", insidioso: "Insidioso" } as const;
+export type FormaInicio = keyof typeof FORMA_INICIO;
+
 export const EMBARAZO = { no: "No", si: "Sí", no_sabe: "No sabe", no_aplica: "No aplica" } as const;
 export type Embarazo = keyof typeof EMBARAZO;
 
 export type CuestionarioValidado = {
   motivo_consulta: string;
+  tiempo_enfermedad: string | null;
+  forma_inicio: FormaInicio | null;
   enfermedad_actual: string | null;
+  funciones_biologicas: string | null;
   enfermedades: Enfermedad[];
   enfermedades_otras: string | null;
   cirugias: string | null;
   hospitalizaciones: string | null;
+  antecedentes_familiares: string | null;
   medicacion: string | null;
   anticoagulado: boolean;
   anticoagulante: string | null;
@@ -60,7 +68,8 @@ export type EntradaCuestionario = {
 };
 
 const LIMITES: Partial<Record<CampoCuestionario, number>> = {
-  motivo_consulta: 500, enfermedad_actual: 2000, enfermedades_otras: 500, cirugias: 1000, hospitalizaciones: 1000,
+  motivo_consulta: 500, tiempo_enfermedad: 100, enfermedad_actual: 2000, funciones_biologicas: 500,
+  antecedentes_familiares: 1000, enfermedades_otras: 500, cirugias: 1000, hospitalizaciones: 1000,
   medicacion: 1000, anticoagulante: 200, habitos_otros: 500, antecedentes_odontologicos: 2000, observaciones: 2000,
 };
 
@@ -95,6 +104,10 @@ export function validarCuestionario(e: EntradaCuestionario, puedeGestar: boolean
   if (motivo.length < 3) errores.motivo_consulta = "Escribe el motivo de consulta.";
   else if (motivo.length > 500) errores.motivo_consulta = "Máximo 500 caracteres.";
 
+  const inicio = e.texto("forma_inicio");
+  const formaInicio = Object.hasOwn(FORMA_INICIO, inicio) ? (inicio as FormaInicio) : null;
+  if (inicio && !formaInicio) errores.forma_inicio = "Elige brusco o insidioso.";
+
   const enfermedades = e.lista("enfermedades").filter((x): x is Enfermedad => Object.hasOwn(ENFERMEDADES, x));
   const habitos = e.lista("habitos").filter((x): x is Habito => Object.hasOwn(HABITOS, x));
   const anticoagulado = e.texto("anticoagulado") === "1";
@@ -120,11 +133,15 @@ export function validarCuestionario(e: EntradaCuestionario, puedeGestar: boolean
 
   const datos: CuestionarioValidado = {
     motivo_consulta: motivo,
+    tiempo_enfermedad: opcional("tiempo_enfermedad"),
+    forma_inicio: formaInicio,
     enfermedad_actual: opcional("enfermedad_actual"),
+    funciones_biologicas: opcional("funciones_biologicas"),
     enfermedades,
     enfermedades_otras: opcional("enfermedades_otras"),
     cirugias: opcional("cirugias"),
     hospitalizaciones: opcional("hospitalizaciones"),
+    antecedentes_familiares: opcional("antecedentes_familiares"),
     medicacion: opcional("medicacion"),
     anticoagulado,
     anticoagulante: anticoagulado ? anticoagulante : null,

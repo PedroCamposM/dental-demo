@@ -149,5 +149,9 @@ select pg_temp.ninguno((select count(*) from cuestionario_salud q join paciente 
                         where q.embarazo = 'si' and (p.sexo <> 'femenino'
                               or extract(year from age(p.fecha_nacimiento)) not between 15 and 50)),
                        'embarazos incoherentes con sexo o edad');
+select pg_temp.al_menos((select count(*) from paciente p, pg_temp.c where p.clinica_id = c.id and p.grupo_sanguineo is not null),
+                        30, 'pacientes con filiación NTS 139 (grupo sanguíneo)');
+select pg_temp.al_menos((select count(*) from cuestionario_salud, pg_temp.c
+                         where clinica_id = c.id and antecedentes_familiares is not null), 10, 'historias con antecedentes familiares');
 
 select 'seed: todas las verificaciones pasaron' as resultado;

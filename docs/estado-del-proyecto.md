@@ -185,7 +185,13 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
 
 ## v2 — Etapa 3 (historia clínica, signos vitales y alertas): hecha en la rama
 
-- **0908**: `cuestionario_salud` (insert-only, versión correlativa por paciente; nada
+- **0908** (`filiacion_nts139`): filiación según el Formato de Filiación de la NTS 139:
+  lugar de nacimiento, procedencia, grupo sanguíneo y Rh, estado civil, grado de
+  instrucción, seguro y N° de afiliación, religión (opcional, dato sensible) y
+  domicilio del apoderado. Todo opcional y aditivo. Se guarda solo con la Etapa 3
+  encendida (antes de aplicar la 0908 el formulario no envía esas columnas).
+- **0909** (`historia_clinica`; antes se llamaba 0908, se renombró porque no estaba
+  aplicada en el remoto): `cuestionario_salud` (insert-only, versión correlativa por paciente; nada
   se edita ni se borra), `signos_vitales` (se anulan con motivo; la cita debe ser del
   mismo paciente; la hora de anulación la pone el servidor), `alertas_pacientes()`
   (solo alergias, anticoagulante, condiciones, embarazo y fecha; recepción ve que hay
@@ -208,11 +214,11 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   cuestionario (hipertensión, diabetes, cardiopatía, asma, epilepsia, hepatitis,
   VIH, coagulación, renal, tiroides, cáncer, osteoporosis). El equipo clínico ve
   el nombre; recepción, solo que hay una condición registrada (dato sensible).
-- Falta en `/docs`: NTS 139-MINSA/2018/DGAIN (historia clínica) para alinear campos.
-  Pedro dice que la subió antes, pero en esta sesión solo llegó la NTS 188 (las
-  sesiones se reinician y lo no guardado en el repo se pierde; gob.pe está bloqueado
-  en la red del entorno). Se le pidió subirla otra vez: guardarla en `/docs` al llegar.
-- Para el remoto: «Aplicar migraciones» (0906–0908), cargar `seed_etapa2.sql` y
+- NTS 139 ya está en `/docs` (Pedro la subió el 2026-10-08). Alineado: anamnesis
+  (tiempo de enfermedad, forma de inicio, funciones biológicas, antecedentes
+  familiares), filiación (0908), «Historia clínica N°» = documento y autor con COP.
+  Qué cubre y qué falta: `docs/nts139-cumplimiento.md`.
+- Para el remoto: «Aplicar migraciones» (0906–0909), cargar `seed_etapa2.sql` y
   `seed_etapa3.sql`, y encender `HABILITAR_ETAPA2=1` y `HABILITAR_ETAPA3=1` en Vercel.
 
 ## Próximas etapas (CLAUDE.md)
@@ -221,5 +227,7 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
 CIE-10 (revisar el catálogo de 38 hallazgos contra las 24 páginas de la NTS 188) ·
 5 plan con fases · 6 evolución firmada · 7 consentimientos, recetas, imágenes ·
 8 tablero clínico y caja · 9 especialidades · 10 laboratorio · 11 PDF · 12 seed y guion.
-Faltan en `/docs`: norma técnica de historia clínica (NTS 139-MINSA/2018/DGAIN) y
-formatos de la clínica piloto (necesarios antes de las etapas 3 y 7).
+Falta en `/docs`: formatos de la clínica piloto (historia y consentimientos),
+necesarios antes de la Etapa 7. La Etapa 4 incluye además lo de las fichas
+odonto-estomatológicas de la NTS 139 (índice CPOD/ceod, IHO-S, riesgo estomatológico
+y alta básica odontológica).

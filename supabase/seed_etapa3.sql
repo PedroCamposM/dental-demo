@@ -45,19 +45,27 @@ from pg_temp.base b;
 
 -- Versión 1: la primera consulta
 insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, registrado_at, motivo_consulta,
-  enfermedad_actual, enfermedades, cirugias, medicacion, anticoagulado, anticoagulante, alergias, embarazo,
+  tiempo_enfermedad, forma_inicio, enfermedad_actual, funciones_biologicas, enfermedades, cirugias,
+  antecedentes_familiares, medicacion, anticoagulado, anticoagulante, alergias, embarazo,
   semanas_gestacion, habitos, antecedentes_odontologicos)
 select d.clinica_id, d.id, d.primer_odontologo, d.primera,
        coalesce('Evaluación para ' || lower(d.plan), 'Control y limpieza dental'),
+       case pg_temp.h(d.id, 'actual') % 4 when 0 then '3 semanas' when 1 then '2 meses' end,
+       case when pg_temp.h(d.id, 'actual') % 4 in (0, 1) then 'insidioso' end,
        case pg_temp.h(d.id, 'actual') % 4
          when 0 then 'Refiere sensibilidad al frío desde hace unas semanas.'
          when 1 then 'Refiere sangrado de encías al cepillarse.'
          when 2 then 'Sin molestias; acude por control.'
          else null end,
+       'Apetito, sed, sueño, orina y deposiciones conservados.',
        array_remove(array[case when d.hipertension then 'hipertension' end, case when d.diabetes then 'diabetes' end,
                           case when d.asma then 'asma' end,
                           case when d.anticoagulado then 'cardiopatia' end], null),
        case when pg_temp.h(d.id, 'cirugia') < 15 and d.edad >= 18 then 'Apendicectomía' end,
+       case pg_temp.h(d.id, 'familia') % 4
+         when 0 then 'Padre con hipertensión arterial.'
+         when 1 then 'Madre con diabetes tipo 2.'
+       end,
        nullif(concat_ws('; ', case when d.hipertension then 'Losartán 50 mg diario' end,
                               case when d.diabetes then 'Metformina 850 mg cada 12 horas' end,
                               case when d.asma then 'Salbutamol inhalado a demanda' end,
@@ -80,11 +88,11 @@ where not exists (select 1 from public.cuestionario_salud c where c.paciente_id 
 -- Versión 2 para algunos pacientes con controles (la historia se actualiza sin borrar
 -- la anterior) y para la gestante: su embarazo se registró hace una semana.
 insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, registrado_at, motivo_consulta,
-  enfermedad_actual, enfermedades, cirugias, medicacion, anticoagulado, anticoagulante, alergias, embarazo,
-  semanas_gestacion, habitos, antecedentes_odontologicos, observaciones)
+  enfermedad_actual, enfermedades, cirugias, antecedentes_familiares, medicacion, anticoagulado, anticoagulante, alergias,
+  embarazo, semanas_gestacion, habitos, antecedentes_odontologicos, observaciones)
 select c.clinica_id, c.paciente_id, d.ultimo_odontologo,
        case when d.gestante then now() - interval '7 days' else d.ultima end,
-       'Control', 'Sin molestias.', c.enfermedades, c.cirugias,
+       'Control', 'Sin molestias.', c.enfermedades, c.cirugias, c.antecedentes_familiares,
        case when d.gestante then c.medicacion else nullif(concat_ws('; ', c.medicacion, 'Omeprazol 20 mg en ayunas'), '') end,
        c.anticoagulado, c.anticoagulante, c.alergias,
        case when d.gestante then 'si' else c.embarazo end,
@@ -112,3 +120,21 @@ from pg_temp.datos d
 where d.ultima_cita is not null and pg_temp.h(d.id, 'signos') < 70
   and exists (select 1 from public.usuario where id = 'd0000000-0000-4000-8000-000000000005')
   and not exists (select 1 from public.signos_vitales s where s.cita_id = d.ultima_cita);
+
+-- Filiación NTS 139 (0908): datos ficticios para parte de los pacientes; el resto
+-- queda «sin registrar», como pasa en una clínica real.
+update public.paciente p set
+  lugar_nacimiento = (array['Trujillo', 'Trujillo', 'Chiclayo', 'Cajamarca', 'Huamachuco', 'Lima', 'Chimbote'])
+                     [1 + pg_temp.h(p.id, 'nacio') % 7],
+  procedencia = case when pg_temp.h(p.id, 'procede') < 15 then 'Otuzco, La Libertad' end,
+  grupo_sanguineo = (array['O+', 'O+', 'O+', 'O+', 'A+', 'A+', 'B+', 'O-', 'AB+', 'A-'])[1 + pg_temp.h(p.id, 'grupo') % 10],
+  estado_civil = case when extract(year from age(p.fecha_nacimiento)) < 18 then 'soltero'
+                      else (array['soltero', 'casado', 'conviviente', 'casado', 'divorciado', 'viudo'])
+                           [1 + pg_temp.h(p.id, 'civil') % 6] end,
+  grado_instruccion = case when extract(year from age(p.fecha_nacimiento)) < 12 then 'primaria_incompleta'
+                           when extract(year from age(p.fecha_nacimiento)) < 18 then 'secundaria_incompleta'
+                           else (array['secundaria_completa', 'superior_completa', 'superior_incompleta', 'superior_completa'])
+                                [1 + pg_temp.h(p.id, 'instruccion') % 4] end,
+  seguro = (array['ninguno', 'essalud', 'sis', 'eps', 'privado'])[1 + pg_temp.h(p.id, 'seguro') % 5]
+from pg_temp.base b
+where b.id = p.id and p.grupo_sanguineo is null and pg_temp.h(p.id, 'filiacion') < 70;

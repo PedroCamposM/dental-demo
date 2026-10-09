@@ -61,6 +61,23 @@ select pruebas.debe_fallar($$insert into public.cuestionario_salud (clinica_id, 
 select pruebas.debe_fallar($$insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, motivo_consulta, enfermedades)
   values ('a8a8a8a8-0000-0000-0000-000000000000', 'a8a8a8a8-0000-0000-0000-0000000000f1',
           'a8000000-0000-0000-0000-00000000000b', 'Control', array['inventada'])$$, 'check constraint');
+-- Anamnesis NTS 139: forma de inicio solo brusco o insidioso; se guardan tiempo y familiares
+select pruebas.debe_fallar($$insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, motivo_consulta, forma_inicio)
+  values ('a8a8a8a8-0000-0000-0000-000000000000', 'a8a8a8a8-0000-0000-0000-0000000000f1',
+          'a8000000-0000-0000-0000-00000000000b', 'Control', 'subito')$$, 'check constraint');
+
+-- Filiación NTS 139 (0908): recepción la registra; los valores fuera de lista fallan
+select pruebas.como('a8000000-0000-0000-0000-00000000000d');
+update public.paciente set grupo_sanguineo = 'O+', estado_civil = 'casado', grado_instruccion = 'superior_completa',
+                           seguro = 'essalud', lugar_nacimiento = 'Trujillo'
+ where id = 'a8a8a8a8-0000-0000-0000-0000000000f1';
+select pruebas.debe_fallar($$update public.paciente set grupo_sanguineo = 'C+'
+                             where id = 'a8a8a8a8-0000-0000-0000-0000000000f1'$$, 'check constraint');
+select pruebas.debe_fallar($$update public.paciente set estado_civil = 'novio'
+                             where id = 'a8a8a8a8-0000-0000-0000-0000000000f1'$$, 'check constraint');
+select pruebas.debe_fallar($$update public.paciente set grado_instruccion = 'doctorado'
+                             where id = 'a8a8a8a8-0000-0000-0000-0000000000f1'$$, 'check constraint');
+select pruebas.como('a8000000-0000-0000-0000-00000000000b');
 
 -- Nada se edita ni se borra (regla 1)
 select pruebas.debe_fallar($$update public.cuestionario_salud set motivo_consulta = 'Editado'
@@ -144,9 +161,15 @@ select pruebas.igual((select count(*) from public.auditoria where tabla = 'histo
 -- y una versión conciliada reúne las alertas de ambos (ninguna se pierde)
 -- ---------------------------------------------------------------------------
 select pruebas.como('a8000000-0000-0000-0000-00000000000b');
-insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, motivo_consulta, alergias)
+insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, motivo_consulta, alergias,
+                                       antecedentes_familiares, tiempo_enfermedad, forma_inicio)
 values ('a8a8a8a8-0000-0000-0000-000000000000', 'a8a8a8a8-0000-0000-0000-0000000000f2',
-        'a8000000-0000-0000-0000-00000000000b', 'Registro duplicado', array['Ibuprofeno']);
+        'a8000000-0000-0000-0000-00000000000b', 'Registro duplicado', array['Ibuprofeno'],
+        'Madre con diabetes', '2 semanas', 'brusco');
+-- El duplicado tiene filiación que el conservado no tiene
+select pruebas.como('a8000000-0000-0000-0000-00000000000d');
+update public.paciente set procedencia = 'Otuzco', religion = 'Católica', grupo_sanguineo = 'A+'
+ where id = 'a8a8a8a8-0000-0000-0000-0000000000f2';
 select pruebas.como('a8000000-0000-0000-0000-00000000000a');
 select public.fusionar_pacientes('a8a8a8a8-0000-0000-0000-0000000000f2', 'a8a8a8a8-0000-0000-0000-0000000000f1',
                                  'Se registró dos veces');
@@ -160,6 +183,14 @@ select pruebas.igual((select count(*) from public.alertas_pacientes(array['a8a8a
                       where alergias = array['Ibuprofeno', 'Látex', 'Penicilina'] and anticoagulante = 'Warfarina 5 mg'
                         and enfermedades = array['hipertension'] and embarazo = 'si'), 1,
                      'tras la fusión no se pierde ninguna alerta');
+select pruebas.igual((select count(*) from public.cuestionario_salud
+                      where paciente_id = 'a8a8a8a8-0000-0000-0000-0000000000f1' and version = 4
+                        and antecedentes_familiares = 'Madre con diabetes'), 1,
+                     'la versión conciliada conserva los antecedentes familiares');
+select pruebas.igual((select count(*) from public.paciente
+                      where id = 'a8a8a8a8-0000-0000-0000-0000000000f1' and procedencia = 'Otuzco'
+                        and religion = 'Católica' and grupo_sanguineo = 'O+'), 1,
+                     'la fusión completa la filiación sin pisar lo que ya tenía el conservado');
 select pruebas.debe_fallar($$insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, motivo_consulta)
   values ('a8a8a8a8-0000-0000-0000-000000000000', 'a8a8a8a8-0000-0000-0000-0000000000f2',
           'a8000000-0000-0000-0000-00000000000a', 'En el anulado')$$, 'anulado');
