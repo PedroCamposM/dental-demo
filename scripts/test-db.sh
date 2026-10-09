@@ -34,6 +34,8 @@ psql_ -o /dev/null -f supabase/seed_etapa2.sql
 psql_ -o /dev/null -f supabase/seed_etapa2.sql   # idempotente
 psql_ -o /dev/null -f supabase/seed_etapa3.sql
 psql_ -o /dev/null -f supabase/seed_etapa3.sql   # idempotente
+psql_ -o /dev/null -f supabase/seed_etapa4.sql
+psql_ -o /dev/null -f supabase/seed_etapa4.sql   # idempotente
 psql_ -o /dev/null -f supabase/tests/seed.check.sql
 echo "seed: verificaciones OK"
 for f in supabase/verificaciones/2*.sql; do

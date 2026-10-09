@@ -153,5 +153,12 @@ select pg_temp.al_menos((select count(*) from paciente p, pg_temp.c where p.clin
                         30, 'pacientes con filiación NTS 139 (grupo sanguíneo)');
 select pg_temp.al_menos((select count(*) from cuestionario_salud, pg_temp.c
                          where clinica_id = c.id and antecedentes_familiares is not null), 10, 'historias con antecedentes familiares');
+select pg_temp.al_menos((select count(*) from examen_clinico, pg_temp.c where clinica_id = c.id), 100, 'exámenes clínicos');
+select pg_temp.al_menos((select count(*) from diagnostico, pg_temp.c where clinica_id = c.id and tipo = 'definitivo'), 100,
+                        'diagnósticos definitivos');
+select pg_temp.al_menos((select count(*) from diagnostico, pg_temp.c where clinica_id = c.id and tipo = 'presuntivo'), 3,
+                        'diagnósticos presuntivos');
+select pg_temp.ninguno((select count(*) from odontograma, pg_temp.c where clinica_id = c.id and denticion is null),
+                       'odontogramas sin dentición');
 
 select 'seed: todas las verificaciones pasaron' as resultado;

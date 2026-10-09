@@ -20,4 +20,10 @@ export const modulos = {
    */
   etapa3: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA2 === "1"
     && process.env.HABILITAR_ETAPA3 === "1",
+  /**
+   * Etapa 4: examen clínico, diagnóstico CIE-10 y odontograma (NTS 188).
+   * Requiere la migración 0910 (y las etapas 1 a 3).
+   */
+  etapa4: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA2 === "1"
+    && process.env.HABILITAR_ETAPA3 === "1" && process.env.HABILITAR_ETAPA4 === "1",
 };

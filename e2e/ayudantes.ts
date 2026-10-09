@@ -52,3 +52,6 @@ export const conEtapa2 = conEtapa1 && process.env.HABILITAR_ETAPA2 === "1";
 
 /** Historia clínica, signos vitales y alertas encendidos (CI con HABILITAR_ETAPA3=1). */
 export const conEtapa3 = conEtapa2 && process.env.HABILITAR_ETAPA3 === "1";
+
+/** Examen clínico, diagnóstico CIE-10 y odontograma encendidos (CI con HABILITAR_ETAPA4=1). */
+export const conEtapa4 = conEtapa3 && process.env.HABILITAR_ETAPA4 === "1";
