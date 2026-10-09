@@ -30,10 +30,11 @@ export default async function Signos({ params }: { params: Promise<{ id: string 
       .select("id, registrado_at, registrado_por, presion_sistolica, presion_diastolica, frecuencia_cardiaca, "
         + "frecuencia_respiratoria, temperatura_c, peso_kg, talla_cm, anulado_at, motivo_anulacion")
       .eq("paciente_id", id).order("registrado_at", { ascending: false }).limit(30).returns<Registro[]>(),
-    supabase.from("usuario").select("id, nombre").returns<{ id: string; nombre: string }[]>(),
+    supabase.from("usuario").select("id, nombre, cop").returns<{ id: string; nombre: string; cop: string | null }[]>(),
   ]);
   if (error) registrarError("signos.listar", error, { paciente: id });
-  const autor = new Map((equipo ?? []).map((u) => [u.id, u.nombre]));
+  // NTS 139 (4.2.1): quien registra, con su colegiatura si es cirujano dentista.
+  const autor = new Map((equipo ?? []).map((u) => [u.id, u.cop ? `${u.nombre} (COP ${u.cop})` : u.nombre]));
 
   return (
     <>

@@ -11,9 +11,9 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type PacienteClinico = {
   id: string; nombres: string; apellidos: string; sexo: string | null; fecha_nacimiento: string | null;
-  anulado_at: string | null; numero_documento: string | null;
+  anulado_at: string | null; tipo_documento: string | null; numero_documento: string | null;
 };
-export const COLUMNAS_PACIENTE = "id, nombres, apellidos, sexo, fecha_nacimiento, anulado_at, numero_documento";
+export const COLUMNAS_PACIENTE = "id, nombres, apellidos, sexo, fecha_nacimiento, anulado_at, tipo_documento, numero_documento";
 
 /** Mujer de 12 años o más: el cuestionario pregunta por embarazo y lactancia. */
 export function puedeGestar(p: PacienteClinico): boolean {

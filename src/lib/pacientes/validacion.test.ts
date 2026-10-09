@@ -147,7 +147,7 @@ describe("validarPaciente", () => {
     });
 
     it("rechaza valores fuera de la lista", () => {
-      const r = validarPaciente({ ...ADULTO, grupo_sanguineo: "C+", estado_civil: "x", grado_instruccion: "doctorado", seguro: "soat" }, HOY);
+      const r = validarPaciente({ ...ADULTO, grupo_sanguineo: "C+", estado_civil: "x", grado_instruccion: "doctorado", seguro: "ipss" }, HOY);
       expect(!r.ok && Object.keys(r.errores).sort()).toEqual(["estado_civil", "grado_instruccion", "grupo_sanguineo", "seguro"]);
     });
 

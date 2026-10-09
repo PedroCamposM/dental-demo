@@ -361,8 +361,9 @@ begin
     grupo_sanguineo = coalesce(p.grupo_sanguineo, v_dup.grupo_sanguineo),
     estado_civil = coalesce(p.estado_civil, v_dup.estado_civil),
     grado_instruccion = coalesce(p.grado_instruccion, v_dup.grado_instruccion),
+    -- El seguro y su número van juntos: se toman del mismo registro.
     seguro = coalesce(p.seguro, v_dup.seguro),
-    seguro_numero = coalesce(p.seguro_numero, v_dup.seguro_numero),
+    seguro_numero = case when p.seguro is not null then p.seguro_numero else v_dup.seguro_numero end,
     religion = coalesce(p.religion, v_dup.religion)
   where p.id = conservar;
 

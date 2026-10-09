@@ -210,6 +210,10 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   atendió; penicilina, AINES, látex, anticoagulados, hipertensos, diabéticos, una
   gestante (registrada hace una semana), hábitos, versiones 2 y signos vitales.
 - Revisión independiente: 15 hallazgos; corregidos los de severidad alta y media.
+  Segunda revisión (NTS 139): 5 hallazgos (seguro y N° mezclados en la fusión,
+  SOAT, COP en signos, tipo de documento en la historia, forma de inicio sin
+  «sin registrar»), todos corregidos. La filiación la ve todo el personal: la NTS
+  139 la excluye de la «información clínica».
 - Condiciones que alertan (Pedro: «decide tú»): todas las de la lista del
   cuestionario (hipertensión, diabetes, cardiopatía, asma, epilepsia, hepatitis,
   VIH, coagulación, renal, tiroides, cáncer, osteoporosis). El equipo clínico ve

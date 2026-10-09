@@ -77,6 +77,8 @@ select pruebas.debe_fallar($$update public.paciente set estado_civil = 'novio'
                              where id = 'a8a8a8a8-0000-0000-0000-0000000000f1'$$, 'check constraint');
 select pruebas.debe_fallar($$update public.paciente set grado_instruccion = 'doctorado'
                              where id = 'a8a8a8a8-0000-0000-0000-0000000000f1'$$, 'check constraint');
+select pruebas.debe_fallar($$update public.paciente set seguro = 'ninguno', seguro_numero = '123'
+                             where id = 'a8a8a8a8-0000-0000-0000-0000000000f1'$$, 'paciente_seguro_numero');
 select pruebas.como('a8000000-0000-0000-0000-00000000000b');
 
 -- Nada se edita ni se borra (regla 1)
@@ -168,7 +170,8 @@ values ('a8a8a8a8-0000-0000-0000-000000000000', 'a8a8a8a8-0000-0000-0000-0000000
         'Madre con diabetes', '2 semanas', 'brusco');
 -- El duplicado tiene filiación que el conservado no tiene
 select pruebas.como('a8000000-0000-0000-0000-00000000000d');
-update public.paciente set procedencia = 'Otuzco', religion = 'Católica', grupo_sanguineo = 'A+'
+update public.paciente set procedencia = 'Otuzco', religion = 'Católica', grupo_sanguineo = 'A+',
+                           seguro = 'sis', seguro_numero = 'SIS-999'
  where id = 'a8a8a8a8-0000-0000-0000-0000000000f2';
 select pruebas.como('a8000000-0000-0000-0000-00000000000a');
 select public.fusionar_pacientes('a8a8a8a8-0000-0000-0000-0000000000f2', 'a8a8a8a8-0000-0000-0000-0000000000f1',
@@ -191,6 +194,9 @@ select pruebas.igual((select count(*) from public.paciente
                       where id = 'a8a8a8a8-0000-0000-0000-0000000000f1' and procedencia = 'Otuzco'
                         and religion = 'Católica' and grupo_sanguineo = 'O+'), 1,
                      'la fusión completa la filiación sin pisar lo que ya tenía el conservado');
+select pruebas.igual((select count(*) from public.paciente
+                      where id = 'a8a8a8a8-0000-0000-0000-0000000000f1' and seguro = 'essalud' and seguro_numero is null), 1,
+                     'la fusión no mezcla el N° de afiliación de un seguro con otro');
 select pruebas.debe_fallar($$insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, motivo_consulta)
   values ('a8a8a8a8-0000-0000-0000-000000000000', 'a8a8a8a8-0000-0000-0000-0000000000f2',
           'a8000000-0000-0000-0000-00000000000a', 'En el anulado')$$, 'anulado');

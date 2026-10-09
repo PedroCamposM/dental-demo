@@ -4,6 +4,7 @@ import { AlertasPaciente } from "@/components/alertas-paciente";
 import { Encabezado } from "@/components/encabezado";
 import { fechaLima, formatearFecha, horaLima } from "@/lib/fechas";
 import { EMBARAZO, ENFERMEDADES, FORMA_INICIO, HABITOS } from "@/lib/historia/cuestionario";
+import { TIPOS_DOCUMENTO } from "@/lib/pacientes/validacion";
 import { registrarError } from "@/lib/registro";
 import { createClient } from "@/lib/supabase/server";
 import { abrirHistoria, COLUMNAS_VERSION, type Version } from "../datos-clinicos";
@@ -50,7 +51,8 @@ export default async function Historia({ params, searchParams }: {
           <div>
             <h1 className="text-2xl font-semibold">{paciente.nombres} {paciente.apellidos}</h1>
             <p className="text-gray-600">
-              {paciente.numero_documento ? `Historia clínica N° ${paciente.numero_documento}` : "Historia clínica sin número: el paciente no tiene documento"}
+              {paciente.numero_documento
+                ? `Historia clínica N° ${paciente.numero_documento} (${TIPOS_DOCUMENTO[paciente.tipo_documento as keyof typeof TIPOS_DOCUMENTO] ?? ""})` : "Historia clínica sin número: el paciente no tiene documento"}
             </p>
           </div>
           {!paciente.anulado_at && (

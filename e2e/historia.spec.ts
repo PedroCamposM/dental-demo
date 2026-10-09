@@ -50,8 +50,8 @@ test("la odontóloga registra la historia y la actualiza en una versión nueva",
   await expect(page.getByText("Historia guardada como versión 1.")).toBeVisible();
   await expect(alertas).toContainText("Alergia: Penicilina");
   await expect(alertas).toContainText("Hipertensión arterial");
-  await expect(page.getByText("5 días")).toBeVisible();
-  await expect(page.getByText("Brusco")).toBeVisible();
+  await expect(page.getByText("5 días", { exact: true })).toBeVisible();
+  await expect(page.getByText("Brusco", { exact: true })).toBeVisible();
 
   // Versión 2: falta el anticoagulante → error, sin perder lo escrito
   await page.getByRole("link", { name: "Actualizar historia" }).click();

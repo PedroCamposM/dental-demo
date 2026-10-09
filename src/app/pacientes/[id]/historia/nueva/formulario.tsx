@@ -59,9 +59,9 @@ export function FormularioCuestionario({ pacienteId, puedeGestar, inicial }: Pro
           <fieldset className="flex flex-col gap-2 text-sm font-medium text-gray-700">
             <legend>Forma de inicio</legend>
             <div className="flex flex-wrap gap-4 pt-2">
-              {Object.entries(FORMA_INICIO).map(([op, texto]) => (
+              {[["", "Sin registrar"] as const, ...Object.entries(FORMA_INICIO)].map(([op, texto]) => (
                 <label key={op} className="flex items-center gap-2 font-normal">
-                  <input type="radio" name="forma_inicio" value={op} defaultChecked={t("forma_inicio") === op} />
+                  <input type="radio" name="forma_inicio" value={op} defaultChecked={(t("forma_inicio") ?? "") === op} />
                   {texto}
                 </label>
               ))}

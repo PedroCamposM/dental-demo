@@ -25,7 +25,7 @@ export const GRADOS_INSTRUCCION = {
   superior_incompleta: "Superior incompleta", superior_completa: "Superior completa",
 } as const;
 export const SEGUROS = {
-  ninguno: "Ninguno", sis: "SIS", essalud: "EsSalud", eps: "EPS", privado: "Seguro privado", otro: "Otro",
+  ninguno: "Ninguno", sis: "SIS", essalud: "EsSalud", eps: "EPS", soat: "SOAT", privado: "Seguro privado", otro: "Otro",
 } as const;
 
 /** Campos de la filiación NTS 139 (migración 0908). Se guardan solo con la Etapa 3 encendida. */

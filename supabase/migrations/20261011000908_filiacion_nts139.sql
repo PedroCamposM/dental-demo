@@ -15,10 +15,12 @@ alter table public.paciente
   add column grado_instruccion     text check (grado_instruccion in
     ('sin_instruccion', 'inicial', 'primaria_incompleta', 'primaria_completa',
      'secundaria_incompleta', 'secundaria_completa', 'superior_incompleta', 'superior_completa')),
-  add column seguro                text check (seguro in ('ninguno', 'sis', 'essalud', 'eps', 'privado', 'otro')),
+  add column seguro                text check (seguro in ('ninguno', 'sis', 'essalud', 'eps', 'soat', 'privado', 'otro')),
   add column seguro_numero         text check (char_length(seguro_numero) <= 30),
   -- La religión es un dato sensible (Ley 29733): siempre opcional.
   add column religion              text check (char_length(religion) <= 60),
-  add column apoderado_direccion   text check (char_length(apoderado_direccion) <= 200);
+  add column apoderado_direccion   text check (char_length(apoderado_direccion) <= 200),
+  -- El N° de afiliación pertenece a un seguro: sin seguro (o «ninguno») no hay número.
+  add constraint paciente_seguro_numero check (seguro_numero is null or (seguro is not null and seguro <> 'ninguno'));
 
 -- El GRANT de paciente es por tabla (select, insert, update): cubre las columnas nuevas.
