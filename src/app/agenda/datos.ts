@@ -57,3 +57,16 @@ export async function cargarDia(fecha: string) {
     citas: citas.data ?? [],
   };
 }
+
+export type EvolucionCita = { id: string; firmada: boolean };
+
+/** Evolución vigente de cada cita (borrador o firmada). Sin permiso clínico, RLS devuelve vacío. */
+export async function cargarEvoluciones(citas: string[]): Promise<Map<string, EvolucionCita>> {
+  if (citas.length === 0) return new Map();
+  const supabase = await createClient();
+  const { data, error } = await supabase.from("nota_evolucion").select("id, cita_id, firmada_at")
+    .in("cita_id", citas).is("anulado_at", null)
+    .returns<{ id: string; cita_id: string; firmada_at: string | null }[]>();
+  if (error) registrarError("agenda.evoluciones", error);
+  return new Map((data ?? []).map((n) => [n.cita_id, { id: n.id, firmada: n.firmada_at !== null }]));
+}

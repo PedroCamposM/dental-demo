@@ -7,7 +7,7 @@ import { diasEntre, fechaLima, inicioMesLima } from "@/lib/fechas";
 // ---------------------------------------------------------------------------
 export type EstadoPlan = "propuesto" | "aceptado" | "en_curso" | "detenido" | "terminado" | "rechazado" | "reemplazado";
 export type EstadoItem = "propuesto" | "aceptado" | "programado" | "realizado" | "cancelado";
-export type EstadoCita = "programada" | "confirmada" | "atendida" | "no_asistio" | "cancelada";
+export type EstadoCita = "programada" | "confirmada" | "en_sala" | "atendida" | "no_asistio" | "cancelada";
 export type ResultadoSeguimiento =
   | "pendiente" | "mensaje_enviado" | "contactado" | "no_contesta" | "agendo_cita" | "rechazo" | "pago";
 
@@ -143,7 +143,7 @@ export type Tablero = {
 
 const ESTADOS_ACTIVOS: EstadoPlan[] = ["aceptado", "en_curso", "detenido"];
 const ITEMS_PENDIENTES: EstadoItem[] = ["aceptado", "programado"];
-const CITA_AGENDADA: EstadoCita[] = ["programada", "confirmada"];
+const CITA_AGENDADA: EstadoCita[] = ["programada", "confirmada", "en_sala"];
 const DIA_MS = 86_400_000;
 
 // ---------------------------------------------------------------------------

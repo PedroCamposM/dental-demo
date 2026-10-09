@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { ESTADOS_ACTIVOS } from "@/lib/agenda/citas";
 import { validarBloqueo, validarSemana, type CampoBloqueo, type EntradaBloqueo } from "@/lib/agenda/horario";
 import { modulos } from "@/lib/funciones";
 import { registrarError } from "@/lib/registro";
@@ -108,7 +109,7 @@ export async function crearBloqueo(_previo: EstadoBloqueo, form: FormData): Prom
   }
   // Las citas ya agendadas no se tocan: se avisa para reprogramarlas.
   let citas = supabase.from("cita").select("id", { count: "exact", head: true })
-    .in("estado", ["programada", "confirmada"]).lt("inicio", r.datos.fin).gt("fin", r.datos.inicio);
+    .in("estado", modulos.etapa6 ? ESTADOS_ACTIVOS : ["programada", "confirmada"]).lt("inicio", r.datos.fin).gt("fin", r.datos.inicio);
   if (r.datos.profesional_id) citas = citas.eq("odontologo_id", r.datos.profesional_id);
   const { count } = await citas;
   revalidatePath(RUTA);

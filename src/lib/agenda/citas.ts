@@ -3,17 +3,18 @@
 import { fechaLima, instanteLima } from "@/lib/fechas";
 import { minutos } from "./horario";
 
-export type EstadoCita = "programada" | "confirmada" | "atendida" | "no_asistio" | "cancelada";
+export type EstadoCita = "programada" | "confirmada" | "en_sala" | "atendida" | "no_asistio" | "cancelada";
 
 export const ESTADOS_CITA: Record<EstadoCita, string> = {
   programada: "Programada",
   confirmada: "Confirmada",
+  en_sala: "En sala",
   atendida: "Atendida",
   no_asistio: "No asistió",
   cancelada: "Cancelada",
 };
 
-export const ESTADOS_ACTIVOS: EstadoCita[] = ["programada", "confirmada"];
+export const ESTADOS_ACTIVOS: EstadoCita[] = ["programada", "confirmada", "en_sala"];
 
 export const DURACIONES_CITA = [15, 20, 30, 45, 60, 75, 90, 120, 150, 180, 240];
 

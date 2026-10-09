@@ -60,23 +60,55 @@ export async function crearCita(_previo: EstadoNuevaCita, form: FormData): Promi
 
 export type EstadoCambioCita = { error: string | null };
 
-/** Confirmar o cancelar una cita activa. */
+const DESDE: Record<string, string[]> = {
+  confirmada: ["programada"],
+  en_sala: ["programada", "confirmada"],
+  cancelada: ["programada", "confirmada", "en_sala"],
+};
+
+/** Confirmar, marcar «en sala» (el paciente llegó) o cancelar una cita activa. */
 export async function cambiarEstadoCita(_previo: EstadoCambioCita, form: FormData): Promise<EstadoCambioCita> {
   if (!modulos.etapa2) return { error: "Este módulo aún no está habilitado." };
   const sesion = await obtenerSesion();
   if (!sesion) return { error: "Tu usuario no tiene acceso a una clínica." };
   const id = String(form.get("id") ?? "");
   const estado = String(form.get("estado") ?? "");
-  if (!UUID.test(id) || (estado !== "confirmada" && estado !== "cancelada")) return { error: "Cambio inválido." };
+  const desde = Object.hasOwn(DESDE, estado) ? DESDE[estado] : undefined;
+  if (!UUID.test(id) || !desde || (estado === "en_sala" && !modulos.etapa6)) return { error: "Cambio inválido." };
 
   const supabase = await createClient();
   const { data, error } = await supabase.from("cita").update({ estado }).eq("id", id)
-    .in("estado", estado === "confirmada" ? ["programada"] : ["programada", "confirmada"])
+    .in("estado", modulos.etapa6 ? desde : desde.filter((e) => e !== "en_sala"))
     .select("id").maybeSingle();
   if (error || !data) {
+    if (error?.code === "P0001") return { error: `${error.message}.`.replace(/\.\.$/, ".") };
     if (error) registrarError("agenda.estado", error, { id, estado });
     return { error: "No se pudo actualizar la cita. Recarga la página." };
   }
   revalidatePath("/agenda");
   return { error: null };
+}
+
+/**
+ * «Atender»: el cirujano dentista abre (o retoma) la evolución de la sesión.
+ * La base la crea en borrador a su nombre, con los ítems de la cita, y deja la cita «en sala».
+ */
+export async function atenderCita(_previo: EstadoCambioCita, form: FormData): Promise<EstadoCambioCita> {
+  if (!modulos.etapa6) return { error: "Este módulo aún no está habilitado." };
+  const sesion = await obtenerSesion();
+  if (!sesion?.esDentista) return { error: "Solo el cirujano dentista atiende y escribe la evolución." };
+  const id = String(form.get("id") ?? "");
+  if (!UUID.test(id)) return { error: "Cita inválida." };
+  const supabase = await createClient();
+  const { data: cita } = await supabase.from("cita").select("paciente_id").eq("id", id)
+    .maybeSingle<{ paciente_id: string }>();
+  if (!cita) return { error: "Cita no encontrada. Recarga la página." };
+  const { data: nota, error } = await supabase.rpc("abrir_evolucion", { id_cita: id });
+  if (error || !nota) {
+    if (error?.code === "P0001") return { error: `${error.message}.`.replace(/\.\.$/, ".") };
+    if (error) registrarError("agenda.atender", error, { id });
+    return { error: "No se pudo abrir la evolución. Inténtalo de nuevo." };
+  }
+  revalidatePath("/agenda");
+  redirect(`/pacientes/${cita.paciente_id}/evolucion#evolucion-${String(nota)}`);
 }

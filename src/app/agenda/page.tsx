@@ -9,13 +9,14 @@ import { modulos } from "@/lib/funciones";
 import { cargarAlertas, type AlertasPaciente } from "@/lib/historia/alertas";
 import { obtenerSesion } from "@/lib/sesion";
 import { AccionesCita } from "./acciones-cita";
-import { cargarDia, type BloqueoDia, type CitaDia } from "./datos";
+import { cargarDia, cargarEvoluciones, type BloqueoDia, type CitaDia, type EvolucionCita } from "./datos";
 
 export const metadata: Metadata = { title: "Agenda – Dental Demo" };
 
 const COLOR: Record<EstadoCita, string> = {
   programada: "bg-sky-50 text-sky-800",
   confirmada: "bg-teal-50 text-teal-800",
+  en_sala: "bg-indigo-50 text-indigo-800",
   atendida: "bg-gray-100 text-gray-700",
   no_asistio: "bg-amber-50 text-amber-800",
   cancelada: "bg-gray-100 text-gray-500 line-through",
@@ -41,6 +42,8 @@ export default async function Agenda({ searchParams }: { searchParams: Promise<{
   const d = await cargarDia(fecha);
   const { error: errorAlertas, porPaciente: alertas } =
     await cargarAlertas(d.citas.flatMap((c) => (c.paciente ? [c.paciente.id] : [])));
+  // Evoluciones de las citas del día (RLS: solo las ve el personal clínico).
+  const evoluciones = modulos.etapa6 && sesion.veClinico ? await cargarEvoluciones(d.citas.map((c) => c.id)) : new Map<string, EvolucionCita>();
   const generales = d.bloqueos.filter((b) => b.profesional_id === null);
   const conHorario = new Set(d.horarios.map((h) => h.profesional_id));
   const conCitas = new Set(d.citas.map((c) => c.odontologo_id));
@@ -131,7 +134,9 @@ export default async function Agenda({ searchParams }: { searchParams: Promise<{
                     <ol className="divide-y divide-gray-100">
                       {citas.map((c) => (
                         <Cita key={c.id} c={c} sillon={c.sillon_id ? d.sillones.get(c.sillon_id) : undefined}
-                          alertas={c.paciente ? alertas.get(c.paciente.id) : undefined} />
+                          alertas={c.paciente ? alertas.get(c.paciente.id) : undefined}
+                          evolucion={evoluciones.get(c.id)} esHoy={fecha === hoy} pasada={fecha <= hoy}
+                          esDentista={sesion.esDentista} />
                       ))}
                     </ol>
                   )}
@@ -151,9 +156,15 @@ export default async function Agenda({ searchParams }: { searchParams: Promise<{
   );
 }
 
-function Cita({ c, sillon, alertas }: { c: CitaDia; sillon?: string; alertas?: AlertasPaciente }) {
+function Cita({ c, sillon, alertas, evolucion, esHoy, pasada, esDentista }: {
+  c: CitaDia; sillon?: string; alertas?: AlertasPaciente; evolucion?: EvolucionCita;
+  esHoy: boolean; pasada: boolean; esDentista: boolean;
+}) {
   const nombre = c.paciente ? `${c.paciente.nombres} ${c.paciente.apellidos}` : "Paciente";
-  const activa = c.estado === "programada" || c.estado === "confirmada";
+  const activa = c.estado === "programada" || c.estado === "confirmada" || c.estado === "en_sala";
+  // «Atender» abre la evolución (o retoma el borrador). Una evolución firmada se consulta.
+  const atender = modulos.etapa6 && esDentista && pasada && !evolucion?.firmada
+    ? (evolucion ? "continuar" as const : "atender" as const) : null;
   const descripcion = `la cita de ${nombre} a las ${horaLima(c.inicio)}`;
   const frases = alertas?.frases ?? [];
   return (
@@ -178,7 +189,16 @@ function Cita({ c, sillon, alertas }: { c: CitaDia; sillon?: string; alertas?: A
       {c.forzada_motivo && (
         <p className="mt-1 text-xs text-amber-800">Fuera del horario (autorizado): {c.forzada_motivo}</p>
       )}
-      {activa && <AccionesCita id={c.id} estado={c.estado as "programada" | "confirmada"} descripcion={descripcion} />}
+      {evolucion && c.paciente && (evolucion.firmada || !activa) && (
+        <Link href={`/pacientes/${c.paciente.id}/evolucion#evolucion-${evolucion.id}`}
+          className="mt-1 inline-block text-xs font-medium text-teal-700 hover:underline">
+          {evolucion.firmada ? "Ver evolución firmada" : "Evolución en borrador"}
+        </Link>
+      )}
+      {activa && (
+        <AccionesCita id={c.id} estado={c.estado as "programada" | "confirmada" | "en_sala"} descripcion={descripcion}
+          enSala={modulos.etapa6 && esHoy} atender={atender} />
+      )}
     </li>
   );
 }

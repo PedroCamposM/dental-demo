@@ -33,4 +33,11 @@ export const modulos = {
   etapa5: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA2 === "1"
     && process.env.HABILITAR_ETAPA3 === "1" && process.env.HABILITAR_ETAPA4 === "1"
     && process.env.HABILITAR_ETAPA5 === "1",
+  /**
+   * Etapa 6: evolución por sesión, firmada y con adendas; «en sala» y «Atender» en la agenda.
+   * Requiere la migración 0912 (y las etapas 1 a 5).
+   */
+  etapa6: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA2 === "1"
+    && process.env.HABILITAR_ETAPA3 === "1" && process.env.HABILITAR_ETAPA4 === "1"
+    && process.env.HABILITAR_ETAPA5 === "1" && process.env.HABILITAR_ETAPA6 === "1",
 };

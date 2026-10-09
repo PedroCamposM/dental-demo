@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AlertasPaciente } from "@/components/alertas-paciente";
 import { Encabezado } from "@/components/encabezado";
-import { ESTADOS_CITA, type EstadoCita } from "@/lib/agenda/citas";
+import { ESTADOS_ACTIVOS, ESTADOS_CITA, type EstadoCita } from "@/lib/agenda/citas";
 import { fechaLima, formatearFecha, horaLima } from "@/lib/fechas";
 import {
   ESTADOS_CIVILES, esMenorDeEdad, GRADOS_INSTRUCCION, SEGUROS, SEXOS, TIPOS_DOCUMENTO, type EntradaPaciente,
@@ -46,7 +46,8 @@ export default async function FichaPaciente({ params, searchParams }: {
   // Próximas citas (Etapa 2: agenda)
   const { data: citas } = modulos.etapa2
     ? await supabase.from("cita").select("id, inicio, estado, nota, usuario!cita_clinica_id_odontologo_id_fkey(nombre)")
-        .eq("paciente_id", id).in("estado", ["programada", "confirmada"]).gte("inicio", new Date().toISOString())
+        .eq("paciente_id", id).in("estado", modulos.etapa6 ? ESTADOS_ACTIVOS : ["programada", "confirmada"])
+        .gte("inicio", new Date().toISOString())
         .order("inicio").limit(5)
         .returns<{ id: string; inicio: string; estado: EstadoCita; nota: string | null; usuario: { nombre: string } | null }[]>()
     : { data: null };

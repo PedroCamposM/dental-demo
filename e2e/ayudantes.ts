@@ -58,3 +58,6 @@ export const conEtapa4 = conEtapa3 && process.env.HABILITAR_ETAPA4 === "1";
 
 /** Plan de tratamiento con fases y versiones encendido (CI con HABILITAR_ETAPA5=1). */
 export const conEtapa5 = conEtapa4 && process.env.HABILITAR_ETAPA5 === "1";
+
+/** Evolución por sesión firmada y «Atender» en la agenda (CI con HABILITAR_ETAPA6=1). */
+export const conEtapa6 = conEtapa5 && process.env.HABILITAR_ETAPA6 === "1";

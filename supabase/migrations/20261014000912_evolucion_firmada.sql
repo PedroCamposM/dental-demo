@@ -229,9 +229,9 @@ begin
   update public.item_plan i set estado = 'realizado', realizado_at = now(), nota_evolucion_id = id_nota
     from public.evolucion_item e
    where e.nota_id = id_nota and e.trabajado and e.terminado and e.item_id = i.id and i.estado in ('aceptado', 'programado');
-  -- La cita de la sesión queda atendida.
+  -- La cita de la sesión queda atendida (si el paciente estaba en sala, aunque llegara antes de su hora).
   update public.cita set estado = 'atendida'
-   where id = v_nota.cita_id and estado in ('programada', 'confirmada', 'en_sala') and inicio <= now();
+   where id = v_nota.cita_id and (estado = 'en_sala' or (estado in ('programada', 'confirmada') and inicio <= now()));
   perform set_config('dental.proceso', 'off', true);
 end $$;
 revoke all on function public.firmar_evolucion(uuid) from public, anon;
