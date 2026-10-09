@@ -161,4 +161,14 @@ select pg_temp.al_menos((select count(*) from diagnostico, pg_temp.c where clini
 select pg_temp.ninguno((select count(*) from odontograma, pg_temp.c where clinica_id = c.id and denticion is null),
                        'odontogramas sin dentición');
 
+
+-- Etapa 7: plantillas de consentimiento de ejemplo, enlazadas al catálogo
+select pg_temp.al_menos((select count(*) from plantilla_consentimiento, pg_temp.c
+                         where clinica_id = c.id and es_ejemplo and tipo = 'procedimiento'), 6, 'plantillas de consentimiento');
+select pg_temp.al_menos((select count(*) from plantilla_consentimiento, pg_temp.c
+                         where clinica_id = c.id and tipo = 'uso_imagen'), 1, 'plantilla de uso de imagen');
+select pg_temp.al_menos((select count(*) from procedimiento, pg_temp.c
+                         where clinica_id = c.id and requiere_consentimiento and consentimiento_plantilla_id is not null), 8,
+                        'procedimientos con su plantilla de consentimiento');
+
 select 'seed: todas las verificaciones pasaron' as resultado;

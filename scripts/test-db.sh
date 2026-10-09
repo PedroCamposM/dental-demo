@@ -30,10 +30,10 @@ echo "seed: supabase/seed.sql"
 # Como `supabase db reset`: todos los seeds de config.toml en UNA sesión (las
 # funciones y tablas pg_temp de un seed siguen existiendo en el siguiente).
 cat supabase/seed.sql supabase/seed_etapa1.sql supabase/seed_etapa2.sql supabase/seed_etapa3.sql \
-    supabase/seed_etapa4.sql supabase/seed_etapa5.sql | psql_ -o /dev/null
+    supabase/seed_etapa4.sql supabase/seed_etapa5.sql supabase/seed_etapa7.sql | psql_ -o /dev/null
 # Idempotentes: cada uno, otra vez y por separado (como se cargan en el remoto).
 for f in supabase/seed_etapa1.sql supabase/seed_etapa2.sql supabase/seed_etapa3.sql supabase/seed_etapa4.sql \
-         supabase/seed_etapa5.sql; do
+         supabase/seed_etapa5.sql supabase/seed_etapa7.sql; do
   psql_ -o /dev/null -f "$f"
 done
 psql_ -o /dev/null -f supabase/tests/seed.check.sql
@@ -59,7 +59,7 @@ done
 # Seeds de las etapas anteriores a la última migración (los de la última van después).
 SEEDS_PREVIOS="supabase/seed.sql supabase/seed_etapa1.sql supabase/seed_etapa2.sql supabase/seed_etapa3.sql
                supabase/seed_etapa4.sql supabase/seed_etapa5.sql"
-SEEDS_ULTIMA=""
+SEEDS_ULTIMA="supabase/seed_etapa7.sql"
 # shellcheck disable=SC2086
 cat $SEEDS_PREVIOS | psqld -o /dev/null
 psqld -o /dev/null -1 -f "$ULTIMA"
