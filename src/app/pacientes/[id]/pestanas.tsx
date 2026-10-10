@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { modulos } from "@/lib/funciones";
 
-type Pestana = "filiacion" | "historia" | "signos" | "odontograma" | "examen" | "plan" | "evolucion" | "archivos" | "consentimientos" | "documentos" | "interconsultas";
+type Pestana = "filiacion" | "historia" | "signos" | "odontograma" | "examen" | "plan" | "evolucion" | "archivos" | "consentimientos" | "documentos" | "interconsultas" | "periodontograma";
 
 /** Pestañas de la ficha del paciente. La historia solo para quien la ve (RLS lo exige igual). */
 export function PestanasPaciente({ id, actual, veClinico }: { id: string; actual: Pestana; veClinico: boolean }) {
@@ -16,6 +16,7 @@ export function PestanasPaciente({ id, actual, veClinico }: { id: string; actual
       { clave: "examen" as const, href: `/pacientes/${id}/examen`, texto: "Examen y diagnóstico" },
     ] : []),
     // El plan lo ve toda la clínica: recepción registra si el paciente acepta el presupuesto.
+    ...(modulos.etapa9 && veClinico ? [{ clave: "periodontograma" as const, href: `/pacientes/${id}/periodontograma`, texto: "Periodontograma" }] : []),
     ...(modulos.etapa5 ? [{ clave: "plan" as const, href: `/pacientes/${id}/plan`, texto: "Plan de tratamiento" }] : []),
     ...(modulos.etapa6 && veClinico ? [{ clave: "evolucion" as const, href: `/pacientes/${id}/evolucion`, texto: "Evolución" }] : []),
     ...(modulos.etapa7 && veClinico ? [{ clave: "archivos" as const, href: `/pacientes/${id}/archivos`, texto: "Imágenes y archivos" }] : []),
