@@ -103,11 +103,12 @@ export default async function TableroClinico() {
   const ahora = Date.now();
   const resuelto = (pacienteId: string | undefined, fecha: string) => (citasControl.data ?? []).some((c) =>
     c.paciente_id === pacienteId && (c.estado === "atendida" ? fechaLima(c.inicio) >= fecha : Date.parse(c.inicio) >= ahora));
-  // Un control vencido por paciente (el más antiguo)
+  // Controles vencidos: el más antiguo de cada paciente y tipo
   const controlPorPaciente = new Map<string, NonNullable<typeof controles.data>[number]>();
   for (const c of controles.data ?? []) {
     if (resuelto(c.paciente?.id, c.fecha_programada)) continue;
-    const k = c.paciente?.id ?? c.id;
+    // Uno por paciente y tipo: un retiro de puntos no queda oculto tras un control más antiguo.
+    const k = `${c.paciente?.id ?? c.id}:${c.tipo}`;
     if (!controlPorPaciente.has(k)) controlPorPaciente.set(k, c);
   }
 
