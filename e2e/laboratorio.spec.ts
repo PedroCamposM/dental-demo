@@ -53,7 +53,7 @@ test("la odontóloga prescribe una corona al laboratorio desde el plan del pacie
   await page.getByRole("navigation", { name: "Secciones del paciente" }).getByRole("link", { name: "Laboratorio" }).click();
   const nueva = page.getByRole("region", { name: "Nueva orden de laboratorio" });
   await nueva.getByLabel("Ítem del plan").selectOption({ label: "Corona de zirconio · pieza 36" });
-  await nueva.getByLabel("Laboratorio", { exact: true }).selectOption({ label: LAB });
+  await nueva.getByLabel(/^Laboratorio/).selectOption({ label: LAB });
   await nueva.getByLabel("Tipo de trabajo").fill("Corona de zirconio monolítica");
   await nueva.getByLabel("Color").fill("A2");
   await nueva.getByLabel("Costo del laboratorio (S/, opcional)").fill("450");
