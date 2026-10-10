@@ -15,6 +15,8 @@ import { ESPECIALIDADES, type Especialidad } from "@/lib/catalogo/validacion";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
+import { AnularPago, RegistrarPago } from "@/app/caja/formularios";
+import { METODOS_PAGO, type MetodoPago } from "@/lib/caja";
 import { PestanasPaciente } from "../pestanas";
 import { CancelarItem, CopiarPlan, DecisionPlan, NuevaFase, NuevoItem, NuevoPlan, type OpcionesItem } from "./formularios";
 
@@ -110,6 +112,17 @@ export default async function PlanTratamiento({ params, searchParams }: {
   const numero = new Map(itemsPlan.map((i, n) => [i.id, n + 1]));
   const t = totales(itemsPlan.map((i) => ({ estado: i.estado, precio_centimos: i.precio_centimos, cobrado_centimos: cobro.get(i.id)?.cobrado_centimos ?? 0 })));
   const grupos = [...new Set(planes.map((x) => x.grupo_id))].map((g) => planes.filter((x) => x.grupo_id === g));
+  // Etapa 8: pagos del plan (los ve toda la clínica; los registra administración o recepción).
+  const pagosR = modulos.etapa8 && actual
+    ? await supabase.from("pago").select("id, monto_centimos, metodo, referencia, pagado_at, anulado_at, motivo_anulacion")
+        .eq("plan_id", actual.id).order("pagado_at", { ascending: false })
+        .returns<{ id: string; monto_centimos: number; metodo: MetodoPago; referencia: string | null; pagado_at: string;
+          anulado_at: string | null; motivo_anulacion: string | null }[]>()
+    : { data: null, error: null };
+  if (pagosR.error) registrarError("plan.pagos", pagosR.error, { paciente: id });
+  const pagosPlan = pagosR.data ?? [];
+  const pagadoPlan = pagosPlan.filter((x) => !x.anulado_at).reduce((s, x) => s + x.monto_centimos, 0);
+  const cobra = (sesion.rol === "admin" || sesion.rol === "recepcion") && !paciente.data.anulado_at;
   const base = `/pacientes/${id}/plan`;
   const conAlternativas = (g: string) => planes.some((x) => x.grupo_id === g && x.alternativa !== "A");
 
@@ -268,6 +281,36 @@ export default async function PlanTratamiento({ params, searchParams }: {
                       items={itemsPlan.filter((i) => i.estado === "propuesto").map((i) => ({
                         id: i.id, texto: `${numero.get(i.id)}. ${i.procedimiento} ${ubicacion(i)} · ${formatearSoles(i.precio_centimos)}`,
                       }))} />
+                  </div>
+                )}
+
+                {modulos.etapa8 && ["aceptado", "en_curso", "detenido", "terminado"].includes(actual.estado) && (
+                  <div className="rounded-xl border border-gray-200 bg-white p-5" aria-labelledby="t-pagos" role="region">
+                    <div className="flex flex-wrap items-baseline justify-between gap-2">
+                      <h3 id="t-pagos" className="font-semibold">Pagos</h3>
+                      <p className="text-sm tabular-nums">
+                        Pagado {formatearSoles(pagadoPlan)} · saldo {formatearSoles(Math.max(0, t.total - pagadoPlan))}
+                      </p>
+                    </div>
+                    {pagosPlan.length > 0 && (
+                      <ul className="mt-2 divide-y divide-gray-100 text-sm">
+                        {pagosPlan.map((x) => (
+                          <li key={x.id} data-pago={x.id} className="flex flex-wrap items-start justify-between gap-2 py-2">
+                            <span className={x.anulado_at ? "text-gray-400 line-through" : ""}>
+                              {formatearFecha(fechaLima(x.pagado_at))} · {formatearSoles(x.monto_centimos)} · {METODOS_PAGO[x.metodo]}
+                              {x.referencia ? ` · ${x.referencia}` : ""}
+                            </span>
+                            {x.anulado_at ? <span className="text-xs text-gray-500">Anulado: {x.motivo_anulacion}</span>
+                              : cobra && <AnularPago pacienteId={id} id={x.id} descripcion={`el pago de ${formatearSoles(x.monto_centimos)}`} />}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                    {cobra && t.total - pagadoPlan > 0 && (
+                      <div className="mt-3 border-t border-gray-100 pt-3">
+                        <RegistrarPago pacienteId={id} planId={actual.id} saldo={formatearSoles(t.total - pagadoPlan)} />
+                      </div>
+                    )}
                   </div>
                 )}
               </section>
