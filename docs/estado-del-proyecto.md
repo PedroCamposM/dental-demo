@@ -425,6 +425,33 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   previo): 0917–0918 aplicadas. Comprobado: 11 tipos de seguimiento, sin INSERT directo en
   `pago`, 4 funciones nuevas, 19 planes detenidos. Falta `HABILITAR_ETAPA8=1` en Vercel.
 
+## v2 — Etapa 9 (periodontograma y registros por especialidad): en cierre
+
+- **0919** `periodontograma`: examen por fecha, borrador → firmado por el cirujano
+  dentista responsable (la asistente puede registrarlo a su nombre, no firmarlo).
+  Seis sitios por pieza (PS, MG, NIC = PS + MG calculado, sangrado, supuración, placa),
+  movilidad y furca 0–3. `guardar_periodontograma()` valida en el servidor; al firmar,
+  si se indica, programa el mantenimiento periodontal. Firmado no se edita; lo anula solo
+  su responsable, con motivo. Comparación entre fechas (sitios que cambian ≥ 2 mm).
+- **0920** `especialidades`: endodoncia por conducto, ortodoncia (diagnóstico y
+  controles), implante y sus fases (la fecha de carga es la de la fase «en carga»),
+  cirugía (técnica, sutura, retiro de puntos: el control se programa al firmar la
+  evolución) y odontopediatría (apoderado y conducta). Se escriben en la evolución en
+  borrador por su autor, ligados al ítem trabajado de esa especialidad; firmada, quedan
+  fijos. Anular la evolución anula sus registros; anular un implante, sus fases.
+- Pantallas (`HABILITAR_ETAPA9`): pestañas «Periodontograma» y «Especialidades»;
+  formularios de especialidad dentro de la evolución en borrador.
+- **A validar con la clínica piloto (regla 10):** convención del MG, grados de movilidad
+  y furca (sin clasificación fija), nombres de las fases del implante, escala de Frankl.
+- Revisión independiente: 2 altas, 2 medias, varias bajas; corregidas. Altas: la
+  asistente podía anular un periodontograma firmado; la grilla conservaba los datos de
+  otro borrador al cambiar de uno a otro. Medias: una pieza vaciada no se borraba;
+  registros de una evolución anulada quedaban vigentes y bloqueaban el ítem. Pendiente
+  menor: cada periodontograma firmado agrega su propio mantenimiento (sin deduplicar).
+- En CI apareció un error real: «Guardar y firmar» llegaba al servidor como «guardar»
+  (el botón que envía no llegaba en el formulario); ahora son dos formularios.
+- Checklist: `docs/checklist-etapa9.md`.
+
 ## Remoto al 2026-10-10
 
 - Pedro autorizó («Hazlo»). «Aplicar migraciones» run 38013481738 (respaldo cifrado
