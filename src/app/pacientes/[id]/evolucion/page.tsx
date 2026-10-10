@@ -13,7 +13,10 @@ import { registrarError } from "@/lib/registro";
 import { createClient } from "@/lib/supabase/server";
 import { abrirHistoria } from "../datos-clinicos";
 import { PestanasPaciente } from "../pestanas";
+import { REGISTROS_POR_ESPECIALIDAD, type TipoRegistro } from "@/lib/clinico/especialidades";
+import { FormRegistro } from "./especialidades";
 import { Adenda, AnularEvolucion, EditorEvolucion, NuevaEvolucion, type ItemPendiente } from "./formularios";
+import { cargarRegistros, RegistrosSesion, type Registros } from "./registros";
 
 export const metadata: Metadata = { title: "Evolución – Dental Demo" };
 
@@ -78,7 +81,25 @@ export default async function Evolucion({ params }: { params: Promise<{ id: stri
       for (const i of pendientesIds) if (i.procedimiento_id && req.has(i.procedimiento_id) && !ok.has(i.id)) sinConsentimiento.add(i.id);
     }
   }
-  const error = notas.error ?? planes.error ?? items.error;
+  // Etapa 9: registros por especialidad y especialidad de cada procedimiento.
+  const vacio: Registros = { endodoncia: [], ortodoncia_caso: [], ortodoncia_control: [], implante: [], implante_fase: [], cirugia: [], odontopediatria: [] };
+  const [regs, especialidades] = modulos.etapa9
+    ? await Promise.all([
+        cargarRegistros(supabase, id),
+        supabase.from("procedimiento").select("id, especialidad")
+          .in("id", [...new Set((items.data ?? []).flatMap((i) => (i.procedimiento_id ? [i.procedimiento_id] : [])))])
+          .returns<{ id: string; especialidad: string }[]>(),
+      ])
+    : [{ registros: vacio, error: false }, { data: [] as { id: string; especialidad: string }[], error: null }];
+  const registros = regs.registros;
+  const especialidadDe = new Map((especialidades.data ?? []).map((p) => [p.id, p.especialidad]));
+  const menor = (() => {
+    if (!paciente.fecha_nacimiento) return false;
+    const [a, m, d] = paciente.fecha_nacimiento.split("-").map(Number) as [number, number, number];
+    const [ah, mh, dh] = fechaLima(new Date()).split("-").map(Number) as [number, number, number];
+    return ah - a - (mh < m || (mh === m && dh < d) ? 1 : 0) < 18;
+  })();
+  const error = notas.error ?? planes.error ?? items.error ?? especialidades.error;
   if (error) registrarError("evolucion.listar", error, { paciente: id });
 
   // NTS 139: cada evolución con el nombre y la colegiatura de quien la firma.
@@ -143,6 +164,10 @@ export default async function Evolucion({ params }: { params: Promise<{ id: stri
                           trabajados: n.evolucion_item.filter((e) => e.trabajado).map((e) => e.item_id),
                           terminados: n.evolucion_item.filter((e) => e.terminado).map((e) => e.item_id),
                         }} />
+                      {modulos.etapa9 && (
+                        <RegistrosEspecialidad nota={n} pacienteId={id} registros={registros} items={todos}
+                          especialidadDe={especialidadDe} menor={menor} />
+                      )}
                       <div className="mt-4 border-t border-gray-100 pt-3">
                         <AnularEvolucion pacienteId={id} notaId={n.id} borrador />
                       </div>
@@ -204,6 +229,7 @@ export default async function Evolucion({ params }: { params: Promise<{ id: stri
                         ))}
                       </ul>
                     )}
+                    {modulos.etapa9 && <RegistrosSesion registros={registros} notaId={n.id} pacienteId={id} anulable={false} />}
                     {n.evolucion_adenda.length > 0 && (
                       <ul className="mt-3 flex flex-col gap-2 border-l-2 border-gray-200 pl-3 text-sm">
                         {[...n.evolucion_adenda].sort((a, b) => a.registrado_at.localeCompare(b.registrado_at)).map((a) => (
@@ -233,4 +259,54 @@ export default async function Evolucion({ params }: { params: Promise<{ id: stri
       </main>
     </>
   );
+}
+
+/** Registros de especialidad de la sesión en borrador: los de cada ítem trabajado según su
+ * especialidad, la conducta en menores y las fases de los implantes del paciente. */
+function RegistrosEspecialidad({ nota, pacienteId, registros, items, especialidadDe, menor }: {
+  nota: Nota; pacienteId: string; registros: Registros; items: Map<string, Item>; especialidadDe: Map<string, string>; menor: boolean;
+}) {
+  const trabajados = nota.evolucion_item.filter((e) => e.trabajado).flatMap((e) => (items.get(e.item_id) ? [items.get(e.item_id) as Item] : []));
+  const formularios: { clave: string; tipo: TipoRegistro; item?: Item; implanteId?: string; titulo?: string }[] = [];
+  for (const i of trabajados) {
+    const esp = i.procedimiento_id ? especialidadDe.get(i.procedimiento_id) : undefined;
+    for (const tipo of (esp ? REGISTROS_POR_ESPECIALIDAD[esp] : undefined) ?? []) {
+      // Diagnóstico ortodóncico e implante: uno vigente por ítem.
+      if (tipo === "ortodoncia_caso" && registros.ortodoncia_caso.some((c) => c.item_plan_id === i.id && !c.anulado_at)) continue;
+      if (tipo === "implante" && registros.implante.some((c) => c.item_plan_id === i.id && !c.anulado_at)) continue;
+      formularios.push({ clave: `${tipo}-${i.id}`, tipo, item: i, titulo: undefined });
+    }
+  }
+  for (const imp of registros.implante.filter((x) => !x.anulado_at && x.nota_id !== nota.id)) {
+    formularios.push({ clave: `fase-${imp.id}`, tipo: "implante_fase", implanteId: imp.id, titulo: `Fase del implante en ${imp.pieza}` });
+  }
+  if (menor && !registros.odontopediatria.some((o) => o.nota_id === nota.id && !o.anulado_at)) {
+    formularios.push({ clave: "odontopediatria", tipo: "odontopediatria" });
+  }
+  return (
+    <section aria-label="Registros de especialidad de la sesión" className="mt-4 border-t border-gray-100 pt-3">
+      <h3 className="text-sm font-semibold text-gray-700">Registros de especialidad</h3>
+      <RegistrosSesion registros={registros} notaId={nota.id} pacienteId={pacienteId} anulable />
+      {formularios.length === 0 ? (
+        <p className="mt-1 text-xs text-gray-500">
+          Marca como trabajado un ítem de endodoncia, ortodoncia, implantes o cirugía y guarda el borrador para registrar sus datos.
+        </p>
+      ) : (
+        <div className="mt-2 flex flex-col gap-2">
+          {formularios.map((f) => (
+            <FormRegistro key={f.clave} tipo={f.tipo} pacienteId={pacienteId} notaId={nota.id} itemId={f.item?.id}
+              implanteId={f.implanteId} pieza={f.item?.pieza ?? null} prefijo={`r-${nota.id.slice(0, 8)}-${f.clave.slice(0, 24)}`}
+              titulo={f.titulo ?? (f.item ? `${tituloTipo(f.tipo)} · ${describir(f.item)}` : undefined)} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function tituloTipo(tipo: TipoRegistro): string {
+  return {
+    endodoncia: "Endodoncia (conducto)", ortodoncia_caso: "Diagnóstico ortodóncico", ortodoncia_control: "Control de ortodoncia",
+    implante: "Implante", implante_fase: "Fase de implante", cirugia: "Cirugía", odontopediatria: "Odontopediatría",
+  }[tipo];
 }

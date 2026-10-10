@@ -88,11 +88,14 @@ function Arcada({ piezas, datos, editar, cambiar }: {
     if (!editar) return <span aria-label={etiqueta} className={`inline-block h-2.5 w-2.5 rounded-full ${v ? (campo === "sangrado" ? "bg-red-600" : campo === "placa" ? "bg-sky-600" : "bg-amber-500") : "bg-gray-100"}`} />;
     return (
       <input type="checkbox" aria-label={etiqueta} checked={v} disabled={p.ausente} className="h-3.5 w-3.5"
-        onChange={(e) => cambiar(n, (x) => {
-          const arr = [...x[campo]] as Seis<boolean>;
-          arr[i] = e.target.checked;
-          return { ...x, [campo]: arr };
-        })} />
+        onChange={(e) => {
+          const marcado = e.target.checked;   // se lee aquí: el actualizador corre después
+          cambiar(n, (x) => {
+            const arr = [...x[campo]] as Seis<boolean>;
+            arr[i] = marcado;
+            return { ...x, [campo]: arr };
+          });
+        }} />
     );
   };
   const grado = (n: number, campo: "movilidad" | "furca") => {
@@ -102,7 +105,10 @@ function Arcada({ piezas, datos, editar, cambiar }: {
     if (!editar) return <span aria-label={etiqueta} className="text-xs tabular-nums">{p[campo] ?? "·"}</span>;
     return (
       <select aria-label={etiqueta} value={p[campo] ?? ""} disabled={p.ausente} className="rounded border border-gray-300 text-xs"
-        onChange={(e) => cambiar(n, (x) => ({ ...x, [campo]: e.target.value === "" ? null : Number(e.target.value) }))}>
+        onChange={(e) => {
+          const v = e.target.value === "" ? null : Number(e.target.value);
+          cambiar(n, (x) => ({ ...x, [campo]: v }));
+        }}>
         <option value="">·</option>
         {[0, 1, 2, 3].map((g) => <option key={g} value={g}>{g}</option>)}
       </select>
@@ -133,11 +139,17 @@ function Arcada({ piezas, datos, editar, cambiar }: {
         <tbody>
           {fila("Ausente", (n) => editar
             ? <input type="checkbox" aria-label={`Ausente ${n}`} checked={dato(n).ausente} className="h-3.5 w-3.5"
-                onChange={(e) => cambiar(n, (x) => e.target.checked ? { ...piezaVacia(n), ausente: true } : { ...x, ausente: false })} />
+                onChange={(e) => {
+                  const marcado = e.target.checked;
+                  cambiar(n, (x) => (marcado ? { ...piezaVacia(n), ausente: true } : { ...x, ausente: false }));
+                }} />
             : (dato(n).ausente ? <span className="text-xs text-gray-500">Aus.</span> : null))}
           {fila("Implante", (n) => editar
             ? <input type="checkbox" aria-label={`Implante ${n}`} checked={dato(n).implante} disabled={dato(n).ausente} className="h-3.5 w-3.5"
-                onChange={(e) => cambiar(n, (x) => ({ ...x, implante: e.target.checked }))} />
+                onChange={(e) => {
+                  const marcado = e.target.checked;
+                  cambiar(n, (x) => ({ ...x, implante: marcado }));
+                }} />
             : (dato(n).implante ? <span className="text-xs text-gray-600">Impl.</span> : null))}
           {fila("Movilidad", (n) => grado(n, "movilidad"))}
           {fila("Furca", (n) => grado(n, "furca"))}
@@ -220,11 +232,7 @@ export function GrillaEdicion({ id, pacienteId, piezas, observaciones, mantenimi
     setDatos((m) => new Map(m).set(pieza, f(m.get(pieza) ?? piezaVacia(pieza))));
   const enviar = JSON.stringify([...datos.values()].filter(tieneDatos));
   return (
-    <form action={accion} className="flex flex-col gap-4" noValidate
-      onSubmit={(e) => {
-        const boton = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
-        if (boton?.value === "firmar" && !window.confirm("Una vez firmado, el periodontograma no se edita. ¿Firmar?")) e.preventDefault();
-      }}>
+    <form action={accion} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="paciente_id" value={pacienteId} />
       <input type="hidden" name="piezas" value={enviar} />
@@ -252,7 +260,12 @@ export function GrillaEdicion({ id, pacienteId, piezas, observaciones, mantenimi
           {enviando ? "Guardando…" : "Guardar borrador"}
         </button>
         {puedeFirmar && (
-          <button type="submit" name="accion" value="firmar" disabled={enviando} className={BOTON}>Guardar y firmar</button>
+          <button type="submit" name="accion" value="firmar" disabled={enviando} className={BOTON}
+            onClick={(ev) => {
+              if (!window.confirm("Una vez firmado, el periodontograma no se edita. ¿Firmar?")) ev.preventDefault();
+            }}>
+            Guardar y firmar
+          </button>
         )}
         <Mensajes estado={estado} />
       </div>

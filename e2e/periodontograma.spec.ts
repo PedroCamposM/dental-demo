@@ -44,7 +44,9 @@ test("la odontóloga registra un periodontograma, ve el NIC calculado y lo firma
   await page.getByLabel("Mantenimiento periodontal en (meses)").fill("3");
   page.once("dialog", (d) => void d.accept());
   await page.getByRole("button", { name: "Guardar y firmar" }).click();
+  await expect(page.getByRole("alert").filter({ hasText: /firm|Pieza/ })).toHaveCount(0);
   await expect(page.getByRole("status").filter({ hasText: "Firmado. Mantenimiento programado a 3 meses." })).toBeVisible();
+  await expect(page.getByText("Aus.").first()).toBeVisible();   // la 18 quedó ausente
   // Firmado: solo lectura
   await expect(page.getByRole("button", { name: "Guardar borrador" })).toHaveCount(0);
   await expect(page.getByLabel("PS 16 V", { exact: true })).toHaveText("5");

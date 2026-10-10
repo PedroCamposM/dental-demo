@@ -23,7 +23,7 @@ async function crearPaciente(page: Page) {
 test("la odontóloga crea el odontograma inicial, registra hallazgos y pasa uno a diagnóstico", async ({ page }) => {
   await entrar(page, "mendoza@clinica-demo.example");
   await crearPaciente(page);
-  await page.getByRole("navigation", { name: "Secciones del paciente" }).getByRole("link", { name: "Odontograma" }).click();
+  await page.getByRole("navigation", { name: "Secciones del paciente" }).getByRole("link", { name: "Odontograma", exact: true }).click();
 
   // Primer odontograma: inicial, dentición según la edad
   await expect(page.getByRole("heading", { name: "Nuevo odontograma" })).toBeVisible();
