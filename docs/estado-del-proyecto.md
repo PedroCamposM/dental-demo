@@ -532,6 +532,26 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   agente revisor, se restablece el 13-oct). Encender `HABILITAR_ETAPA12` no hace falta:
   la etapa no agrega módulos nuevos detrás de una bandera.
 
+## v2 — Etapa 13 (registro más ágil, pedido del odontólogo piloto)
+
+Plan aprobado por Pedro (orden 13 → 17: ágil, atención rápida, personalización, prueba
+gratuita por clínica, suscripción).
+
+- **Odontograma:** las piezas del dibujo son botones de alternancia (antes, enlaces que
+  recargaban la página). Se marcan varias piezas y el mismo hallazgo se guarda en todas en un
+  solo envío, un registro por pieza (NTS 188). Se valida que cada pieza tenga la superficie
+  (p. ej. no hay oclusal en un incisivo) y que pertenezca a la dentición del odontograma.
+  El pintado por superficie ya existía desde la Etapa 4 (lo que vio el odontólogo era la v1).
+- **Plan:** «Piezas (FDI)» admite una lista; se crea un ítem por pieza. El diagnóstico de
+  origen elegido se lleva a cada pieza con su diagnóstico vigente del mismo CIE-10.
+- **Certificado de descanso:** migración **0924** (aditiva), columna `tratamiento`, obligatoria
+  en los certificados de descanso nuevos (trigger solo en insert: los anteriores no cambian).
+  Se completa con lo trabajado en las evoluciones firmadas de esa fecha. La prueba SQL de
+  recetas se actualizó a propósito (el descanso sin tratamiento ahora falla).
+- Pendiente de confirmar con el odontólogo: si «una parte de la oclusal» pide algo más fino
+  que la superficie (la NTS 188 registra por superficie; no se inventa nomenclatura).
+- Checklist: `docs/checklist-etapa13.md`.
+
 ## Remoto al 2026-10-10
 
 - Pedro autorizó («Hazlo»). «Aplicar migraciones» run 38013481738 (respaldo cifrado
@@ -554,7 +574,7 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
 
 ## Próximas etapas (CLAUDE.md)
 
-Etapas 0 a 12 terminadas.
+Etapas 0 a 12 terminadas (v2 en producción desde el 10-oct). Siguen: 13 registro ágil · 14 atención rápida · 15 personalización · 16 prueba gratuita por clínica · 17 suscripción.
 Falta en `/docs`: formatos de la clínica piloto (historia y consentimientos),
 necesarios antes de la Etapa 7. La Etapa 4 incluye además lo de las fichas
 odonto-estomatológicas de la NTS 139 (índice CPOD/ceod, IHO-S, riesgo estomatológico
