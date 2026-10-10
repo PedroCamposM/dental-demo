@@ -41,7 +41,7 @@ test("la odontóloga genera el formato y lo imprime con lo que pide la NTS 139",
   await page.goto(`/pacientes/${pacienteId}/consentimientos`);
   await expect(page.getByRole("region", { name: /Requieren consentimiento/ })).toContainText("Exodoncia simple (pieza 48)");
   await expect(page.locator("#g-plantilla")).toHaveValue(/[0-9a-f-]{36}/);   // la del catálogo, preseleccionada
-  await page.getByRole("button", { name: "Generar formato" }).click();
+  await page.getByRole("button", { name: "Generar formato", exact: true }).click();
   await expect(page.getByText("Formato generado: imprímelo para que lo firmen.")).toBeVisible();
   const item = page.locator("li[data-consentimiento]").filter({ hasText: "Exodoncia simple (pieza 48)" });
   await expect(item).toContainText("Pendiente de firma");
@@ -79,7 +79,7 @@ test("la asistente sube el formato firmado a mano", async ({ page }) => {
   expect(pacienteId, "depende de la prueba anterior").not.toBe("");
   await entrar(page, "asistente@clinica-demo.example");
   await page.goto(`/pacientes/${pacienteId}/consentimientos`);
-  await expect(page.getByRole("button", { name: "Generar formato" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Generar formato", exact: true })).toHaveCount(0);
   const item = page.locator("li[data-consentimiento]").filter({ hasText: "Exodoncia simple (pieza 48)" });
   await item.getByText("Subir formato firmado").click();
   await item.getByLabel(/^Escaneo firmado/).setInputFiles({ name: "consentimiento.png", mimeType: "image/png", buffer: PNG });

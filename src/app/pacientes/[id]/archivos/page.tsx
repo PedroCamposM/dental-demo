@@ -153,7 +153,7 @@ export default async function Archivos({ params, searchParams }: {
                           Abrir documento
                         </a>
                       )}
-                      {!a.anulado_at && (a.subido_por === sesion.usuarioId || sesion.esDentista) && (
+                      {!a.anulado_at && Object.hasOwn(TIPOS_ARCHIVO, a.tipo) && (a.subido_por === sesion.usuarioId || sesion.esDentista) && (
                         <div className="mt-auto pt-2"><AnularArchivo pacienteId={id} id={a.id} descripcion={titulo} /></div>
                       )}
                     </div>

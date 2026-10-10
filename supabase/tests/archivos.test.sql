@@ -79,6 +79,17 @@ select pruebas.debe_fallar($$insert into public.archivo_clinico (clinica_id, pac
           'aeaeaeae-0000-0000-0000-000000000000/aeaeaeae-0000-0000-0000-0000000000f1/33333333-3333-4333-8333-333333333333.pdf',
           'application/pdf', 1000, (now() at time zone 'America/Lima')::date, 19, 'ae000000-0000-0000-0000-00000000000b')$$, 'check constraint');
 
+select pruebas.debe_fallar($$insert into public.archivo_clinico (clinica_id, paciente_id, tipo, ruta, mime, bytes, tomada_el, subido_por)
+  values ('aeaeaeae-0000-0000-0000-000000000000', 'aeaeaeae-0000-0000-0000-0000000000f1', 'documento',
+          'aeaeaeae-0000-0000-0000-000000000000/aeaeaeae-0000-0000-0000-0000000000f1/33333333-3333-4333-8333-333333333333.pdf',
+          'image/png', 1000, (now() at time zone 'America/Lima')::date, 'ae000000-0000-0000-0000-00000000000b')$$, 'no coincide');
+-- Desde otra clínica: el error no revela nada del paciente ajeno
+select pruebas.como('be000000-0000-0000-0000-00000000000a');
+select pruebas.debe_fallar($$insert into public.archivo_clinico (clinica_id, paciente_id, tipo, ruta, mime, bytes, tomada_el, subido_por)
+  values ('aeaeaeae-0000-0000-0000-000000000000', 'aeaeaeae-0000-0000-0000-0000000000f1', 'documento',
+          'aeaeaeae-0000-0000-0000-000000000000/aeaeaeae-0000-0000-0000-0000000000f1/33333333-3333-4333-8333-333333333333.pdf',
+          'application/pdf', 1000, (now() at time zone 'America/Lima')::date, 'be000000-0000-0000-0000-00000000000a')$$,
+  'otra clínica');
 select pruebas.como('ae000000-0000-0000-0000-00000000000c');
 insert into public.archivo_clinico (id, clinica_id, paciente_id, tipo, ruta, mime, bytes, tomada_el, subido_por) values
   ('aeaeaeae-0000-0000-0000-0000000000a2', 'aeaeaeae-0000-0000-0000-000000000000', 'aeaeaeae-0000-0000-0000-0000000000f1',

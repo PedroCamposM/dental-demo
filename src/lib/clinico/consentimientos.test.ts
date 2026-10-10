@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { rutaArchivo } from "./archivos";
-import { validarGenerar, validarMotivo, validarPlantilla, validarRegistro } from "./consentimientos";
+import { itemsConConsentimiento, validarGenerar, validarMotivo, validarPlantilla, validarRegistro } from "./consentimientos";
 
 const U = "11111111-1111-4111-8111-111111111111";
 const C = "aaaaaaaa-0000-4000-8000-000000000001";
@@ -62,5 +62,18 @@ describe("validarPlantilla", () => {
     expect(r.ok && r.datos.es_ejemplo).toBe(false);
     const s = validarPlantilla(de({ ...base, es_ejemplo: "1" }));
     expect(s.ok && s.datos.es_ejemplo).toBe(true);
+  });
+});
+
+describe("itemsConConsentimiento", () => {
+  const A = "a", B = "b", C2 = "c";
+  it("hereda el consentimiento del ítem de origen con el mismo procedimiento y pieza", () => {
+    const items = [
+      { id: A, item_origen_id: null, procedimiento_id: "p", pieza: 48 },
+      { id: B, item_origen_id: A, procedimiento_id: "p", pieza: 48 },
+      { id: C2, item_origen_id: B, procedimiento_id: "p", pieza: 47 },
+    ];
+    const r = itemsConConsentimiento(items, new Set([A]));
+    expect([...r].sort()).toEqual([A, B]);
   });
 });

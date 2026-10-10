@@ -66,9 +66,19 @@ create index archivo_paciente_idx on public.archivo_clinico (paciente_id, tomada
 create function privado.validar_archivo() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
+  -- Desde la app, solo en la propia clínica (antes de mirar nada de otra).
+  if auth.uid() is not null and new.clinica_id is distinct from privado.clinica_actual() then
+    raise exception 'Archivo de otra clínica';
+  end if;
   -- La ruta es de esta clínica y este paciente, y el objeto ya está en el bucket.
   if new.ruta !~ ('^' || new.clinica_id || '/' || new.paciente_id || '/[0-9a-f-]{36}\.(jpg|png|webp|pdf)$') then
     raise exception 'Ruta de archivo inválida';
+  end if;
+  -- La extensión de la ruta corresponde al formato declarado.
+  if (substring(new.ruta from '\.([a-z]+)$')) is distinct from
+     (case new.mime when 'image/jpeg' then 'jpg' when 'image/png' then 'png' when 'image/webp' then 'webp'
+                    when 'application/pdf' then 'pdf' end) then
+    raise exception 'El formato del archivo no coincide con su extensión';
   end if;
   if not exists (select 1 from storage.objects o where o.bucket_id = 'clinico' and o.name = new.ruta) then
     raise exception 'El archivo no se terminó de subir: inténtalo de nuevo';
@@ -101,9 +111,11 @@ create policy archivo_insert on public.archivo_clinico for insert to authenticat
   with check (clinica_id = (select privado.clinica_actual()) and (select privado.ve_clinico())
               and subido_por = (select auth.uid())
               and tipo in ('radiografia', 'foto_intraoral', 'foto_extraoral', 'documento'));
--- Anula quien lo subió o un cirujano dentista (con motivo, a nombre propio).
+-- Anula quien lo subió o un cirujano dentista (con motivo, a nombre propio). Los escaneos
+-- de consentimientos e interconsultas no se anulan aquí: respaldan esos registros.
 create policy archivo_anular on public.archivo_clinico for update to authenticated
   using (clinica_id = (select privado.clinica_actual()) and (select privado.ve_clinico())
+         and tipo in ('radiografia', 'foto_intraoral', 'foto_extraoral', 'documento')
          and (subido_por = (select auth.uid()) or (select privado.es_dentista())))
   with check (clinica_id = (select privado.clinica_actual()) and anulado_por = (select auth.uid()));
 

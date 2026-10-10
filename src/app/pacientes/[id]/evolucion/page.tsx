@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { AlertasPaciente } from "@/components/alertas-paciente";
 import { Encabezado } from "@/components/encabezado";
 import { SUPERFICIES, type Superficie } from "@/lib/clinico/diagnostico";
+import { itemsConConsentimiento, type ItemConOrigen } from "@/lib/clinico/consentimientos";
 import { CAMPOS_EVOLUCION, LISTA_CAMPOS_EVOLUCION, type CampoEvolucion } from "@/lib/clinico/evolucion";
 import { fechaLima, formatearFecha, horaLima } from "@/lib/fechas";
 import { modulos } from "@/lib/funciones";
@@ -26,6 +27,7 @@ type Nota = Record<Exclude<CampoEvolucion, "texto">, string | null> & {
 type Item = {
   id: string; plan_id: string; procedimiento: string; pieza: number | null; superficies: Superficie[] | null;
   estado: string; nota_evolucion_id: string | null; fase: number | null; orden: number; procedimiento_id: string | null;
+  item_origen_id?: string | null;
 };
 type Plan = { id: string; titulo: string; version: number; alternativa: string; estado: string };
 
@@ -61,14 +63,18 @@ export default async function Evolucion({ params }: { params: Promise<{ id: stri
   if (modulos.etapa7) {
     const pendientesIds = (items.data ?? []).filter((i) => i.estado === "aceptado" || i.estado === "programado");
     const procs = [...new Set(pendientesIds.flatMap((i) => (i.procedimiento_id ? [i.procedimiento_id] : [])))];
-    if (procs.length > 0) {
-      const [requieren, firmados] = await Promise.all([
+    if (procs.length > 0 && idsPlanes.length > 0) {
+      const [requieren, firmados, origenes] = await Promise.all([
         supabase.from("procedimiento").select("id").in("id", procs).eq("requiere_consentimiento", true).returns<{ id: string }[]>(),
         supabase.from("consentimiento").select("item_plan_id").eq("paciente_id", id).eq("estado", "firmado").is("anulado_at", null)
           .returns<{ item_plan_id: string | null }[]>(),
+        supabase.from("item_plan").select("id, item_origen_id, procedimiento_id, pieza").in("plan_id", idsPlanes)
+          .returns<ItemConOrigen[]>(),
       ]);
       const req = new Set((requieren.data ?? []).map((r) => r.id));
-      const ok = new Set((firmados.data ?? []).flatMap((f) => (f.item_plan_id ? [f.item_plan_id] : [])));
+      // Firmado en este ítem o en el de una versión anterior del plan (lo mismo que exige la base).
+      const ok = itemsConConsentimiento(origenes.data ?? [],
+        new Set((firmados.data ?? []).flatMap((f) => (f.item_plan_id ? [f.item_plan_id] : []))));
       for (const i of pendientesIds) if (i.procedimiento_id && req.has(i.procedimiento_id) && !ok.has(i.id)) sinConsentimiento.add(i.id);
     }
   }

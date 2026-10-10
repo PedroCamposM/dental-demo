@@ -152,6 +152,10 @@ declare
   v_paciente public.paciente;
   v_item public.item_plan;
 begin
+  -- Desde la app, solo en la propia clínica (antes de mirar nada de otra).
+  if auth.uid() is not null and new.clinica_id is distinct from privado.clinica_actual() then
+    raise exception 'Consentimiento de otra clínica';
+  end if;
   select * into v_plantilla from public.plantilla_consentimiento
    where id = new.plantilla_id and clinica_id = new.clinica_id;
   if v_plantilla.id is null or not v_plantilla.activa or v_plantilla.tipo <> new.tipo then
@@ -167,6 +171,11 @@ begin
     end if;
     if v_item.estado not in ('propuesto', 'aceptado', 'programado') then
       raise exception 'El ítem ya está realizado o cancelado';
+    end if;
+    -- Si el catálogo dice cuál plantilla usa el procedimiento, se usa esa.
+    if exists (select 1 from public.procedimiento pr where pr.id = v_item.procedimiento_id
+                and pr.consentimiento_plantilla_id is not null and pr.consentimiento_plantilla_id <> new.plantilla_id) then
+      raise exception 'Este procedimiento usa otra plantilla de consentimiento (la del catálogo)';
     end if;
     new.titulo := v_plantilla.nombre || ' — ' || v_item.procedimiento
                   || coalesce(' (pieza ' || v_item.pieza || ')', '');
@@ -315,6 +324,119 @@ revoke all on function public.anular_consentimiento(uuid, text) from public, ano
 grant execute on function public.anular_consentimiento(uuid, text) to authenticated;
 
 -- ---------------------------------------------------------------------------
+-- Ítems y consentimientos
+-- - item_origen_id: el ítem de la versión anterior del plan del que se copió. Así, un
+--   consentimiento ya firmado sigue valiendo en la versión nueva (mismo procedimiento
+--   y pieza): el paciente no firma dos veces lo mismo.
+-- - El procedimiento de un ítem aceptado, o que ya tiene consentimiento, no cambia
+--   (si no, se podría esquivar la regla 3 quitándole el procedimiento).
+-- ---------------------------------------------------------------------------
+alter table public.item_plan add column item_origen_id uuid;
+alter table public.item_plan
+  add constraint item_plan_origen_fk foreign key (clinica_id, item_origen_id) references public.item_plan (clinica_id, id);
+
+create function privado.congelar_procedimiento_item() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if auth.uid() is not null and not privado.en_fusion()
+     and (new.procedimiento_id is distinct from old.procedimiento_id or new.pieza is distinct from old.pieza
+          or new.item_origen_id is distinct from old.item_origen_id)
+     and (old.estado <> 'propuesto'
+          or exists (select 1 from public.consentimiento c where c.item_plan_id = old.id and c.anulado_at is null)) then
+    raise exception 'El procedimiento y la pieza de un ítem aceptado o con consentimiento no cambian: haz una versión nueva del plan';
+  end if;
+  return new;
+end $$;
+create trigger congelar_procedimiento before update on public.item_plan
+  for each row execute function privado.congelar_procedimiento_item();
+
+-- Consentimiento firmado vigente para el ítem o para el ítem del que se copió (en
+-- cualquier versión anterior), del mismo procedimiento y pieza.
+create function privado.tiene_consentimiento(id_item uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+  with recursive cadena as (
+    select i.id, i.item_origen_id, i.procedimiento_id, i.pieza from public.item_plan i where i.id = id_item
+    union all
+    select o.id, o.item_origen_id, o.procedimiento_id, o.pieza
+      from public.item_plan o join cadena c on o.id = c.item_origen_id
+     where o.procedimiento_id is not distinct from c.procedimiento_id and o.pieza is not distinct from c.pieza
+  )
+  select exists (select 1 from public.consentimiento k join cadena c on c.id = k.item_plan_id
+                  where k.estado = 'firmado' and k.anulado_at is null)
+$$;
+
+create or replace function public.copiar_plan(id_plan uuid, como text)
+returns uuid
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_plan public.plan_tratamiento;
+  v_nuevo uuid := gen_random_uuid();
+  v_version smallint;
+  v_alternativa char(1);
+begin
+  if not privado.es_dentista() then
+    raise exception 'Solo un cirujano dentista crea versiones o alternativas del plan';
+  end if;
+  if como not in ('version', 'alternativa') then
+    raise exception 'Indica si es una versión o una alternativa';
+  end if;
+  select * into v_plan from public.plan_tratamiento where id = id_plan and clinica_id = privado.clinica_actual();
+  if v_plan.id is null then
+    raise exception 'Plan no encontrado';
+  end if;
+  if como = 'alternativa' and v_plan.estado <> 'propuesto' then
+    raise exception 'Las alternativas se presentan junto a un plan propuesto; para cambiar uno aceptado, crea una versión';
+  end if;
+  if v_plan.estado not in ('propuesto', 'aceptado', 'en_curso', 'detenido') then
+    raise exception 'Este plan ya no se puede copiar';
+  end if;
+  if exists (select 1 from public.paciente where id = v_plan.paciente_id and anulado_at is not null) then
+    raise exception 'El paciente está anulado: registra el plan en el paciente vigente';
+  end if;
+  -- Bloquea el grupo para numerar sin choques.
+  perform 1 from public.plan_tratamiento
+   where grupo_id = v_plan.grupo_id and clinica_id = v_plan.clinica_id and paciente_id = v_plan.paciente_id for update;
+  if como = 'version' then
+    v_version := (select max(version) + 1 from public.plan_tratamiento
+                   where grupo_id = v_plan.grupo_id and clinica_id = v_plan.clinica_id);
+    v_alternativa := v_plan.alternativa;
+  else
+    v_version := v_plan.version;
+    v_alternativa := chr(ascii((select max(alternativa) from public.plan_tratamiento
+                                 where grupo_id = v_plan.grupo_id and clinica_id = v_plan.clinica_id
+                                   and version = v_plan.version)) + 1);
+    if v_alternativa > 'Z' then
+      raise exception 'No caben más alternativas';
+    end if;
+  end if;
+
+  insert into public.plan_tratamiento (id, clinica_id, paciente_id, odontologo_id, titulo, plan_origen_id, grupo_id,
+                                       version, alternativa, estado, fecha_vencimiento)
+  values (v_nuevo, v_plan.clinica_id, v_plan.paciente_id, auth.uid(), v_plan.titulo, v_plan.id, v_plan.grupo_id,
+          v_version, v_alternativa, 'propuesto', (now() at time zone 'America/Lima')::date + 30);
+  insert into public.plan_fase (clinica_id, plan_id, numero, nombre)
+  select clinica_id, v_nuevo, numero, nombre from public.plan_fase where plan_id = v_plan.id;
+
+  -- Ítems pendientes (lo realizado o cancelado queda en el plan anterior). Cada copia
+  -- recuerda su ítem de origen (para el consentimiento ya firmado).
+  create temp table copia_item on commit drop as
+  select i.id as viejo, gen_random_uuid() as nuevo from public.item_plan i
+   where i.plan_id = v_plan.id and i.estado in ('propuesto', 'aceptado', 'programado');
+  insert into public.item_plan (id, clinica_id, plan_id, pieza, superficies, procedimiento, procedimiento_id, cie10,
+                                diagnostico_id, precio_centimos, duracion_minutos, odontologo_id, estado, orden, fase,
+                                item_origen_id)
+  select c.nuevo, i.clinica_id, v_nuevo, i.pieza, i.superficies, i.procedimiento, i.procedimiento_id, i.cie10,
+         (select d.id from public.diagnostico d where d.id = i.diagnostico_id and d.anulado_at is null),
+         i.precio_centimos, i.duracion_minutos, i.odontologo_id, 'propuesto', i.orden, i.fase, i.id
+    from public.item_plan i join copia_item c on c.viejo = i.id;
+  insert into public.item_dependencia (clinica_id, item_id, requiere_id)
+  select v_plan.clinica_id, a.nuevo, b.nuevo
+    from public.item_dependencia d join copia_item a on a.viejo = d.item_id join copia_item b on b.viejo = d.requiere_id;
+  drop table copia_item;
+  return v_nuevo;
+end $$;
+
+-- ---------------------------------------------------------------------------
 -- Regla 3 completa
 -- ---------------------------------------------------------------------------
 create or replace function privado.validar_item() returns trigger
@@ -348,8 +470,7 @@ begin
       end if;
       -- Y con el consentimiento informado firmado (vigente) si el procedimiento lo requiere.
       if exists (select 1 from public.procedimiento pr where pr.id = new.procedimiento_id and pr.requiere_consentimiento)
-         and not exists (select 1 from public.consentimiento c
-                          where c.item_plan_id = new.id and c.estado = 'firmado' and c.anulado_at is null) then
+         and not privado.tiene_consentimiento(new.id) then
         raise exception '«%» requiere el consentimiento informado firmado antes de realizarse', new.procedimiento;
       end if;
     end if;
@@ -360,6 +481,33 @@ end $$;
 -- ---------------------------------------------------------------------------
 -- Fusión y auditoría
 -- ---------------------------------------------------------------------------
+-- Uso de imagen al fusionar: queda vigente uno solo. Se prefiere el firmado (y, entre
+-- iguales, el del paciente que se conserva). Un pendiente sobrante se anula; un firmado
+-- sobrante queda reemplazado (no es una revocación del paciente: así lo dice el motivo).
+create function privado.fusion_uso_imagen(duplicado uuid, conservar uuid) returns void
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_queda uuid;
+begin
+  select c.id into v_queda from public.consentimiento c
+   where c.paciente_id in (duplicado, conservar) and c.tipo = 'uso_imagen' and c.anulado_at is null
+     and c.estado in ('pendiente', 'firmado')
+   order by (c.estado = 'firmado') desc, (c.paciente_id = conservar) desc, c.creado_at desc
+   limit 1;
+  if v_queda is null then
+    return;
+  end if;
+  update public.consentimiento set anulado_at = now(), anulado_por = auth.uid(),
+         motivo_anulacion = 'Fusión de pacientes: se conserva el otro consentimiento de uso de imagen'
+   where paciente_id in (duplicado, conservar) and tipo = 'uso_imagen' and estado = 'pendiente'
+     and anulado_at is null and id <> v_queda;
+  update public.consentimiento set estado = 'revocado', revocado_at = now(), revocado_por = auth.uid(),
+         motivo_revocacion = 'Reemplazado al fusionar registros duplicados (no es una revocación del paciente)'
+   where paciente_id in (duplicado, conservar) and tipo = 'uso_imagen' and estado = 'firmado'
+     and anulado_at is null and id <> v_queda;
+end $$;
+revoke all on function privado.fusion_uso_imagen(uuid, uuid) from public, anon, authenticated;
+
 create or replace function privado.fusion_mover_extra(duplicado uuid, conservar uuid) returns jsonb
 language plpgsql security definer set search_path = '' as $$
 declare
@@ -368,18 +516,7 @@ declare
 begin
   update public.archivo_clinico set paciente_id = conservar where paciente_id = duplicado;
   get diagnostics n_archivos = row_count;
-  -- Uso de imagen: si ambos tenían uno vigente, el del duplicado queda anulado (pendiente)
-  -- o se conserva el historial (firmado) pero solo uno sigue vigente.
-  update public.consentimiento set anulado_at = now(), anulado_por = auth.uid(),
-         motivo_anulacion = 'Fusión de pacientes: el paciente que se conserva ya tenía uno'
-   where paciente_id = duplicado and tipo = 'uso_imagen' and estado = 'pendiente' and anulado_at is null
-     and exists (select 1 from public.consentimiento c where c.paciente_id = conservar and c.tipo = 'uso_imagen'
-                  and c.anulado_at is null and c.estado in ('pendiente', 'firmado'));
-  update public.consentimiento set estado = 'revocado', revocado_at = now(), revocado_por = auth.uid(),
-         motivo_revocacion = 'Fusión de pacientes: se conserva el consentimiento del otro registro'
-   where paciente_id = duplicado and tipo = 'uso_imagen' and estado = 'firmado' and anulado_at is null
-     and exists (select 1 from public.consentimiento c where c.paciente_id = conservar and c.tipo = 'uso_imagen'
-                  and c.anulado_at is null and c.estado in ('pendiente', 'firmado'));
+  perform privado.fusion_uso_imagen(duplicado, conservar);
   update public.consentimiento set paciente_id = conservar where paciente_id = duplicado;
   get diagnostics n_consentimientos = row_count;
   return jsonb_build_object('archivos', n_archivos, 'consentimientos', n_consentimientos);

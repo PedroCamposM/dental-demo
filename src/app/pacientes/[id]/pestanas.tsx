@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { modulos } from "@/lib/funciones";
 
-type Pestana = "filiacion" | "historia" | "signos" | "odontograma" | "examen" | "plan" | "evolucion" | "archivos" | "consentimientos";
+type Pestana = "filiacion" | "historia" | "signos" | "odontograma" | "examen" | "plan" | "evolucion" | "archivos" | "consentimientos" | "documentos";
 
 /** Pestañas de la ficha del paciente. La historia solo para quien la ve (RLS lo exige igual). */
 export function PestanasPaciente({ id, actual, veClinico }: { id: string; actual: Pestana; veClinico: boolean }) {
@@ -20,6 +20,7 @@ export function PestanasPaciente({ id, actual, veClinico }: { id: string; actual
     ...(modulos.etapa6 && veClinico ? [{ clave: "evolucion" as const, href: `/pacientes/${id}/evolucion`, texto: "Evolución" }] : []),
     ...(modulos.etapa7 && veClinico ? [{ clave: "archivos" as const, href: `/pacientes/${id}/archivos`, texto: "Imágenes y archivos" }] : []),
     ...(modulos.etapa7 && veClinico ? [{ clave: "consentimientos" as const, href: `/pacientes/${id}/consentimientos`, texto: "Consentimientos" }] : []),
+    ...(modulos.etapa7 && veClinico ? [{ clave: "documentos" as const, href: `/pacientes/${id}/documentos`, texto: "Recetas y documentos" }] : []),
   ];
   if (pestanas.length < 2) return null;
   return (

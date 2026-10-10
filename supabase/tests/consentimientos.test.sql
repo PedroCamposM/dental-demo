@@ -180,6 +180,46 @@ select public.revocar_consentimiento('afafafaf-0000-0000-0000-0000000000c4', 'El
 select pruebas.igual((select count(*) from public.consentimiento where id = 'afafafaf-0000-0000-0000-0000000000c4'
                         and estado = 'revocado' and revocado_por = 'af000000-0000-0000-0000-00000000000b'), 1, 'revocado');
 
+-- ---------------------------------------------------------------------------
+-- Correcciones de la revisión
+-- ---------------------------------------------------------------------------
+-- El procedimiento de un ítem aceptado no cambia (no se esquiva la regla 3)
+select pruebas.debe_fallar($$update public.item_plan set procedimiento_id = null
+                             where id = 'afafafaf-0000-0000-0000-0000000000e2'$$, 'no cambian');
+-- Si el catálogo asigna una plantilla al procedimiento, se usa esa
+select pruebas.como('af000000-0000-0000-0000-00000000000a');
+insert into public.plantilla_consentimiento (id, clinica_id, tipo, nombre, descripcion, riesgos) values
+  ('afafafaf-0000-0000-0000-0000000000b3', 'afafafaf-0000-0000-0000-000000000000', 'procedimiento', 'Blanqueamiento',
+   'Aclarar el color de los dientes.', 'Sensibilidad pasajera.');
+select pruebas.como('af000000-0000-0000-0000-00000000000b');
+select pruebas.debe_fallar($$insert into public.consentimiento (clinica_id, paciente_id, tipo, plantilla_id, item_plan_id, profesional_id)
+  values ('afafafaf-0000-0000-0000-000000000000', 'afafafaf-0000-0000-0000-0000000000f2', 'procedimiento',
+          'afafafaf-0000-0000-0000-0000000000b3', 'afafafaf-0000-0000-0000-0000000000e3', 'af000000-0000-0000-0000-00000000000b')$$,
+  'la del catálogo');
+-- El consentimiento firmado sigue valiendo en una versión nueva del plan
+insert into public.consentimiento (id, clinica_id, paciente_id, tipo, plantilla_id, item_plan_id, profesional_id) values
+  ('afafafaf-0000-0000-0000-0000000000c5', 'afafafaf-0000-0000-0000-000000000000', 'afafafaf-0000-0000-0000-0000000000f2',
+   'procedimiento', 'afafafaf-0000-0000-0000-0000000000b1', 'afafafaf-0000-0000-0000-0000000000e3',
+   'af000000-0000-0000-0000-00000000000b');
+insert into storage.objects (bucket_id, name) values
+  ('clinico', 'afafafaf-0000-0000-0000-000000000000/afafafaf-0000-0000-0000-0000000000f2/aaaaaaaa-1111-4111-8111-111111111111.pdf');
+select public.registrar_consentimiento('afafafaf-0000-0000-0000-0000000000c5', 'firmado', (now() at time zone 'America/Lima')::date,
+  'afafafaf-0000-0000-0000-000000000000/afafafaf-0000-0000-0000-0000000000f2/aaaaaaaa-1111-4111-8111-111111111111.pdf',
+  'application/pdf', 20000, 'firmado.pdf');
+create temp table v2 (id uuid);
+grant all on v2 to authenticated;
+insert into v2 select public.copiar_plan('afafafaf-0000-0000-0000-0000000000a2', 'version');
+-- El escaneo de un consentimiento no se anula desde «Imágenes y archivos»
+update public.archivo_clinico set anulado_at = now(), anulado_por = 'af000000-0000-0000-0000-00000000000b',
+       motivo_anulacion = 'Prueba' where tipo = 'consentimiento';
+select pruebas.igual((select count(*) from public.archivo_clinico where tipo = 'consentimiento' and anulado_at is not null), 0,
+                     'el escaneo del consentimiento no se anula');
+reset role;
+select pruebas.igual((select count(*)::int from public.item_plan i join v2 on v2.id = i.plan_id
+                       where i.item_origen_id = 'afafafaf-0000-0000-0000-0000000000e3'
+                         and privado.tiene_consentimiento(i.id)), 1, 'la versión nueva hereda el consentimiento firmado');
+set role authenticated;
+
 -- Recepción, otra clínica y visitante no ven consentimientos
 select pruebas.como('af000000-0000-0000-0000-00000000000d');
 select pruebas.igual((select count(*) from public.consentimiento), 0, 'recepción no ve consentimientos');
@@ -190,6 +230,24 @@ select pruebas.igual((select count(*) from public.consentimiento) + (select coun
                      'otra clínica no ve nada');
 select pruebas.debe_fallar($$select public.revocar_consentimiento('afafafaf-0000-0000-0000-0000000000c1', 'Prueba')$$,
                            'Solo se revoca');
+-- Fusión: se conserva el consentimiento de uso de imagen firmado, no el pendiente
+select pruebas.como('af000000-0000-0000-0000-00000000000b');
+insert into public.consentimiento (id, clinica_id, paciente_id, tipo, plantilla_id, fines, profesional_id) values
+  ('afafafaf-0000-0000-0000-0000000000c6', 'afafafaf-0000-0000-0000-000000000000', 'afafafaf-0000-0000-0000-0000000000f2',
+   'uso_imagen', 'afafafaf-0000-0000-0000-0000000000b2', array['academico'], 'af000000-0000-0000-0000-00000000000b'),
+  ('afafafaf-0000-0000-0000-0000000000c7', 'afafafaf-0000-0000-0000-000000000000', 'afafafaf-0000-0000-0000-0000000000f1',
+   'uso_imagen', 'afafafaf-0000-0000-0000-0000000000b2', array['difusion'], 'af000000-0000-0000-0000-00000000000b');
+insert into storage.objects (bucket_id, name) values
+  ('clinico', 'afafafaf-0000-0000-0000-000000000000/afafafaf-0000-0000-0000-0000000000f1/bbbbbbbb-1111-4111-8111-111111111111.pdf');
+select public.registrar_consentimiento('afafafaf-0000-0000-0000-0000000000c7', 'firmado', (now() at time zone 'America/Lima')::date,
+  'afafafaf-0000-0000-0000-000000000000/afafafaf-0000-0000-0000-0000000000f1/bbbbbbbb-1111-4111-8111-111111111111.pdf',
+  'application/pdf', 20000, 'uso.pdf');
+select pruebas.como('af000000-0000-0000-0000-00000000000a');
+select public.fusionar_pacientes('afafafaf-0000-0000-0000-0000000000f1', 'afafafaf-0000-0000-0000-0000000000f2', 'Registro duplicado');
+select pruebas.igual((select count(*) from public.consentimiento where id = 'afafafaf-0000-0000-0000-0000000000c7'
+                        and estado = 'firmado' and paciente_id = 'afafafaf-0000-0000-0000-0000000000f2'), 1, 'queda el firmado');
+select pruebas.igual((select count(*) from public.consentimiento where id = 'afafafaf-0000-0000-0000-0000000000c6'
+                        and anulado_at is not null), 1, 'el pendiente sobrante se anula');
 reset role;
 set role anon;
 select pruebas.debe_fallar('select 1 from public.consentimiento', 'permission denied');

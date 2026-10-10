@@ -73,6 +73,7 @@ export async function registrarFirma(previo: EstadoSimple, form: FormData): Prom
     id_consentimiento: id, decision: r.datos.decision, decidido: r.datos.decidido,
     ruta: r.datos.ruta, mime: r.datos.mime, bytes: r.datos.bytes, nombre: r.datos.nombre,
   });
+  if (error?.code === "23505") return fallo(previo, "Ese escaneo ya está registrado: vuelve a elegir el archivo.");
   if (error) return fallo(previo, mensajeDeError(error, "consentimiento.registrar", "registrar el consentimiento"));
   revalidatePath(`/pacientes/${pacienteId}/consentimientos`);
   revalidatePath(`/pacientes/${pacienteId}/archivos`);

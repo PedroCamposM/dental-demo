@@ -234,18 +234,7 @@ declare
 begin
   update public.archivo_clinico set paciente_id = conservar where paciente_id = duplicado;
   get diagnostics n_archivos = row_count;
-  -- Uso de imagen: si ambos tenían uno vigente, el del duplicado queda anulado (pendiente)
-  -- o se conserva el historial (firmado) pero solo uno sigue vigente.
-  update public.consentimiento set anulado_at = now(), anulado_por = auth.uid(),
-         motivo_anulacion = 'Fusión de pacientes: el paciente que se conserva ya tenía uno'
-   where paciente_id = duplicado and tipo = 'uso_imagen' and estado = 'pendiente' and anulado_at is null
-     and exists (select 1 from public.consentimiento c where c.paciente_id = conservar and c.tipo = 'uso_imagen'
-                  and c.anulado_at is null and c.estado in ('pendiente', 'firmado'));
-  update public.consentimiento set estado = 'revocado', revocado_at = now(), revocado_por = auth.uid(),
-         motivo_revocacion = 'Fusión de pacientes: se conserva el consentimiento del otro registro'
-   where paciente_id = duplicado and tipo = 'uso_imagen' and estado = 'firmado' and anulado_at is null
-     and exists (select 1 from public.consentimiento c where c.paciente_id = conservar and c.tipo = 'uso_imagen'
-                  and c.anulado_at is null and c.estado in ('pendiente', 'firmado'));
+  perform privado.fusion_uso_imagen(duplicado, conservar);
   update public.consentimiento set paciente_id = conservar where paciente_id = duplicado;
   get diagnostics n_consentimientos = row_count;
   update public.receta set paciente_id = conservar where paciente_id = duplicado;

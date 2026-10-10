@@ -3,7 +3,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlertasPaciente } from "@/components/alertas-paciente";
 import { Encabezado } from "@/components/encabezado";
-import { ESTADOS_CONSENTIMIENTO, FINES_IMAGEN, type EstadoConsentimiento, type FinImagen } from "@/lib/clinico/consentimientos";
+import {
+  ESTADOS_CONSENTIMIENTO, FINES_IMAGEN, itemsConConsentimiento, type EstadoConsentimiento, type FinImagen,
+} from "@/lib/clinico/consentimientos";
 import { fechaLima, formatearFecha, horaLima } from "@/lib/fechas";
 import { modulos } from "@/lib/funciones";
 import { registrarError } from "@/lib/registro";
@@ -23,7 +25,10 @@ type Consentimiento = {
   decidido_el: string | null; es_ejemplo: boolean; motivo_revocacion: string | null; revocado_at: string | null;
   anulado_at: string | null; motivo_anulacion: string | null; archivo_clinico: { ruta: string } | null;
 };
-type Item = { id: string; plan_id: string; procedimiento: string; pieza: number | null; estado: string; procedimiento_id: string | null };
+type Item = {
+  id: string; plan_id: string; procedimiento: string; pieza: number | null; estado: string; procedimiento_id: string | null;
+  item_origen_id: string | null;
+};
 
 const COLOR: Record<EstadoConsentimiento, string> = {
   pendiente: "bg-amber-50 text-amber-800", firmado: "bg-teal-50 text-teal-800",
@@ -45,16 +50,17 @@ export default async function Consentimientos({ params, searchParams }: {
       .select("id, tipo, titulo, item_plan_id, fines, profesional_id, representante_nombre, creado_at, estado, decidido_el, "
         + "es_ejemplo, motivo_revocacion, revocado_at, anulado_at, motivo_anulacion, archivo_clinico(ruta)")
       .eq("paciente_id", id).order("creado_at", { ascending: false }).returns<Consentimiento[]>(),
-    supabase.from("plan_tratamiento").select("id, titulo").eq("paciente_id", id).not("estado", "in", "(rechazado,reemplazado)")
-      .returns<{ id: string; titulo: string }[]>(),
+    // Todos los planes: las versiones anteriores sirven para heredar consentimientos firmados.
+    supabase.from("plan_tratamiento").select("id, titulo, estado").eq("paciente_id", id)
+      .returns<{ id: string; titulo: string; estado: string }[]>(),
     supabase.from("plantilla_consentimiento").select("id, tipo, nombre, es_ejemplo").eq("activa", true).order("nombre")
       .returns<{ id: string; tipo: string; nombre: string; es_ejemplo: boolean }[]>(),
     supabase.from("usuario").select("id, nombre, cop").returns<{ id: string; nombre: string; cop: string | null }[]>(),
   ]);
   const idsPlanes = (planes.data ?? []).map((p) => p.id);
   const items = idsPlanes.length > 0
-    ? await supabase.from("item_plan").select("id, plan_id, procedimiento, pieza, estado, procedimiento_id")
-        .in("plan_id", idsPlanes).in("estado", ["propuesto", "aceptado", "programado"]).order("orden").returns<Item[]>()
+    ? await supabase.from("item_plan").select("id, plan_id, procedimiento, pieza, estado, procedimiento_id, item_origen_id")
+        .in("plan_id", idsPlanes).order("orden").returns<Item[]>()
     : { data: [] as Item[], error: null };
   const idsProc = [...new Set((items.data ?? []).flatMap((i) => (i.procedimiento_id ? [i.procedimiento_id] : [])))];
   const catalogo = idsProc.length > 0
@@ -72,9 +78,14 @@ export default async function Consentimientos({ params, searchParams }: {
   const autor = new Map((equipo.data ?? []).map((u) => [u.id, u.cop ? `${u.nombre} (COP ${u.cop})` : u.nombre]));
   const proc = new Map((catalogo.data ?? []).map((p) => [p.id, p]));
   const plan = new Map((planes.data ?? []).map((p) => [p.id, p.titulo]));
-  const vigentePorItem = new Set(lista.filter((c) => !c.anulado_at && (c.estado === "pendiente" || c.estado === "firmado"))
-    .flatMap((c) => (c.item_plan_id ? [c.item_plan_id] : [])));
-  const opciones: OpcionItem[] = (items.data ?? []).filter((i) => !vigentePorItem.has(i.id)).map((i) => {
+  const activos = new Set((planes.data ?? []).filter((p) => p.estado !== "rechazado" && p.estado !== "reemplazado").map((p) => p.id));
+  const vigentes = lista.filter((c) => !c.anulado_at && (c.estado === "pendiente" || c.estado === "firmado"));
+  // Cubierto: con un formato pendiente, o firmado en este ítem o en el de una versión anterior.
+  const cubiertos = itemsConConsentimiento(items.data ?? [],
+    new Set(vigentes.filter((c) => c.estado === "firmado").flatMap((c) => (c.item_plan_id ? [c.item_plan_id] : []))));
+  for (const c of vigentes) if (c.item_plan_id) cubiertos.add(c.item_plan_id);
+  const pendientes = (items.data ?? []).filter((i) => activos.has(i.plan_id) && ["propuesto", "aceptado", "programado"].includes(i.estado));
+  const opciones: OpcionItem[] = pendientes.filter((i) => !cubiertos.has(i.id)).map((i) => {
     const p = i.procedimiento_id ? proc.get(i.procedimiento_id) : undefined;
     return {
       id: i.id, texto: `${i.procedimiento}${i.pieza ? ` (pieza ${i.pieza})` : ""} · ${plan.get(i.plan_id) ?? "Plan"}`,
