@@ -18,7 +18,7 @@ test("el admin agrega un laboratorio", async ({ page }) => {
   await page.getByLabel("Nombre").fill(LAB);
   await page.getByLabel("Teléfono (opcional)").fill("abc");
   await page.getByRole("button", { name: "Agregar laboratorio" }).click();
-  await expect(page.getByRole("alert")).toContainText("Teléfono");
+  await expect(page.getByRole("alert").filter({ hasText: "Teléfono" })).toBeVisible();
   await expect(page.getByLabel("Nombre")).toHaveValue(LAB);
   await page.getByLabel("Teléfono (opcional)").fill("944 123 456");
   await page.getByRole("button", { name: "Agregar laboratorio" }).click();
