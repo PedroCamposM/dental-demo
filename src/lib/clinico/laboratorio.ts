@@ -73,3 +73,15 @@ export function diasAtraso(o: { estado: EstadoOrden; fecha_entrega_prevista: str
   if (o.estado !== "en_laboratorio" || !o.fecha_entrega_prevista || o.fecha_entrega_prevista >= hoy) return 0;
   return diasEntre(o.fecha_entrega_prevista, hoy);
 }
+
+export function validarLaboratorio(leer: Leer):
+  { ok: true; datos: { nombre: string; telefono: string | null; contacto: string | null } } | { ok: false; error: string } {
+  const nombre = leer("nombre").trim();
+  if (nombre.length < 2) return { ok: false, error: "Escribe el nombre del laboratorio." };
+  if (nombre.length > 120) return { ok: false, error: "Nombre: máximo 120 caracteres." };
+  const telefono = leer("telefono").trim();
+  if (telefono && !/^\+?[0-9 ]{6,20}$/.test(telefono)) return { ok: false, error: "Teléfono: solo números (6 a 20)." };
+  const contacto = leer("contacto").trim();
+  if (contacto.length > 120) return { ok: false, error: "Contacto: máximo 120 caracteres." };
+  return { ok: true, datos: { nombre, telefono: telefono || null, contacto: contacto || null } };
+}

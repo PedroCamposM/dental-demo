@@ -9,6 +9,7 @@ import { modulos } from "@/lib/funciones";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
+import { diasAtraso } from "@/lib/clinico/laboratorio";
 import { NOMBRE_CONTROL, TIPOS_CONTROL, type TipoControl } from "@/lib/tablero/calculos";
 
 export const metadata: Metadata = { title: "Tablero clínico – Dental Demo" };
@@ -64,6 +65,16 @@ export default async function TableroClinico() {
   const error = borradores.error ?? pendientes.error ?? controles.error ?? enCurso.error ?? detenidos.error ?? itemsReq.error
     ?? consentimientos.error ?? interconsultas.error;
   if (error) registrarError("tablero_clinico", error);
+
+  // Etapa 10: trabajos de laboratorio por llegar (los atrasados primero)
+  const laboratorio = modulos.etapa10
+    ? await supabase.from("orden_laboratorio")
+        .select("id, tipo_trabajo, pieza, fecha_entrega_prevista, estado, laboratorio(nombre), paciente(id, nombres, apellidos)")
+        .eq("estado", "en_laboratorio").order("fecha_entrega_prevista").limit(50)
+        .returns<{ id: string; tipo_trabajo: string; pieza: number | null; fecha_entrega_prevista: string | null; estado: "en_laboratorio";
+          laboratorio: { nombre: string } | null; paciente: Paciente }[]>()
+    : { data: null, error: null };
+  if (laboratorio.error) registrarError("tablero_clinico.laboratorio", laboratorio.error);
 
   // Detenidos: título y paciente del plan
   const idsDetenidos = (detenidos.data ?? []).map((d) => d.plan_id);
@@ -165,6 +176,19 @@ export default async function TableroClinico() {
         href: `/pacientes/${p.paciente?.id}/plan?p=${p.id}`,
       })),
     },
+    ...(modulos.etapa10 ? [{
+      titulo: "Trabajos de laboratorio por llegar", vacio: "No hay trabajos en el laboratorio.",
+      mas: lleno(laboratorio.data, 50),
+      filas: (laboratorio.data ?? []).map((o) => {
+        const atraso = diasAtraso(o, hoy);
+        return {
+          clave: o.id, paciente: o.paciente, texto: `${o.tipo_trabajo}${o.pieza ? ` (pieza ${o.pieza})` : ""} · ${o.laboratorio?.nombre ?? "Laboratorio"}`,
+          detalle: atraso > 0 ? `Atrasado: debía llegar el ${formatearFecha(o.fecha_entrega_prevista ?? hoy)} (${haceDias(atraso)})`
+            : `Llega el ${formatearFecha(o.fecha_entrega_prevista ?? hoy)}`,
+          href: `/pacientes/${o.paciente?.id}/laboratorio`, urgente: atraso > 0,
+        };
+      }),
+    }] : []),
   ];
 
   return (
