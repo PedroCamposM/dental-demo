@@ -551,6 +551,10 @@ gratuita por clínica, suscripción).
 - Pendiente de confirmar con el odontólogo: si «una parte de la oclusal» pide algo más fino
   que la superficie (la NTS 188 registra por superficie; no se inventa nomenclatura).
 - Checklist: `docs/checklist-etapa13.md`.
+- Remoto: CI verde (run 38094381712); «Aplicar migraciones» run 38094718586 (respaldo
+  previo): 0924 aplicada (columna y trigger presentes). Mientras producción tenga el código
+  anterior, emitir un certificado de descanso falla con el mensaje «El certificado de
+  descanso indica el tratamiento realizado»: se resuelve al fusionar el PR de esta etapa.
 
 ## Remoto al 2026-10-10
 
