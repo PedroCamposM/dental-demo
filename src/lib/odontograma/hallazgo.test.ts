@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { piezasVecinas, ubicacion, validarHallazgo, type ItemCatalogo } from "./hallazgo";
+import { leerListaPiezas, piezasVecinas, ubicacion, validarHallazgo, validarHallazgos, type ItemCatalogo } from "./hallazgo";
 
 const item = (codigo: string, o: Partial<ItemCatalogo>): ItemCatalogo => ({
   codigo, numeral: "6.1.x", nombre: codigo, ambito: "pieza", color: "azul", siglas: [], sigla_obligatoria: false,
@@ -55,5 +55,47 @@ describe("validarHallazgo (NTS 188, 6.1)", () => {
       .toEqual([true, true, true, false, true]);
     expect(ubicacion({ pieza: 36, pieza_hasta: null, arcada: null, superficies: ["oclusal", "mesial"] })).toBe("36 (oclusal, mesial)");
     expect(ubicacion({ pieza: 13, pieza_hasta: 15, arcada: null, superficies: null })).toBe("13–15");
+  });
+});
+
+describe("varias piezas a la vez (Etapa 13)", () => {
+  it("lee la lista de piezas con comas, espacios o punto y coma, sin repetir", () => {
+    expect(leerListaPiezas(" 16, 26 36;46 16 ")).toEqual(["16", "26", "36", "46"]);
+    expect(leerListaPiezas("")).toEqual([]);
+  });
+
+  it("un hallazgo por pieza, con las mismas superficies y sigla", () => {
+    const r = validarHallazgos(entrada({ hallazgo_codigo: "caries", pieza: "16, 26, 36" }, { superficies: ["oclusal"], siglas: ["CE"] }), CATALOGO, "permanente");
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.datos.map((d) => d.pieza)).toEqual([16, 26, 36]);
+      expect(r.datos.every((d) => d.superficies?.join() === "oclusal" && d.siglas.join() === "CE")).toBe(true);
+    }
+  });
+
+  it("dice qué pieza está mal escrita", () => {
+    const r = validarHallazgos(entrada({ hallazgo_codigo: "corona", pieza: "16 19", estado: "bueno" }, { siglas: ["CM"] }), CATALOGO, "permanente");
+    expect(r).toMatchObject({ ok: false, errores: { pieza: "Pieza 19: pieza FDI de dos dígitos: 11–48 o 51–85." } });
+  });
+
+  it("rechaza una superficie que la pieza no tiene (oclusal en un incisivo)", () => {
+    const r = validarHallazgos(entrada({ hallazgo_codigo: "caries", pieza: "16 11" }, { superficies: ["oclusal"], siglas: ["CD"] }), CATALOGO, "permanente");
+    expect(r).toMatchObject({ ok: false, errores: { superficies: "La pieza 11 no tiene superficie oclusal." } });
+  });
+
+  it("rechaza piezas de otra dentición", () => {
+    const r = validarHallazgos(entrada({ hallazgo_codigo: "corona", pieza: "16 55", estado: "malo" }, { siglas: ["CM"] }), CATALOGO, "permanente");
+    expect(r).toMatchObject({ ok: false, errores: { pieza: "La pieza 55 no corresponde a la dentición permanente de este odontograma." } });
+    expect(validarHallazgos(entrada({ hallazgo_codigo: "corona", pieza: "16 55", estado: "malo" }, { siglas: ["CM"] }), CATALOGO, "mixta").ok).toBe(true);
+  });
+
+  it("los hallazgos entre piezas, por rango o por arcada no admiten una lista", () => {
+    const r = validarHallazgos(entrada({ hallazgo_codigo: "diastema", pieza: "11 21", pieza_hasta: "22" }), CATALOGO, "permanente");
+    expect(r).toMatchObject({ ok: false, errores: { pieza: "Este hallazgo se registra con una sola pieza de inicio." } });
+  });
+
+  it("una sola pieza funciona como antes", () => {
+    const r = validarHallazgos(entrada({ hallazgo_codigo: "diastema", pieza: "11", pieza_hasta: "21" }), CATALOGO, "permanente");
+    expect(r).toMatchObject({ ok: true, datos: [{ pieza: 11, pieza_hasta: 21 }] });
   });
 });

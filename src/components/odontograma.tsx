@@ -212,14 +212,14 @@ function porConjunto(h: HallazgoDibujo): ReactNode[] {
 
 type Props = {
   hallazgos: HallazgoDibujo[];
-  /** Pieza resaltada (la que se está registrando). */
-  seleccionada?: number | null;
-  /** Si se indica, cada pieza es un enlace (para elegirla en el formulario). */
-  enlace?: (pieza: number) => string;
+  /** Piezas resaltadas (las que se están registrando). */
+  seleccionadas?: readonly number[];
+  /** Si se indica, cada pieza es un botón que la marca o desmarca (sin salir de la página). */
+  alElegir?: (pieza: number) => void;
   titulo: string;
 };
 
-export function Odontograma({ hallazgos, seleccionada, enlace, titulo }: Props) {
+export function Odontograma({ hallazgos, seleccionadas = [], alElegir, titulo }: Props) {
   const siglas = new Map<number, { texto: string; color: "azul" | "rojo" }[]>();
   for (const h of hallazgos) {
     if (h.pieza === null || h.pieza_hasta !== null) continue;
@@ -228,7 +228,8 @@ export function Odontograma({ hallazgos, seleccionada, enlace, titulo }: Props) 
   // El implante puede reemplazar varias piezas; aquí se registra pieza por pieza.
 
   return (
-    <svg viewBox={`0 0 ${ANCHO_TOTAL} ${ALTO_TOTAL}`} role="img" aria-label={titulo}
+    // Con piezas elegibles es un grupo (un «img» ocultaría sus botones a los lectores de pantalla).
+    <svg viewBox={`0 0 ${ANCHO_TOTAL} ${ALTO_TOTAL}`} role={alElegir ? "group" : "img"} aria-label={titulo}
       className="h-auto w-full select-none" style={{ fontFamily: "ui-sans-serif, system-ui, sans-serif" }}>
       <defs>
         {(["azul", "rojo"] as const).map((c) => (
@@ -249,7 +250,7 @@ export function Odontograma({ hallazgos, seleccionada, enlace, titulo }: Props) 
             {/* Fondo transparente: en SVG solo lo pintado recibe el clic; así toda la columna de la pieza responde. */}
             <rect x={centroX(p) - ANCHO / 2} y={Math.min(fp.recuadroY, c.y) - 2} width={ANCHO}
               height={Math.abs(fp.recuadroY - c.y) + (esSuperior(p) ? CORONA : RECUADRO) + 4} fill="transparent" />
-            {p === seleccionada && (
+            {seleccionadas.includes(p) && (
               <rect x={centroX(p) - ANCHO / 2 + 1} y={Math.min(fp.recuadroY, c.y) - 2} width={ANCHO - 2}
                 height={Math.abs(fp.recuadroY - c.y) + (esSuperior(p) ? CORONA : RECUADRO) + 4} fill="#ccfbf1" />
             )}
@@ -270,8 +271,16 @@ export function Odontograma({ hallazgos, seleccionada, enlace, titulo }: Props) 
             ))}
           </g>
         );
-        // Enlace SVG nativo: <Link> de Next dentro de <svg> no navega de forma fiable.
-        return enlace ? <a key={p} href={enlace(p)} aria-label={`Elegir la pieza ${p}`} className="cursor-pointer">{dibujo}</a> : dibujo;
+        if (!alElegir) return dibujo;
+        // Botón de alternancia: marcar varias piezas sin recargar la página.
+        return (
+          <g key={p} role="button" tabIndex={0} aria-pressed={seleccionadas.includes(p)} aria-label={`Pieza ${p}`}
+            className="cursor-pointer outline-none [&:focus-visible>g>rect:first-of-type]:fill-teal-100"
+            onClick={() => alElegir(p)}
+            onKeyDown={(ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); alElegir(p); } }}>
+            {dibujo}
+          </g>
+        );
       })}
       {/* Hallazgos encima del gráfico base */}
       <g pointerEvents="none">
