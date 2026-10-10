@@ -118,3 +118,11 @@ export function finDescanso(desde: string, nDias: number): string {
   d.setUTCDate(d.getUTCDate() + nDias - 1);
   return d.toISOString().slice(0, 10);
 }
+
+/** Edad cumplida a una fecha (YYYY-MM-DD), para los documentos impresos. */
+export function edadTexto(nacimiento: string | null, fecha: string): string {
+  if (!nacimiento) return "—";
+  const [a, m, d] = nacimiento.split("-").map(Number) as [number, number, number];
+  const [af, mf, df] = fecha.split("-").map(Number) as [number, number, number];
+  return `${af - a - (mf < m || (mf === m && df < d) ? 1 : 0)} años`;
+}

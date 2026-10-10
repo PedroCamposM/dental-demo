@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DocumentoImprimible, LineaFirma, RecuadroHuella } from "@/components/documento-imprimible";
 import { FINES_IMAGEN, type FinImagen } from "@/lib/clinico/consentimientos";
+import { edadTexto } from "@/lib/clinico/documentos";
 import { fechaLima, formatearFecha, horaLima } from "@/lib/fechas";
 import { modulos } from "@/lib/funciones";
 import { TIPOS_DOCUMENTO } from "@/lib/pacientes/validacion";
@@ -20,13 +21,6 @@ type Consentimiento = {
   creado_at: string; anulado_at: string | null;
   profesional: { nombre: string; cop: string | null } | null;
 };
-
-function edad(nacimiento: string | null, hoy: string): string {
-  if (!nacimiento) return "—";
-  const [a, m, d] = nacimiento.split("-").map(Number) as [number, number, number];
-  const [ah, mh, dh] = hoy.split("-").map(Number) as [number, number, number];
-  return `${ah - a - (mh < m || (mh === m && dh < d) ? 1 : 0)} años`;
-}
 
 function Seccion({ titulo, children }: { titulo: string; children: React.ReactNode }) {
   return (
@@ -87,7 +81,7 @@ export default async function ImprimirConsentimiento({ params }: { params: Promi
       <section className="mt-3 grid grid-cols-2 gap-x-6 text-[10pt]">
         <p><b>Paciente:</b> {paciente.nombres} {paciente.apellidos}</p>
         <p><b>Documento:</b> {documento}</p>
-        <p><b>Edad:</b> {edad(paciente.fecha_nacimiento, hoy)}</p>
+        <p><b>Edad:</b> {edadTexto(paciente.fecha_nacimiento, hoy)}</p>
         {c.representante_nombre && (
           <p><b>Representante:</b> {c.representante_nombre}{c.representante_parentesco ? ` (${c.representante_parentesco})` : ""}
             {c.representante_documento ? ` · DNI ${c.representante_documento}` : ""}</p>

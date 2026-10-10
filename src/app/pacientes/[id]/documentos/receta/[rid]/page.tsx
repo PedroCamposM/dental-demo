@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DocumentoImprimible, LineaFirma } from "@/components/documento-imprimible";
+import { edadTexto } from "@/lib/clinico/documentos";
 import { fechaLima, formatearFecha } from "@/lib/fechas";
 import { modulos } from "@/lib/funciones";
 import { TIPOS_DOCUMENTO } from "@/lib/pacientes/validacion";
@@ -18,13 +19,6 @@ type Receta = {
   receta_item: { orden: number; medicamento: string; presentacion: string; dosis: string; frecuencia: string; duracion: string;
     indicaciones: string | null }[];
 };
-
-export function edad(nacimiento: string | null, hoy: string): string {
-  if (!nacimiento) return "—";
-  const [a, m, d] = nacimiento.split("-").map(Number) as [number, number, number];
-  const [ah, mh, dh] = hoy.split("-").map(Number) as [number, number, number];
-  return `${ah - a - (mh < m || (mh === m && dh < d) ? 1 : 0)} años`;
-}
 
 /** Receta para imprimir: datos del profesional y su colegiatura (COP). */
 export default async function ImprimirReceta({ params }: { params: Promise<{ id: string; rid: string }> }) {
@@ -60,7 +54,7 @@ export default async function ImprimirReceta({ params }: { params: Promise<{ id:
         <p><b>Fecha:</b> {formatearFecha(fecha)}</p>
         <p><b>Documento:</b> {paciente.numero_documento
           ? `${TIPOS_DOCUMENTO[paciente.tipo_documento as keyof typeof TIPOS_DOCUMENTO] ?? ""} ${paciente.numero_documento}` : "—"}</p>
-        <p><b>Edad:</b> {edad(paciente.fecha_nacimiento, fecha)}</p>
+        <p><b>Edad:</b> {edadTexto(paciente.fecha_nacimiento, fecha)}</p>
       </section>
       <p className="mt-4 text-[14pt] font-bold">Rp.</p>
       <ol className="mt-1 flex list-decimal flex-col gap-3 pl-6">
