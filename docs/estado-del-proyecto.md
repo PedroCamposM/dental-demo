@@ -235,7 +235,7 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   script para «refrescar» las fechas de la demo.
 - Checklist manual: `docs/checklist-etapa3.md`.
 
-## v2 — Etapa 4 (examen, odontograma y CIE-10): en la rama, falta migrar el remoto
+## v2 — Etapa 4 (examen, odontograma y CIE-10): aplicada en el remoto
 
 - **0910** (`examen_diagnostico`):
   - `catalogo_cie10`: 130 códigos (K00–K14 y S02.5, S03.2, Z01.2, Z46.3, Z46.4,
@@ -279,7 +279,7 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   estomatológico (NTS 139, 12.x) necesitan una norma en `/docs` que los defina; la
   NTS 188 no los trata.
 
-## v2 — Etapa 5 (plan con fases y versiones): en la rama, falta migrar el remoto
+## v2 — Etapa 5 (plan con fases y versiones): aplicada en el remoto
 
 - Hallazgo de la auditoría: el estado de cobro ya estaba separado desde la v1
   (`item_plan.estado` no tiene «cobrado»; `v_item_cobro` lo calcula desde los pagos).
@@ -313,7 +313,7 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   Se verificó en el remoto (solo lectura) que no hay dos planes de la misma letra del
   mismo paciente el mismo día (el relleno de grupos no choca).
 
-## v2 — Etapa 6 (evolución por sesión firmada): en la rama, falta migrar el remoto
+## v2 — Etapa 6 (evolución por sesión firmada): aplicada en el remoto
 
 - **0912** (`evolucion_firmada`): la «nota» de la v1 pasa a ser la evolución.
   `nota_evolucion` suma cita, anestesia (tipo y cantidad), materiales, incidencias,
@@ -351,7 +351,7 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
 - Para el remoto: «Aplicar migraciones» (0910, 0911 y 0912), cargar `seed_etapa4.sql` y
   `seed_etapa5.sql`, y `HABILITAR_ETAPA4/5/6=1` en Vercel Preview.
 
-## v2 — Etapa 7 (imágenes, consentimientos, recetas, constancias, interconsultas): en la rama
+## v2 — Etapa 7 (imágenes, consentimientos, recetas, constancias, interconsultas): aplicada en el remoto
 
 - **Decisión de Pedro (2026-10-09):** el consentimiento informado se **imprime y se firma
   a mano** (con huella) y se sube el escaneo. La NTS 139 (4.3.3 c y formato 16) no admite
@@ -391,6 +391,16 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   (general y por medicamento) creaban un medicamento fantasma; corregido con prueba.
 - Checklist: `docs/checklist-etapa7.md`. Falta en `/docs`: formatos reales de la clínica
   piloto (consentimientos) para reemplazar las plantillas de ejemplo.
+
+## Remoto al 2026-10-10
+
+- Pedro autorizó («Hazlo»). «Aplicar migraciones» run 38013481738 (respaldo cifrado
+  previo): 0910–0916 aplicadas y verificaciones en verde. Seeds 4, 5 y 7 cargados por la
+  API. Comprobado: 130 códigos CIE-10, 115 exámenes, 169 diagnósticos, todos los
+  odontogramas con dentición, todos los planes con grupo, 132 notas v1 firmadas,
+  7 plantillas de consentimiento de ejemplo, 8 procedimientos con plantilla, bucket
+  `clinico` privado, 120 pacientes vigentes.
+- Falta: `HABILITAR_ETAPA4=1` … `HABILITAR_ETAPA7=1` en Vercel (Preview) y redeploy.
 
 ## Próximas etapas (CLAUDE.md)
 
