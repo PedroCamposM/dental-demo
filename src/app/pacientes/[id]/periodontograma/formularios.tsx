@@ -219,12 +219,16 @@ export function GrillaLectura({ piezas }: { piezas: PiezaPeriodonto[] }) {
   );
 }
 
-/** Borrador: se registra pieza por pieza y se guarda o firma de una vez. */
+/** Borrador: se registra pieza por pieza y se guarda o firma de una vez. Guardar y firmar
+ * son dos formularios con los mismos datos (en campos ocultos): la acción no depende de
+ * qué botón envió el formulario. */
 export function GrillaEdicion({ id, pacienteId, piezas, observaciones, mantenimiento, puedeFirmar }: {
   id: string; pacienteId: string; piezas: PiezaPeriodonto[]; observaciones: string; mantenimiento: number | null;
   puedeFirmar: boolean;
 }) {
-  const [estado, accion, enviando] = useActionState(guardarPeriodontograma, INICIAL);
+  const [guardado, guardar, guardando] = useActionState(guardarPeriodontograma, INICIAL);
+  const [firmado, firmar, firmando] = useActionState(guardarPeriodontograma, INICIAL);
+  const [ultimo, setUltimo] = useState<"guardar" | "firmar">("guardar");
   const [datos, setDatos] = useState(() => new Map(piezas.map((p) => [p.pieza, p])));
   const [obs, setObs] = useState(observaciones);
   const [meses, setMeses] = useState(mantenimiento === null ? "" : String(mantenimiento));
@@ -233,11 +237,19 @@ export function GrillaEdicion({ id, pacienteId, piezas, observaciones, mantenimi
   // Las piezas con datos y las ya guardadas (aunque se hayan vaciado: así se borra lo guardado).
   const guardadas = new Set(piezas.map((p) => p.pieza));
   const enviar = JSON.stringify([...datos.values()].filter((p) => tieneDatos(p) || guardadas.has(p.pieza)));
-  return (
-    <form action={accion} className="flex flex-col gap-4" noValidate>
+  const enviando = guardando || firmando;
+  const ocultos = (accion: "guardar" | "firmar") => (
+    <>
+      <input type="hidden" name="accion" value={accion} />
       <input type="hidden" name="id" value={id} />
       <input type="hidden" name="paciente_id" value={pacienteId} />
       <input type="hidden" name="piezas" value={enviar} />
+      <input type="hidden" name="observaciones" value={obs} />
+      <input type="hidden" name="mantenimiento_meses" value={meses} />
+    </>
+  );
+  return (
+    <div className="flex flex-col gap-4">
       <p className="text-xs text-gray-600">
         PS y MG en milímetros enteros. MG positivo = recesión (margen apical al límite amelocementario); negativo =
         margen coronal. NIC = PS + MG. Sitios: M, centro y D de cada cara.
@@ -247,31 +259,36 @@ export function GrillaEdicion({ id, pacienteId, piezas, observaciones, mantenimi
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="flex flex-col gap-1 text-sm font-medium text-gray-700 sm:col-span-2">
           Observaciones
-          <textarea name="observaciones" rows={2} maxLength={2000} value={obs} onChange={(e) => setObs(e.target.value)}
+          <textarea rows={2} maxLength={2000} value={obs} onChange={(e) => setObs(e.target.value)}
             className="rounded-md border border-gray-300 px-3 py-2 text-base font-normal" />
         </label>
         <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
           Mantenimiento periodontal en (meses)
-          <input name="mantenimiento_meses" inputMode="numeric" value={meses} onChange={(e) => setMeses(e.target.value)}
+          <input inputMode="numeric" value={meses} onChange={(e) => setMeses(e.target.value)}
             placeholder="Opcional" className="rounded-md border border-gray-300 px-3 py-2 text-base font-normal" />
         </label>
       </div>
       <div className="flex flex-wrap items-center gap-3">
-        <button type="submit" name="accion" value="guardar" disabled={enviando}
-          className="rounded-md border border-gray-300 bg-white px-4 py-2 font-medium hover:bg-gray-50 disabled:opacity-60">
-          {enviando ? "Guardando…" : "Guardar borrador"}
-        </button>
-        {puedeFirmar && (
-          <button type="submit" name="accion" value="firmar" disabled={enviando} className={BOTON}
-            onClick={(ev) => {
-              if (!window.confirm("Una vez firmado, el periodontograma no se edita. ¿Firmar?")) ev.preventDefault();
-            }}>
-            Guardar y firmar
+        <form action={guardar} onSubmit={() => setUltimo("guardar")} noValidate>
+          {ocultos("guardar")}
+          <button type="submit" disabled={enviando}
+            className="rounded-md border border-gray-300 bg-white px-4 py-2 font-medium hover:bg-gray-50 disabled:opacity-60">
+            {guardando ? "Guardando…" : "Guardar borrador"}
           </button>
+        </form>
+        {puedeFirmar && (
+          <form action={firmar} noValidate
+            onSubmit={(ev) => {
+              if (!window.confirm("Una vez firmado, el periodontograma no se edita. ¿Firmar?")) ev.preventDefault();
+              else setUltimo("firmar");
+            }}>
+            {ocultos("firmar")}
+            <button type="submit" disabled={enviando} className={BOTON}>{firmando ? "Firmando…" : "Guardar y firmar"}</button>
+          </form>
         )}
-        <Mensajes estado={estado} />
+        <Mensajes estado={ultimo === "firmar" ? firmado : guardado} />
       </div>
-    </form>
+    </div>
   );
 }
 
