@@ -497,6 +497,23 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   en Vercel. **Pendiente:** revisión independiente de las etapas 10 y 11 (límite semanal
   del agente revisor, se restablece el 13-oct).
 
+## v2 — Etapa 12 (seed ampliado, guion de la demo y fechas al día)
+
+- `seed_etapa12.sql` (idempotente): registros de especialidad coherentes con lo ya
+  sembrado. Conductos de las endodoncias realizadas (seguidas de coronas); cirugía de las
+  exodoncias, con un retiro de puntos vencido; implantes con sus fases (uno en fase
+  protésica); 6 ortodoncias con caso y 5 controles mensuales; odontopediatría de los
+  niños (con apoderado); 2 pacientes con 2 periodontogramas firmados para comparar.
+- **0923** «refrescar fechas de la demo»: `privado.clinica_demo` (solo la clínica de
+  demostración) y `privado.refrescar_fechas_demo()`, que corre todas las fechas de esa
+  clínica los días transcurridos desde la última vez (sin tocar la auditoría ni las
+  exportaciones). Solo la ejecuta el rol de servicio, desde el flujo manual «Refrescar
+  fechas de la demo» (`.github/workflows/refrescar-demo.yml`, escribir `REFRESCAR`).
+- Ficha del paciente: sección «Controles programados» (los vencidos en rojo).
+- Guion: `docs/guion-demo.md`. Playwright: `e2e/flujo-completo.spec.ts` (alta → historia
+  → odontograma → diagnóstico → plan → cita → evolución firmada → pago → control) y
+  `e2e/guion-demo.spec.ts` (los casos del seed). Checklist: `docs/checklist-etapa12.md`.
+
 ## Remoto al 2026-10-10
 
 - Pedro autorizó («Hazlo»). «Aplicar migraciones» run 38013481738 (respaldo cifrado
@@ -519,7 +536,7 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
 
 ## Próximas etapas (CLAUDE.md)
 
-8 tablero clínico y caja · 9 especialidades · 10 laboratorio · 11 PDF · 12 seed y guion.
+Etapas 0 a 12 terminadas.
 Falta en `/docs`: formatos de la clínica piloto (historia y consentimientos),
 necesarios antes de la Etapa 7. La Etapa 4 incluye además lo de las fichas
 odonto-estomatológicas de la NTS 139 (índice CPOD/ceod, IHO-S, riesgo estomatológico
