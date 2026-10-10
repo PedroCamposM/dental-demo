@@ -56,4 +56,13 @@ export const modulos = {
     && process.env.HABILITAR_ETAPA3 === "1" && process.env.HABILITAR_ETAPA4 === "1"
     && process.env.HABILITAR_ETAPA5 === "1" && process.env.HABILITAR_ETAPA6 === "1"
     && process.env.HABILITAR_ETAPA7 === "1" && process.env.HABILITAR_ETAPA8 === "1",
+  /**
+   * Etapa 9: periodontograma y registros por especialidad.
+   * Requiere las migraciones 0919 en adelante (y las etapas 1 a 8).
+   */
+  etapa9: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA2 === "1"
+    && process.env.HABILITAR_ETAPA3 === "1" && process.env.HABILITAR_ETAPA4 === "1"
+    && process.env.HABILITAR_ETAPA5 === "1" && process.env.HABILITAR_ETAPA6 === "1"
+    && process.env.HABILITAR_ETAPA7 === "1" && process.env.HABILITAR_ETAPA8 === "1"
+    && process.env.HABILITAR_ETAPA9 === "1",
 };
