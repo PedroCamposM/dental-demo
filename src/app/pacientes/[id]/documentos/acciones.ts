@@ -75,7 +75,7 @@ export type EstadoConstancia = {
   errores: Partial<Record<string, string>>; mensaje: string | null; exitos: number; valores: Record<string, string>;
 };
 const CAMPOS_CONSTANCIA = ["tipo", "fecha_atencion", "hora_inicio", "hora_fin", "descanso_desde", "descanso_dias", "cie10",
-  "observaciones"];
+  "tratamiento", "observaciones"];
 
 export async function emitirConstancia(previo: EstadoConstancia, form: FormData): Promise<EstadoConstancia> {
   const pacienteId = String(form.get("paciente_id") ?? "");

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlertasPaciente } from "@/components/alertas-paciente";
 import { Encabezado } from "@/components/encabezado";
-import { finDescanso, TIPOS_CONSTANCIA, type TipoConstancia } from "@/lib/clinico/documentos";
+import { finDescanso, TIPOS_CONSTANCIA, tratamientoDelDia, type TipoConstancia } from "@/lib/clinico/documentos";
 import { fechaLima, formatearFecha, horaLima } from "@/lib/fechas";
 import { modulos } from "@/lib/funciones";
 import { registrarError } from "@/lib/registro";
@@ -47,6 +47,28 @@ export default async function Documentos({ params }: { params: Promise<{ id: str
       .order("fecha", { ascending: false }).limit(20).returns<{ id: string; fecha: string; texto: string }[]>(),
     supabase.from("usuario").select("id, nombre").returns<{ id: string; nombre: string }[]>(),
   ]);
+  // Tratamiento realizado sugerido por fecha (constancias): lo trabajado en evoluciones firmadas.
+  const { data: firmadas, error: errorFirmadas } = await supabase.from("nota_evolucion")
+    .select("fecha, evolucion_item(item_id, trabajado)").eq("paciente_id", id).is("anulado_at", null).not("firmada_at", "is", null)
+    .order("fecha", { ascending: false }).limit(40)
+    .returns<{ fecha: string; evolucion_item: { item_id: string; trabajado: boolean }[] }[]>();
+  if (errorFirmadas) registrarError("documentos.tratamientos", errorFirmadas, { paciente: id });
+  const idsTrabajados = [...new Set((firmadas ?? []).flatMap((n) => n.evolucion_item.filter((x) => x.trabajado).map((x) => x.item_id)))];
+  const { data: trabajos } = idsTrabajados.length > 0
+    ? await supabase.from("item_plan").select("id, procedimiento, pieza").in("id", idsTrabajados)
+        .returns<{ id: string; procedimiento: string; pieza: number | null }[]>()
+    : { data: [] as { id: string; procedimiento: string; pieza: number | null }[] };
+  const porItem = new Map((trabajos ?? []).map((t) => [t.id, t]));
+  const tratamientos: Record<string, string> = {};
+  for (const fecha of [...new Set((firmadas ?? []).map((n) => fechaLima(n.fecha)))]) {
+    const delDia = (firmadas ?? []).filter((n) => fechaLima(n.fecha) === fecha)
+      .flatMap((n) => n.evolucion_item.filter((x) => x.trabajado).flatMap((x) => {
+        const trabajo = porItem.get(x.item_id);
+        return trabajo ? [trabajo] : [];
+      }));
+    const texto = tratamientoDelDia(delDia);
+    if (texto) tratamientos[fecha] = texto.slice(0, 500);
+  }
   const error = recetas.error ?? constancias.error ?? plantillas.error ?? notas.error;
   if (error) registrarError("documentos.listar", error, { paciente: id });
   const autor = new Map((equipo.data ?? []).map((u) => [u.id, u.nombre]));
@@ -86,7 +108,7 @@ export default async function Documentos({ params }: { params: Promise<{ id: str
             </section>
             <section aria-labelledby="t-constancia" className="rounded-xl border border-gray-200 bg-white p-5">
               <h2 id="t-constancia" className="mb-3 text-lg font-semibold">Constancia o certificado</h2>
-              <FormularioConstancia pacienteId={id} hoy={hoy} />
+              <FormularioConstancia pacienteId={id} hoy={hoy} tratamientos={tratamientos} />
             </section>
           </div>
         )}

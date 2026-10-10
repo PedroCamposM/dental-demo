@@ -15,7 +15,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Constancia = {
   id: string; tipo: TipoConstancia; fecha_atencion: string; hora_inicio: string | null; hora_fin: string | null;
-  descanso_desde: string | null; descanso_dias: number | null; cie10: string | null; observaciones: string | null;
+  descanso_desde: string | null; descanso_dias: number | null; cie10: string | null; tratamiento: string | null;
+  observaciones: string | null;
   emitida_at: string; anulado_at: string | null; profesional_nombre: string; profesional_cop: string | null;
   catalogo_cie10: { descripcion: string } | null;
 };
@@ -28,7 +29,7 @@ export default async function ImprimirConstancia({ params }: { params: Promise<{
   const supabase = await createClient();
   const [{ data: c, error }, { data: clinica }] = await Promise.all([
     supabase.from("constancia")
-      .select("id, tipo, fecha_atencion, hora_inicio, hora_fin, descanso_desde, descanso_dias, cie10, observaciones, emitida_at, "
+      .select("id, tipo, fecha_atencion, hora_inicio, hora_fin, descanso_desde, descanso_dias, cie10, tratamiento, observaciones, emitida_at, "
         + "anulado_at, profesional_nombre, profesional_cop, catalogo_cie10(descripcion)")
       .eq("id", cid).eq("paciente_id", id).maybeSingle<Constancia>(),
     supabase.from("clinica").select("nombre, ruc").eq("id", sesion.clinicaId).maybeSingle<{ nombre: string; ruc: string | null }>(),
@@ -61,6 +62,7 @@ export default async function ImprimirConstancia({ params }: { params: Promise<{
           </p>
         )}
         {c.cie10 && <p>Diagnóstico: {c.cie10}{c.catalogo_cie10 ? ` — ${c.catalogo_cie10.descripcion}` : ""}.</p>}
+        {c.tratamiento && <p>Tratamiento realizado: {c.tratamiento.replace(/\.$/, "")}.</p>}
         {c.observaciones && <p className="whitespace-pre-line">{c.observaciones}</p>}
         <p>Se expide a solicitud del interesado para los fines que estime conveniente.</p>
         <p className="text-right">{formatearFechaLarga(fechaLima(c.emitida_at))}</p>

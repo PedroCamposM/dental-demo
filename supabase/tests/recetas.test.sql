@@ -83,15 +83,23 @@ insert into public.constancia (id, clinica_id, paciente_id, profesional_id, tipo
    'a1000000-0000-0000-0000-00000000000a', 'atencion', (now() at time zone 'America/Lima')::date, '09:00', '10:00');
 select pruebas.igual((select count(*) from public.constancia where id = 'a1a1a1a1-0000-0000-0000-0000000000c1'
                        and profesional_id = 'a1000000-0000-0000-0000-00000000000b'), 1, 'firmada por quien la emite');
-insert into public.constancia (clinica_id, paciente_id, profesional_id, tipo, fecha_atencion, descanso_desde, descanso_dias, cie10)
+-- Etapa 13: el certificado de descanso lleva el tratamiento realizado.
+insert into public.constancia (clinica_id, paciente_id, profesional_id, tipo, fecha_atencion, descanso_desde, descanso_dias, cie10, tratamiento)
 values ('a1a1a1a1-0000-0000-0000-000000000000', 'a1a1a1a1-0000-0000-0000-0000000000f1', 'a1000000-0000-0000-0000-00000000000b',
-        'descanso', (now() at time zone 'America/Lima')::date, (now() at time zone 'America/Lima')::date, 2, 'K08.1');
-select pruebas.debe_fallar($$insert into public.constancia (clinica_id, paciente_id, profesional_id, tipo, fecha_atencion)
+        'descanso', (now() at time zone 'America/Lima')::date, (now() at time zone 'America/Lima')::date, 2, 'K08.1',
+        '  Exodoncia de la pieza 38  ');
+select pruebas.igual((select count(*) from public.constancia where tipo = 'descanso' and tratamiento = 'Exodoncia de la pieza 38'), 1,
+                     'el tratamiento se guarda sin espacios sobrantes');
+select pruebas.debe_fallar($$insert into public.constancia (clinica_id, paciente_id, profesional_id, tipo, fecha_atencion, descanso_desde, descanso_dias, tratamiento)
   values ('a1a1a1a1-0000-0000-0000-000000000000', 'a1a1a1a1-0000-0000-0000-0000000000f1', 'a1000000-0000-0000-0000-00000000000b',
-          'descanso', (now() at time zone 'America/Lima')::date)$$, 'constancia_tipo');
-select pruebas.debe_fallar($$insert into public.constancia (clinica_id, paciente_id, profesional_id, tipo, fecha_atencion, descanso_desde, descanso_dias)
+          'descanso', (now() at time zone 'America/Lima')::date, (now() at time zone 'America/Lima')::date, 2, '   ')$$,
+  'indica el tratamiento realizado');
+select pruebas.debe_fallar($$insert into public.constancia (clinica_id, paciente_id, profesional_id, tipo, fecha_atencion, tratamiento)
   values ('a1a1a1a1-0000-0000-0000-000000000000', 'a1a1a1a1-0000-0000-0000-0000000000f1', 'a1000000-0000-0000-0000-00000000000b',
-          'descanso', (now() at time zone 'America/Lima')::date, (now() at time zone 'America/Lima')::date, 45)$$, 'check constraint');
+          'descanso', (now() at time zone 'America/Lima')::date, 'Exodoncia')$$, 'constancia_tipo');
+select pruebas.debe_fallar($$insert into public.constancia (clinica_id, paciente_id, profesional_id, tipo, fecha_atencion, descanso_desde, descanso_dias, tratamiento)
+  values ('a1a1a1a1-0000-0000-0000-000000000000', 'a1a1a1a1-0000-0000-0000-0000000000f1', 'a1000000-0000-0000-0000-00000000000b',
+          'descanso', (now() at time zone 'America/Lima')::date, (now() at time zone 'America/Lima')::date, 45, 'Exodoncia')$$, 'check constraint');
 select pruebas.debe_fallar($$insert into public.constancia (clinica_id, paciente_id, profesional_id, tipo, fecha_atencion)
   values ('a1a1a1a1-0000-0000-0000-000000000000', 'a1a1a1a1-0000-0000-0000-0000000000f1', 'a1000000-0000-0000-0000-00000000000b',
           'atencion', (now() at time zone 'America/Lima')::date + 1)$$, 'futura');

@@ -131,13 +131,30 @@ function CuerpoReceta({ pacienteId, plantillas, sesiones, accion, enviando, esta
 }
 
 /** Constancia de atención o certificado de descanso. */
-export function FormularioConstancia({ pacienteId, hoy }: { pacienteId: string; hoy: string }) {
+export function FormularioConstancia({ pacienteId, hoy, tratamientos }: {
+  pacienteId: string; hoy: string;
+  /** Tratamiento sugerido por fecha (lo trabajado en las evoluciones firmadas de ese día). */
+  tratamientos: Record<string, string>;
+}) {
   const [estado, accion, enviando] = useActionState<EstadoConstancia, FormData>(emitirConstancia, {
     errores: {}, mensaje: null, exitos: 0, valores: {},
   });
   const v = estado.valores;
-  const e = estado.errores;
   const [tipo, setTipo] = useState(v.tipo || "atencion");
+  // Remontado tras cada envío: fecha y tratamiento vuelven a lo que devolvió el servidor.
+  return (
+    <CuerpoConstancia key={`${estado.exitos}-${JSON.stringify(v)}`} {...{ pacienteId, hoy, tratamientos, estado, accion, enviando, tipo, setTipo }} />
+  );
+}
+
+function CuerpoConstancia({ pacienteId, hoy, tratamientos, estado, accion, enviando, tipo, setTipo }: {
+  pacienteId: string; hoy: string; tratamientos: Record<string, string>; estado: EstadoConstancia;
+  accion: (f: FormData) => void; enviando: boolean; tipo: string; setTipo: (t: string) => void;
+}) {
+  const v = estado.valores;
+  const e = estado.errores;
+  const [tratamiento, setTratamiento] = useState(v.tratamiento ?? tratamientos[v.fecha_atencion || hoy] ?? "");
+  const [editado, setEditado] = useState(v.tratamiento !== undefined);
   const campo = (c: string, etiqueta: string, props: React.InputHTMLAttributes<HTMLInputElement> & { inicial?: string }) => {
     const { inicial, ...resto } = props;
     return (
@@ -149,7 +166,7 @@ export function FormularioConstancia({ pacienteId, hoy }: { pacienteId: string; 
     );
   };
   return (
-    <form key={`${estado.exitos}-${JSON.stringify(v)}`} action={accion} className="flex flex-col gap-3" noValidate>
+    <form action={accion} className="flex flex-col gap-3" noValidate>
       <input type="hidden" name="paciente_id" value={pacienteId} />
       <fieldset className="flex flex-wrap gap-4 text-sm">
         <legend className="mb-1 font-medium text-gray-700">Documento</legend>
@@ -160,7 +177,11 @@ export function FormularioConstancia({ pacienteId, hoy }: { pacienteId: string; 
         ))}
       </fieldset>
       <div className="grid gap-3 sm:grid-cols-3">
-        {campo("fecha_atencion", "Fecha de atención", { type: "date", max: hoy, inicial: hoy })}
+        {campo("fecha_atencion", "Fecha de atención", {
+          type: "date", max: hoy, inicial: hoy,
+          // Sin editar a mano, el tratamiento sigue a la fecha elegida.
+          onChange: (ev) => { const f = ev.target.value; if (!editado) setTratamiento(tratamientos[f] ?? ""); },
+        })}
         {campo("hora_inicio", "Desde (hora, opcional)", { type: "time" })}
         {campo("hora_fin", "Hasta (hora, opcional)", { type: "time" })}
       </div>
@@ -172,6 +193,16 @@ export function FormularioConstancia({ pacienteId, hoy }: { pacienteId: string; 
       )}
       <div className="grid gap-3 sm:grid-cols-3">
         {campo("cie10", "Diagnóstico CIE-10 (opcional)", { placeholder: "p. ej. K08.1", maxLength: 6 })}
+      </div>
+      <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+        <label htmlFor="c-tratamiento">Tratamiento realizado{tipo === "descanso" ? "" : " (opcional)"}</label>
+        <textarea id="c-tratamiento" name="tratamiento" rows={2} maxLength={500} value={tratamiento}
+          onChange={(ev) => { const t = ev.target.value; setTratamiento(t); setEditado(true); }}
+          aria-invalid={!!e.tratamiento} aria-describedby="c-tratamiento-ayuda" className={ENTRADA} />
+        <span id="c-tratamiento-ayuda" className="text-xs font-normal text-gray-500">
+          Se completa con lo trabajado en las evoluciones firmadas de esa fecha; puedes editarlo.
+        </span>
+        {e.tratamiento && <span className="text-xs font-normal text-red-700">{e.tratamiento}</span>}
       </div>
       <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
         <label htmlFor="c-observaciones">Observaciones (opcional)</label>
