@@ -16,7 +16,8 @@ with coronas as (
     from public.item_plan i join public.plan_tratamiento p on p.id = i.plan_id
    where i.clinica_id = 'c0000000-0000-4000-8000-000000000001' and i.procedimiento ilike 'Corona de zirconio%'
      and i.estado in ('aceptado', 'programado') and p.estado in ('aceptado', 'en_curso', 'detenido')
-     and not exists (select 1 from public.orden_laboratorio o where o.item_plan_id = i.id)
+     -- Solo la primera vez: si la clínica ya tiene órdenes, no se agregan más.
+     and not exists (select 1 from public.orden_laboratorio o where o.clinica_id = i.clinica_id)
 ), hoy as (select (now() at time zone 'America/Lima')::date as d)
 insert into public.orden_laboratorio (clinica_id, item_plan_id, laboratorio_id, tipo_trabajo, color, indicaciones,
                                       estado, fecha_envio, fecha_entrega_prevista, costo_centimos, registrado_por)
