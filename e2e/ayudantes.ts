@@ -69,3 +69,5 @@ export const conEtapa7 = conEtapa6 && process.env.HABILITAR_ETAPA7 === "1";
 export const conEtapa8 = conEtapa7 && process.env.HABILITAR_ETAPA8 === "1";
 /** Periodontograma y registros por especialidad (CI con HABILITAR_ETAPA9=1). */
 export const conEtapa9 = conEtapa8 && process.env.HABILITAR_ETAPA9 === "1";
+/** Laboratorio (CI con HABILITAR_ETAPA10=1). */
+export const conEtapa10 = conEtapa9 && process.env.HABILITAR_ETAPA10 === "1";

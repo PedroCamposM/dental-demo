@@ -171,4 +171,9 @@ select pg_temp.al_menos((select count(*) from procedimiento, pg_temp.c
                          where clinica_id = c.id and requiere_consentimiento and consentimiento_plantilla_id is not null), 8,
                         'procedimientos con su plantilla de consentimiento');
 
+-- Etapa 10: laboratorios y un trabajo atrasado
+select pg_temp.al_menos((select count(*) from laboratorio, pg_temp.c where clinica_id = c.id and activo), 2, 'laboratorios');
+select pg_temp.al_menos((select count(*) from orden_laboratorio, pg_temp.c where clinica_id = c.id and estado = 'en_laboratorio'
+                         and fecha_entrega_prevista < (now() at time zone 'America/Lima')::date), 1, 'trabajo de laboratorio atrasado');
+
 select 'seed: todas las verificaciones pasaron' as resultado;
