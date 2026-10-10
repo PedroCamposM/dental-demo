@@ -392,6 +392,36 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
 - Checklist: `docs/checklist-etapa7.md`. Falta en `/docs`: formatos reales de la clínica
   piloto (consentimientos) para reemplazar las plantillas de ejemplo.
 
+## v2 — Etapa 8 (seguimiento clínico, Tablero clínico y caja): en cierre
+
+- **0917** `seguimiento_clinico`: tipos de control clínicos (posoperatorio, retiro de
+  puntos, ortodoncia, mantenimiento periodontal, anual; «laboratorio atrasado» lo genera
+  la Etapa 10). Regla 5: al realizarse un procedimiento con «control automático» se crea
+  su control (tipo según la especialidad); el plan pasa a «en curso» con el primer
+  realizado y a «terminado» (con el control de 6 meses) cuando no le queda nada por hacer,
+  también si el profesional cancela el último pendiente. «En sala» de hoy cuenta como
+  cita próxima para la regla de detenido.
+- **0918** `pagos_caja`: `registrar_pago()` es la única vía para registrar pagos (se
+  retiró el INSERT directo de la v1; el test `rls_reglas` se actualizó a propósito). Aplica
+  a las cuotas en orden y, con ellas, a los ítems; lo demás a los ítems. Cierre de caja
+  diario por método y profesional con efectivo contado y diferencia; un día cerrado no
+  recibe pagos ni anulaciones, se corrige con ajuste con motivo.
+- Pantallas (`HABILITAR_ETAPA8`): Tablero clínico, controles clínicos en el Tablero de
+  gestión, región «Pagos» en el plan y página Caja.
+- Revisión independiente: 2 altas, 4 medias, 6 bajas. Altas corregidas: pagos insertados
+  directo (fecha forjada, sin aplicar, saltando el cierre) y plan que nunca terminaba si el
+  último pendiente se cancelaba. Medias: cuotas que no avanzaban el cobro del ítem (y saldo
+  en pantalla distinto del que acepta la base), controles vencidos que no se limpiaban con
+  citas, e2e de caja no repetible. Bajas corregidas: bandera de proceso restaurada,
+  seguimiento manual no se vincula a un ítem, «en sala» antigua, conteos con tope,
+  «Anular» oculto en días cerrados. Decisión: se permite cerrar la caja de hoy (lo
+  natural al final de la jornada); un pago posterior ese día se corrige con ajuste.
+  Queda como mejora: el mensaje de WhatsApp de los controles clínicos usa la plantilla
+  genérica de control.
+- En CI apareció un error real: las secciones del Tablero clínico usaban ids con espacios
+  en `aria-labelledby` (quedaban sin nombre accesible); corregido.
+- Checklist: `docs/checklist-etapa8.md`.
+
 ## Remoto al 2026-10-10
 
 - Pedro autorizó («Hazlo»). «Aplicar migraciones» run 38013481738 (respaldo cifrado
