@@ -4,7 +4,7 @@ import { comparar, nic, piezaVacia, resumen, tieneFurca, validarPiezas, type Pie
 const pieza = (n: number, extra: Partial<PiezaPeriodonto> = {}): PiezaPeriodonto => ({ ...piezaVacia(n), ...extra });
 
 describe("validarPiezas", () => {
-  it("acepta mediciones válidas y descarta piezas vacías", () => {
+  it("acepta mediciones válidas y conserva las piezas vaciadas (para borrar lo guardado)", () => {
     const r = validarPiezas(JSON.stringify([
       { pieza: 16, ps: [3, 2, 5, "4", null, ""], mg: [1, 0, 2, 0, 0, -1], movilidad: 1, furca: 2, sangrado: [false, false, true, false, false, false] },
       { pieza: 15 },
@@ -12,7 +12,7 @@ describe("validarPiezas", () => {
     ]));
     expect(r.ok).toBe(true);
     if (!r.ok) return;
-    expect(r.piezas.map((p) => p.pieza)).toEqual([16, 18]);
+    expect(r.piezas.map((p) => p.pieza)).toEqual([16, 15, 18]);
     expect(r.piezas[0]?.ps).toEqual([3, 2, 5, 4, null, null]);
     expect(r.piezas[0]?.furca).toBe(2);
   });
@@ -53,5 +53,9 @@ describe("resumen y comparación", () => {
     const antes = [pieza(16, { ps: [3, 3, 3, 3, 3, 3], mg: [0, 0, 0, 0, 0, 0] })];
     const despues = [pieza(16, { ps: [3, 5, 3, 3, 2, 3], mg: [0, 1, 0, 0, 0, 0] })];
     expect(comparar(antes, despues)).toEqual([{ pieza: 16, sitio: "V", antes: 3, despues: 6, diferencia: 3 }]);
+    // Sin MG en una de las fechas se compara PS con PS (no NIC con PS)
+    // V: NIC 6 antes; después solo PS 4 → PS 5 vs 4 (1 mm), no NIC 6 vs PS 4
+    const sinMg = [pieza(16, { ps: [3, 4, 3, 3, 2, 3] })];
+    expect(comparar(despues, sinMg)).toEqual([]);
   });
 });

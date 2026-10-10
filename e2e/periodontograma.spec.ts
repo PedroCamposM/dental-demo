@@ -5,6 +5,7 @@ test.skip(!conSupabaseLocal || !conEtapa9, "Crea datos: solo contra Supabase loc
 test.describe.configure({ mode: "serial" });
 
 let pacienteId = "";
+let borradorAsistente = "";
 
 test("la odontóloga registra un periodontograma, ve el NIC calculado y lo firma con su mantenimiento", async ({ page }) => {
   await entrar(page, "mendoza@clinica-demo.example");
@@ -44,8 +45,9 @@ test("la odontóloga registra un periodontograma, ve el NIC calculado y lo firma
   await page.getByLabel("Mantenimiento periodontal en (meses)").fill("3");
   page.once("dialog", (d) => void d.accept());
   await page.getByRole("button", { name: "Guardar y firmar" }).click();
-  await expect(page.getByRole("alert").filter({ hasText: /firm|Pieza/ })).toHaveCount(0);
-  await expect(page.getByRole("status").filter({ hasText: "Firmado. Mantenimiento programado a 3 meses." })).toBeVisible();
+  // Si falla, el mensaje muestra todos los avisos de la página y la dirección.
+  await expect.poll(async () => [page.url(), ...(await page.locator("[role=status], [role=alert]").allInnerTexts())])
+    .toContain("Firmado. Mantenimiento programado a 3 meses.");
   await expect(page.getByText("Aus.").first()).toBeVisible();   // la 18 quedó ausente
   // Firmado: solo lectura
   await expect(page.getByRole("button", { name: "Guardar borrador" })).toHaveCount(0);
@@ -53,7 +55,7 @@ test("la odontóloga registra un periodontograma, ve el NIC calculado y lo firma
   await expect(page.getByRole("region", { name: "Periodontogramas" })).toContainText("Firmado");
 });
 
-test("la asistente registra uno a nombre de la odontóloga, que lo firma; se comparan las fechas", async ({ page }) => {
+test("la asistente registra uno a nombre de la odontóloga y no lo firma", async ({ page }) => {
   expect(pacienteId, "depende de la prueba anterior").not.toBe("");
   await entrar(page, "asistente@clinica-demo.example");
   await page.goto(`/pacientes/${pacienteId}/periodontograma`);
@@ -70,9 +72,13 @@ test("la asistente registra uno a nombre de la odontóloga, que lo firma; se com
   await expect(page.getByRole("status").filter({ hasText: "Borrador guardado." })).toBeVisible();
   // La asistente no firma
   await expect(page.getByRole("button", { name: "Guardar y firmar" })).toHaveCount(0);
+  borradorAsistente = url;
+});
 
+test("la odontóloga responsable firma el de la asistente y compara las fechas", async ({ page }) => {
+  expect(borradorAsistente, "depende de la prueba anterior").not.toBe("");
   await entrar(page, "mendoza@clinica-demo.example");
-  await page.goto(url);
+  await page.goto(borradorAsistente);
   page.once("dialog", (d) => void d.accept());
   await page.getByRole("button", { name: "Guardar y firmar" }).click();
   await expect(page.getByRole("status").filter({ hasText: /^Firmado\.$/ })).toBeVisible();

@@ -77,7 +77,7 @@ test("la odontóloga registra conductos y la cirugía en la evolución, y al fir
   await expect(firmada.getByRole("list", { name: "Registros de especialidad" }).getByText("Anular")).toHaveCount(0);
 });
 
-test("el historial por especialidad lo ve la asistente; recepción no", async ({ page }) => {
+test("el historial por especialidad lo ve la asistente", async ({ page }) => {
   expect(pacienteId, "depende de la prueba anterior").not.toBe("");
   await entrar(page, "asistente@clinica-demo.example");
   await page.goto(`/pacientes/${pacienteId}`);
@@ -87,7 +87,10 @@ test("el historial por especialidad lo ve la asistente; recepción no", async ({
   await expect(endo).toContainText("1 sesión(es) · en curso");
   await expect(endo).toContainText("lima maestra K 30");
   await expect(page.getByRole("region", { name: "Cirugía" })).toContainText("Seda 3-0, 1 punto");
+});
 
+test("recepción no ve el historial por especialidad", async ({ page }) => {
+  expect(pacienteId, "depende de la primera prueba").not.toBe("");
   await entrar(page, "recepcion@clinica-demo.example");
   await page.goto(`/pacientes/${pacienteId}`);
   await expect(page.getByRole("link", { name: "Especialidades" })).toHaveCount(0);

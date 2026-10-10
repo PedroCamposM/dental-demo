@@ -295,7 +295,7 @@ function RegistrosEspecialidad({ nota, pacienteId, registros, items, especialida
         <div className="mt-2 flex flex-col gap-2">
           {formularios.map((f) => (
             <FormRegistro key={f.clave} tipo={f.tipo} pacienteId={pacienteId} notaId={nota.id} itemId={f.item?.id}
-              implanteId={f.implanteId} pieza={f.item?.pieza ?? null} prefijo={`r-${nota.id.slice(0, 8)}-${f.clave.slice(0, 24)}`}
+              implanteId={f.implanteId} pieza={f.item?.pieza ?? null} prefijo={`r-${nota.id.slice(0, 8)}-${f.clave}`}
               titulo={f.titulo ?? (f.item ? `${tituloTipo(f.tipo)} · ${describir(f.item)}` : undefined)} />
           ))}
         </div>

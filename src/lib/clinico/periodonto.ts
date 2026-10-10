@@ -91,8 +91,8 @@ function grado(v: unknown, pieza: number, que: string): number | null | string {
 }
 
 /**
- * Valida lo que envía la grilla (JSON). Devuelve solo las piezas con datos. Una pieza
- * ausente no lleva mediciones.
+ * Valida lo que envía la grilla (JSON): las piezas con datos y las ya guardadas que se
+ * vaciaron. Una pieza ausente no lleva mediciones.
  */
 export function validarPiezas(json: string):
   { ok: true; piezas: PiezaPeriodonto[] } | { ok: false; error: string } {
@@ -126,7 +126,8 @@ export function validarPiezas(json: string):
     if (p.ausente && (p.movilidad !== null || p.furca !== null || p.ps.some((x) => x !== null) || p.mg.some((x) => x !== null))) {
       return { ok: false, error: `Pieza ${pieza}: una pieza ausente no lleva mediciones.` };
     }
-    if (tieneDatos(p)) piezas.push(p);
+    // Se guarda también una pieza vacía: así se borra lo que se había registrado en el borrador.
+    piezas.push(p);
   }
   return { ok: true, piezas };
 }
@@ -178,8 +179,10 @@ export function comparar(antes: PiezaPeriodonto[], despues: PiezaPeriodonto[], u
     if (!a || a.ausente || d.ausente) continue;
     const nombres = nombresSitios(d.pieza);
     for (let i = 0; i < 6; i++) {
-      const va = nic(a.ps[i] ?? null, a.mg[i] ?? null) ?? a.ps[i] ?? null;
-      const vd = nic(d.ps[i] ?? null, d.mg[i] ?? null) ?? d.ps[i] ?? null;
+      // NIC si ambas fechas tienen MG en el sitio; si no, PS en ambas (no se mezclan).
+      const conMg = a.mg[i] != null && d.mg[i] != null;
+      const va = conMg ? nic(a.ps[i] ?? null, a.mg[i] ?? null) : a.ps[i] ?? null;
+      const vd = conMg ? nic(d.ps[i] ?? null, d.mg[i] ?? null) : d.ps[i] ?? null;
       if (va === null || vd === null) continue;
       if (Math.abs(vd - va) >= umbral) {
         cambios.push({ pieza: d.pieza, sitio: nombres[i] ?? String(i + 1), antes: va, despues: vd, diferencia: vd - va });

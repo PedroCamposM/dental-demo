@@ -29,6 +29,11 @@ declare
   v_esp text := tg_argv[0];
   v_proc_esp text;
 begin
+  -- Desde la app, solo en la propia clínica (antes de mirar la evolución: no se revela
+  -- si existe en otra).
+  if current_setting('role', true) = 'authenticated' and new.clinica_id is distinct from privado.clinica_actual() then
+    raise exception 'No autorizado';
+  end if;
   select * into v_nota from public.nota_evolucion where id = new.nota_id and clinica_id = new.clinica_id;
   if v_nota.id is null then
     raise exception 'La evolución no existe en esta clínica';
@@ -73,6 +78,12 @@ begin
   end if;
   if old.anulado_at is not null then
     raise exception 'El registro está anulado y no se modifica';
+  end if;
+  -- Anulación en cascada (se anuló la evolución o el implante): solo los datos de anulación.
+  if privado.en_proceso() and new.anulado_at is not null
+     and (to_jsonb(new) - array['anulado_at', 'anulado_por', 'motivo_anulacion'])
+         = (to_jsonb(old) - array['anulado_at', 'anulado_por', 'motivo_anulacion']) then
+    return new;
   end if;
   select * into v_nota from public.nota_evolucion where id = old.nota_id;
   if v_nota.firmada_at is not null then
@@ -349,8 +360,7 @@ begin
 end $$;
 create trigger fase_inicial after insert on public.implante for each row execute function privado.fase_inicial_implante();
 
--- Una fase posterior: del mismo paciente, implante vigente, fecha no futura. Si se anula
--- el implante, se anulan sus fases (en borrador; el trigger de protección lo exige).
+-- Una fase posterior: del mismo paciente, implante vigente, fecha no futura.
 create function privado.validar_implante_fase() returns trigger
 language plpgsql set search_path = '' as $$
 begin
@@ -369,6 +379,51 @@ begin
 end $$;
 -- Después de validar_registro_sesion (que fija paciente_id): los triggers se ejecutan por nombre.
 create trigger validar_fase before insert on public.implante_fase for each row execute function privado.validar_implante_fase();
+
+-- ---------------------------------------------------------------------------
+-- Anulaciones en cascada: al anular la evolución, sus registros; al anular un implante,
+-- sus fases. Así no quedan registros vigentes ocultos que bloqueen el ítem.
+-- ---------------------------------------------------------------------------
+create function privado.anular_registros_de(tabla text, columna text, id uuid, autor uuid, motivo text) returns void
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_previo text := coalesce(current_setting('dental.proceso', true), '');
+begin
+  perform set_config('dental.proceso', 'on', true);
+  execute format('update public.%I set anulado_at = now(), anulado_por = $1, motivo_anulacion = $2
+                   where %I = $3 and anulado_at is null', tabla, columna)
+    using autor, left(motivo, 300), id;
+  perform set_config('dental.proceso', v_previo, true);
+end $$;
+
+create function privado.al_anular_evolucion() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  t text;
+begin
+  if new.anulado_at is null or old.anulado_at is not null then
+    return new;
+  end if;
+  foreach t in array array['endodoncia_conducto', 'ortodoncia_caso', 'ortodoncia_control', 'implante', 'implante_fase',
+                           'cirugia_registro', 'odontopediatria_registro'] loop
+    perform privado.anular_registros_de(t, 'nota_id', new.id, new.anulado_por, 'Evolución anulada: ' || new.motivo_anulacion);
+  end loop;
+  return new;
+end $$;
+create trigger al_anular after update of anulado_at on public.nota_evolucion
+  for each row execute function privado.al_anular_evolucion();
+
+create function privado.al_anular_implante() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.anulado_at is not null and old.anulado_at is null then
+    perform privado.anular_registros_de('implante_fase', 'implante_id', new.id, new.anulado_por,
+                                        'Implante anulado: ' || new.motivo_anulacion);
+  end if;
+  return new;
+end $$;
+create trigger al_anular after update of anulado_at on public.implante
+  for each row execute function privado.al_anular_implante();
 
 -- ---------------------------------------------------------------------------
 -- Cirugía: al firmar la evolución, el control de retiro de puntos (regla 5)

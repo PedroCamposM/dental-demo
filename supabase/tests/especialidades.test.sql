@@ -144,6 +144,37 @@ select pruebas.debe_fallar($$insert into public.endodoncia_conducto (clinica_id,
   values ('a6a6a6a6-0000-0000-0000-000000000000', 'a6a6a6a6-0000-0000-0000-000000000092',
           'a6a6a6a6-0000-0000-0000-0000000000e1', 'DV', 'K 25')$$, 'trabajados en esta evolución');
 
+-- Implante en una evolución que luego se anula: sus registros y fases se anulan con ella
+-- (no quedan registros vigentes ocultos que bloqueen el ítem)
+reset role;
+select pruebas.como(null);
+insert into public.item_plan (id, clinica_id, plan_id, procedimiento, procedimiento_id, precio_centimos, odontologo_id, estado, orden, pieza) values
+  ('a6a6a6a6-0000-0000-0000-0000000000e4', 'a6a6a6a6-0000-0000-0000-000000000000', 'a6a6a6a6-0000-0000-0000-0000000000a1',
+   'Implante', 'a6a6a6a6-0000-0000-0000-0000000000d3', 250000, 'a6000000-0000-0000-0000-00000000000b', 'aceptado', 4, 46);
+set role authenticated;
+select pruebas.como('a6000000-0000-0000-0000-00000000000b');
+insert into public.nota_evolucion (id, clinica_id, paciente_id, odontologo_id, texto) values
+  ('a6a6a6a6-0000-0000-0000-000000000093', 'a6a6a6a6-0000-0000-0000-000000000000', 'a6a6a6a6-0000-0000-0000-0000000000f1',
+   'a6000000-0000-0000-0000-00000000000b', 'Implante en 46');
+insert into public.evolucion_item (clinica_id, nota_id, item_id) values
+  ('a6a6a6a6-0000-0000-0000-000000000000', 'a6a6a6a6-0000-0000-0000-000000000093', 'a6a6a6a6-0000-0000-0000-0000000000e4');
+insert into public.implante (clinica_id, nota_id, item_plan_id, pieza, marca, diametro_mm, longitud_mm) values
+  ('a6a6a6a6-0000-0000-0000-000000000000', 'a6a6a6a6-0000-0000-0000-000000000093', 'a6a6a6a6-0000-0000-0000-0000000000e4', 46, 'Marca Z', 4.5, 11);
+update public.nota_evolucion set anulado_at = now(), anulado_por = auth.uid(), motivo_anulacion = 'Paciente equivocado'
+ where id = 'a6a6a6a6-0000-0000-0000-000000000093';
+select pruebas.igual((select count(*) from public.implante where item_plan_id = 'a6a6a6a6-0000-0000-0000-0000000000e4'
+                        and anulado_at is not null and motivo_anulacion like 'Evolución anulada:%'), 1, 'implante anulado con la evolución');
+select pruebas.igual((select count(*) from public.implante_fase f join public.implante i on i.id = f.implante_id
+                       where i.item_plan_id = 'a6a6a6a6-0000-0000-0000-0000000000e4' and f.anulado_at is null), 0,
+                     'sus fases también');
+-- El implante de una evolución ya firmada no se anula (regla 2: se corrige con adenda)
+select pruebas.debe_fallar($$update public.implante set anulado_at = now(), anulado_por = auth.uid(),
+  motivo_anulacion = 'Lote equivocado' where item_plan_id = 'a6a6a6a6-0000-0000-0000-0000000000e3'$$, 'firmada');
+-- Otra clínica: rechazo antes de mirar la evolución
+select pruebas.como('b6000000-0000-0000-0000-00000000000b');
+select pruebas.debe_fallar($$insert into public.odontopediatria_registro (clinica_id, nota_id, apoderado_presente, conducta)
+  values ('a6a6a6a6-0000-0000-0000-000000000000', 'a6a6a6a6-0000-0000-0000-000000000092', true, 'x')$$, 'No autorizado');
+
 -- Recepción y otra clínica no ven nada
 select pruebas.como('a6000000-0000-0000-0000-00000000000d');
 select pruebas.igual((select count(*) from public.endodoncia_conducto) + (select count(*) from public.implante)
@@ -154,7 +185,7 @@ select pruebas.igual((select count(*) from public.implante) + (select count(*) f
                      'otra clínica no los ve');
 select pruebas.debe_fallar($$insert into public.cirugia_registro (clinica_id, nota_id, item_plan_id, tecnica)
   values ('a6a6a6a6-0000-0000-0000-000000000000', 'a6a6a6a6-0000-0000-0000-000000000092',
-          'a6a6a6a6-0000-0000-0000-0000000000e2', 'Ajena')$$, 'Solo el autor');
+          'a6a6a6a6-0000-0000-0000-0000000000e2', 'Ajena')$$, 'No autorizado');
 reset role;
 select pruebas.como(null);
 \echo 'especialidades: todas las aserciones pasaron'

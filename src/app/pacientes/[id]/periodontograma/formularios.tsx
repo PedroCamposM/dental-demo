@@ -230,7 +230,9 @@ export function GrillaEdicion({ id, pacienteId, piezas, observaciones, mantenimi
   const [meses, setMeses] = useState(mantenimiento === null ? "" : String(mantenimiento));
   const cambiar = (pieza: number, f: (p: PiezaPeriodonto) => PiezaPeriodonto) =>
     setDatos((m) => new Map(m).set(pieza, f(m.get(pieza) ?? piezaVacia(pieza))));
-  const enviar = JSON.stringify([...datos.values()].filter(tieneDatos));
+  // Las piezas con datos y las ya guardadas (aunque se hayan vaciado: así se borra lo guardado).
+  const guardadas = new Set(piezas.map((p) => p.pieza));
+  const enviar = JSON.stringify([...datos.values()].filter((p) => tieneDatos(p) || guardadas.has(p.pieza)));
   return (
     <form action={accion} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="id" value={id} />

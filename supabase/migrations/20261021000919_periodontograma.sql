@@ -122,6 +122,16 @@ begin
     if current_user = 'authenticated' and new.anulado_por is distinct from auth.uid() then
       raise exception 'Solo se anula a nombre propio, con motivo';
     end if;
+    -- Firmado: solo lo anula su cirujano dentista responsable. Borrador: el responsable o
+    -- quien lo registró (descarta su propio borrador).
+    if current_user = 'authenticated' and old.firmado_at is not null
+       and (not privado.es_dentista() or auth.uid() is distinct from old.odontologo_id) then
+      raise exception 'Un periodontograma firmado lo anula solo su cirujano dentista responsable';
+    end if;
+    if current_user = 'authenticated' and old.firmado_at is null
+       and auth.uid() is distinct from old.odontologo_id and auth.uid() is distinct from old.registrado_por then
+      raise exception 'El borrador lo anulan su responsable o quien lo registró';
+    end if;
     if (to_jsonb(new) - array['anulado_at', 'anulado_por', 'motivo_anulacion', 'updated_at'])
        is distinct from (to_jsonb(old) - array['anulado_at', 'anulado_por', 'motivo_anulacion', 'updated_at']) then
       raise exception 'Al anular un periodontograma no se modifica su contenido';
@@ -241,6 +251,13 @@ begin
   for e in select * from jsonb_array_elements(piezas) loop
     n := n + 1;
     if jsonb_typeof(e) <> 'object' or jsonb_typeof(e -> 'pieza') <> 'number' then
+      raise exception 'Pieza %: datos inválidos', n;
+    end if;
+    if (e ->> 'pieza')::numeric % 1 <> 0
+       or (jsonb_typeof(e -> 'movilidad') = 'number' and (e ->> 'movilidad')::numeric % 1 <> 0)
+       or (jsonb_typeof(e -> 'furca') = 'number' and (e ->> 'furca')::numeric % 1 <> 0)
+       or coalesce(jsonb_typeof(e -> 'ausente'), 'boolean') not in ('boolean', 'null')
+       or coalesce(jsonb_typeof(e -> 'implante'), 'boolean') not in ('boolean', 'null') then
       raise exception 'Pieza %: datos inválidos', n;
     end if;
     v_pieza := (e ->> 'pieza')::numeric::smallint;

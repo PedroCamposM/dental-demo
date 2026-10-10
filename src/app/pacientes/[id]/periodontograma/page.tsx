@@ -87,6 +87,9 @@ export default async function Periodonto({ params, searchParams }: {
 
   const puedeEditar = (p: Periodontograma) => !p.firmado_at && !p.anulado_at && !paciente.anulado_at
     && (p.odontologo_id === sesion.usuarioId || p.registrado_por === sesion.usuarioId);
+  // Firmado: lo anula solo su cirujano dentista responsable; borrador: quien puede editarlo.
+  const puedeAnular = (p: Periodontograma) => !p.anulado_at
+    && (p.firmado_at ? sesion.esDentista && p.odontologo_id === sesion.usuarioId : puedeEditar(p));
   const base = `/pacientes/${id}/periodontograma`;
 
   return (
@@ -131,7 +134,7 @@ export default async function Periodonto({ params, searchParams }: {
                   {elegido.firmado_at && <> · firmado el {cuando(elegido.firmado_at)}</>}
                 </span>
               </h2>
-              {!elegido.anulado_at && (elegido.firmado_at || puedeEditar(elegido)) && <AnularPeriodontograma id={elegido.id} pacienteId={id} />}
+              {puedeAnular(elegido) && <AnularPeriodontograma key={elegido.id} id={elegido.id} pacienteId={id} />}
             </div>
             {elegido.anulado_at && <p className="text-sm text-red-700">Anulado: {elegido.motivo_anulacion}</p>}
             {q.firmado === "1" && elegido.firmado_at && !elegido.anulado_at && (
@@ -142,7 +145,7 @@ export default async function Periodonto({ params, searchParams }: {
               </p>
             )}
             {puedeEditar(elegido) ? (
-              <GrillaEdicion id={elegido.id} pacienteId={id} piezas={piezasDe.get(elegido.id) ?? []}
+              <GrillaEdicion key={elegido.id} id={elegido.id} pacienteId={id} piezas={piezasDe.get(elegido.id) ?? []}
                 observaciones={elegido.observaciones ?? ""} mantenimiento={elegido.mantenimiento_meses}
                 puedeFirmar={sesion.esDentista && elegido.odontologo_id === sesion.usuarioId} />
             ) : (

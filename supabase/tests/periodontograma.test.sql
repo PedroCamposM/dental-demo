@@ -38,6 +38,16 @@ select public.guardar_periodontograma((select id from pg1),
 select pruebas.igual((select count(*) from public.periodonto_pieza p join pg1 on pg1.id = p.periodontograma_id), 2, 'piezas guardadas');
 select pruebas.igual((select ps[3] + mg[3] from public.periodonto_pieza p join pg1 on pg1.id = p.periodontograma_id
                        where pieza = 16), 7, 'NIC = PS + MG');
+-- Una pieza vaciada en la grilla se guarda vacía (no quedan los valores anteriores)
+select public.guardar_periodontograma((select id from pg1),
+  '[{"pieza": 17, "ps": [9,9,9,9,9,9]}]'::jsonb, 'Bolsas en 16', 3::smallint);
+select public.guardar_periodontograma((select id from pg1), '[{"pieza": 17}]'::jsonb, 'Bolsas en 16', 3::smallint);
+select pruebas.igual((select count(*) from public.periodonto_pieza p join pg1 on pg1.id = p.periodontograma_id
+                       where pieza = 17 and 0 <= any (ps)), 0, 'pieza vaciada sin mediciones');
+select pruebas.debe_fallar($$select public.guardar_periodontograma((select id from pg1),
+  '[{"pieza": 16.4}]'::jsonb, null, null)$$, 'datos inválidos');
+select pruebas.debe_fallar($$select public.guardar_periodontograma((select id from pg1),
+  '[{"pieza": 16, "ausente": "x"}]'::jsonb, null, null)$$, 'datos inválidos');
 -- Validaciones del servidor
 select pruebas.debe_fallar($$select public.guardar_periodontograma((select id from pg1),
   '[{"pieza": 16, "ps": [3,2,5]}]'::jsonb, null, null)$$, 'seis sitios');
@@ -71,6 +81,14 @@ select pruebas.igual((select count(*) from public.seguimiento where paciente_id 
                         and fecha_programada = ((now() at time zone 'America/Lima')::date + interval '3 months')::date), 1,
                      'mantenimiento a los 3 meses');
 set role authenticated;
+-- Quien lo registró (la asistente) no anula el firmado: solo su responsable
+select pruebas.como('a5000000-0000-0000-0000-00000000000e');
+select pruebas.debe_fallar($$update public.periodontograma set anulado_at = now(), anulado_por = auth.uid(),
+  motivo_anulacion = 'Lo anula la asistente' where id = (select id from pg1)$$, 'responsable');
+select pruebas.como('a5000000-0000-0000-0000-00000000000c');
+select pruebas.debe_fallar($$update public.periodontograma set anulado_at = now(), anulado_por = auth.uid(),
+  motivo_anulacion = 'Lo anula otro dentista' where id = (select id from pg1)$$, 'responsable');
+select pruebas.como('a5000000-0000-0000-0000-00000000000b');
 -- Regla 2: firmado no se edita
 select pruebas.debe_fallar($$select public.guardar_periodontograma((select id from pg1),
   '[{"pieza": 16, "ps": [1,1,1,1,1,1]}]'::jsonb, null, null)$$, 'en borrador');
