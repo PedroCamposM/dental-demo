@@ -401,6 +401,16 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   7 plantillas de consentimiento de ejemplo, 8 procedimientos con plantilla, bucket
   `clinico` privado, 120 pacientes vigentes.
 - Falta: `HABILITAR_ETAPA4=1` … `HABILITAR_ETAPA7=1` en Vercel (Preview) y redeploy.
+- Pedro autorizó «todo lo que consideres mejor para el proyecto» (2026-10-10):
+  - Citas desfasadas del seed en el remoto: 7 citas pasadas que seguían programadas o
+    confirmadas quedaron «atendida» y 1 cita futura superpuesta (26-oct, mismo
+    profesional y sillón) se movió de 11:30 a 12:00–12:30 (hora de Lima; libre y dentro de su horario). Verificado: 0 citas pasadas abiertas y
+    0 superposiciones. Los datos de la demo envejecen con los días: la Etapa 12 debe
+    traer un «refrescar fechas de la demo».
+  - Convención de superficies del odontograma: se mantiene la descrita en
+    `docs/nts188-resumen.md` como decisión del proyecto, a validar con la clínica piloto
+    (la NTS 188 no la fija).
+  - Plantillas de consentimiento: siguen de ejemplo hasta tener los formatos reales.
 
 ## Próximas etapas (CLAUDE.md)
 
