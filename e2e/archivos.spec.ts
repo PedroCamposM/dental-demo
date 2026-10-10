@@ -24,11 +24,11 @@ test("la asistente sube una radiografía y se ve con enlace temporal", async ({ 
   await page.waitForURL(/\/archivos$/);
 
   // Formato no admitido: avisa antes de subir
-  await page.getByLabel(/^Archivo/).setInputFiles({ name: "nota.txt", mimeType: "text/plain", buffer: Buffer.from("x") });
+  await page.locator("#a-archivo").setInputFiles({ name: "nota.txt", mimeType: "text/plain", buffer: Buffer.from("x") });
   await page.getByRole("button", { name: "Guardar archivo" }).click();
   await expect(page.getByRole("alert").filter({ hasText: "Formato no admitido" })).toBeVisible();
 
-  await page.getByLabel(/^Archivo/).setInputFiles({ name: "rx-36.png", mimeType: "image/png", buffer: PNG });
+  await page.locator("#a-archivo").setInputFiles({ name: "rx-36.png", mimeType: "image/png", buffer: PNG });
   await page.getByLabel("Pieza (opcional)").fill("36");
   await page.getByLabel("Descripción (opcional)").fill(DESCRIPCION);
   await page.getByRole("button", { name: "Guardar archivo" }).click();

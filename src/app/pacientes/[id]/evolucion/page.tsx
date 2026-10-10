@@ -25,7 +25,7 @@ type Nota = Record<Exclude<CampoEvolucion, "texto">, string | null> & {
 };
 type Item = {
   id: string; plan_id: string; procedimiento: string; pieza: number | null; superficies: Superficie[] | null;
-  estado: string; nota_evolucion_id: string | null; fase: number | null; orden: number;
+  estado: string; nota_evolucion_id: string | null; fase: number | null; orden: number; procedimiento_id: string | null;
 };
 type Plan = { id: string; titulo: string; version: number; alternativa: string; estado: string };
 
@@ -53,9 +53,25 @@ export default async function Evolucion({ params }: { params: Promise<{ id: stri
   const idsPlanes = (planes.data ?? []).map((p) => p.id);
   const items = idsPlanes.length > 0
     ? await supabase.from("item_plan")
-        .select("id, plan_id, procedimiento, pieza, superficies, estado, nota_evolucion_id, fase, orden")
+        .select("id, plan_id, procedimiento, pieza, superficies, estado, nota_evolucion_id, fase, orden, procedimiento_id")
         .in("plan_id", idsPlanes).order("fase", { nullsFirst: true }).order("orden").returns<Item[]>()
     : { data: [] as Item[], error: null };
+  // Etapa 7: ítems que requieren consentimiento firmado y aún no lo tienen (la firma fallaría).
+  const sinConsentimiento = new Set<string>();
+  if (modulos.etapa7) {
+    const pendientesIds = (items.data ?? []).filter((i) => i.estado === "aceptado" || i.estado === "programado");
+    const procs = [...new Set(pendientesIds.flatMap((i) => (i.procedimiento_id ? [i.procedimiento_id] : [])))];
+    if (procs.length > 0) {
+      const [requieren, firmados] = await Promise.all([
+        supabase.from("procedimiento").select("id").in("id", procs).eq("requiere_consentimiento", true).returns<{ id: string }[]>(),
+        supabase.from("consentimiento").select("item_plan_id").eq("paciente_id", id).eq("estado", "firmado").is("anulado_at", null)
+          .returns<{ item_plan_id: string | null }[]>(),
+      ]);
+      const req = new Set((requieren.data ?? []).map((r) => r.id));
+      const ok = new Set((firmados.data ?? []).flatMap((f) => (f.item_plan_id ? [f.item_plan_id] : [])));
+      for (const i of pendientesIds) if (i.procedimiento_id && req.has(i.procedimiento_id) && !ok.has(i.id)) sinConsentimiento.add(i.id);
+    }
+  }
   const error = notas.error ?? planes.error ?? items.error;
   if (error) registrarError("evolucion.listar", error, { paciente: id });
 
@@ -68,7 +84,10 @@ export default async function Evolucion({ params }: { params: Promise<{ id: stri
     .filter((i) => i.estado === "aceptado" || i.estado === "programado")
     .map((i) => {
       const p = plan.get(i.plan_id);
-      return { id: i.id, descripcion: describir(i), plan: p ? `${p.titulo} (${nombreVersion(p, conAlternativas)})` : "Plan" };
+      return {
+        id: i.id, descripcion: describir(i), plan: p ? `${p.titulo} (${nombreVersion(p, conAlternativas)})` : "Plan",
+        sinConsentimiento: sinConsentimiento.has(i.id),
+      };
     });
   const lista = notas.data ?? [];
   const borradores = lista.filter((n) => !n.firmada_at && !n.anulado_at);

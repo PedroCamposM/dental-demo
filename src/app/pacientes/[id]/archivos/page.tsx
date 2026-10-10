@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { AlertasPaciente } from "@/components/alertas-paciente";
 import { Encabezado } from "@/components/encabezado";
 import { esImagen, TIPOS_ARCHIVO, TIPOS_OTROS } from "@/lib/clinico/archivos";
+import { FINES_IMAGEN, type FinImagen } from "@/lib/clinico/consentimientos";
 import { fechaLima, formatearFecha } from "@/lib/fechas";
 import { modulos } from "@/lib/funciones";
 import { registrarError } from "@/lib/registro";
@@ -40,19 +41,23 @@ export default async function Archivos({ params, searchParams }: {
     .select("id, tipo, ruta, nombre, mime, bytes, tomada_el, pieza, nota_id, descripcion, subido_por, anulado_at, motivo_anulacion")
     .eq("paciente_id", id).order("tomada_el", { ascending: false }).order("subido_at", { ascending: false }).limit(200);
   if (filtro) consulta = consulta.eq("tipo", filtro);
-  const [archivos, notas, equipo] = await Promise.all([
+  const [archivos, notas, equipo, usoImagen] = await Promise.all([
     consulta.returns<Archivo[]>(),
     supabase.from("nota_evolucion").select("id, fecha, texto").eq("paciente_id", id).is("anulado_at", null)
       .order("fecha", { ascending: false }).limit(30).returns<{ id: string; fecha: string; texto: string }[]>(),
     supabase.from("usuario").select("id, nombre").returns<{ id: string; nombre: string }[]>(),
+    // Consentimiento de uso de imagen firmado y vigente: sin él, las imágenes son solo de uso clínico.
+    supabase.from("consentimiento").select("fines").eq("paciente_id", id).eq("tipo", "uso_imagen").eq("estado", "firmado")
+      .is("anulado_at", null).maybeSingle<{ fines: FinImagen[] }>(),
   ]);
+  const usoAutorizado = usoImagen.data?.fines.map((f) => FINES_IMAGEN[f].toLowerCase()).join(" y ") ?? null;
   const lista = archivos.data ?? [];
   const vigentes = lista.filter((a) => !a.anulado_at);
   // URLs firmadas de corta duración, solo para los vigentes (Storage vuelve a aplicar RLS).
   const firmadas = vigentes.length > 0
     ? await supabase.storage.from("clinico").createSignedUrls(vigentes.map((a) => a.ruta), SEGUNDOS_URL)
     : { data: [], error: null };
-  const error = archivos.error ?? notas.error ?? firmadas.error;
+  const error = archivos.error ?? notas.error ?? firmadas.error ?? usoImagen.error;
   if (error) registrarError("archivos.listar", error, { paciente: id });
   const url = new Map((firmadas.data ?? []).flatMap((f) => (f.path && f.signedUrl ? [[f.path, f.signedUrl] as const] : [])));
   const autor = new Map((equipo.data ?? []).map((u) => [u.id, u.nombre]));
@@ -100,8 +105,10 @@ export default async function Archivos({ params, searchParams }: {
             </nav>
           </div>
           <p className="mt-1 text-xs text-gray-500">
-            Los enlaces son temporales (5 minutos): si vencen, recarga la página. Sin consentimiento de uso de imagen,
-            las imágenes son solo de uso clínico.
+            Los enlaces son temporales (5 minutos): si vencen, recarga la página.{" "}
+            {usoAutorizado
+              ? `El paciente autorizó el uso de sus imágenes con ${usoAutorizado} (consentimiento firmado).`
+              : "Sin consentimiento de uso de imagen firmado, las imágenes son solo de uso clínico."}
           </p>
           {lista.length === 0 ? (
             <p className="mt-3 text-sm text-gray-500">{filtro ? "No hay archivos de este tipo." : "Aún no hay archivos."}</p>
@@ -133,8 +140,12 @@ export default async function Archivos({ params, searchParams }: {
                       <p className="text-xs text-gray-500">
                         {a.nombre ?? "Archivo"} · {peso(a.bytes)} · subió {a.subido_por ? autor.get(a.subido_por) ?? "—" : "el sistema"}
                       </p>
-                      {esImagen(a.mime) && !a.anulado_at && (
-                        <p><span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">Solo uso clínico</span></p>
+                      {esImagen(a.mime) && !a.anulado_at && a.tipo !== "consentimiento" && (
+                        <p>
+                          {usoAutorizado
+                            ? <span className="rounded bg-teal-50 px-1.5 py-0.5 text-xs text-teal-800">Uso autorizado: {usoAutorizado}</span>
+                            : <span className="rounded bg-gray-100 px-1.5 py-0.5 text-xs text-gray-700">Solo uso clínico</span>}
+                        </p>
                       )}
                       {a.anulado_at && <p className="text-xs text-gray-700">Anulado: {a.motivo_anulacion}</p>}
                       {!a.anulado_at && enlace && !esImagen(a.mime) && (

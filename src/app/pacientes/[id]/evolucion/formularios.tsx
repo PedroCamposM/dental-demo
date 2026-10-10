@@ -26,7 +26,7 @@ export function NuevaEvolucion({ pacienteId }: { pacienteId: string }) {
   );
 }
 
-export type ItemPendiente = { id: string; descripcion: string; plan: string };
+export type ItemPendiente = { id: string; descripcion: string; plan: string; sinConsentimiento?: boolean };
 
 /** Borrador de la evolución: datos de la sesión, ítems trabajados y «Firmar y cerrar». */
 export function EditorEvolucion({ pacienteId, notaId, guardado, items, marcados }: {
@@ -78,7 +78,14 @@ export function EditorEvolucion({ pacienteId, notaId, guardado, items, marcados 
           <ul className="flex flex-col gap-2 text-sm">
             {items.map((it) => (
               <li key={it.id} className="flex flex-wrap items-center gap-x-4 gap-y-1">
-                <span className="min-w-56 flex-1">{it.descripcion} <span className="text-gray-500">· {it.plan}</span></span>
+                <span className="min-w-56 flex-1">
+                  {it.descripcion} <span className="text-gray-500">· {it.plan}</span>
+                  {it.sinConsentimiento && (
+                    <span className="block text-xs text-amber-800">
+                      Falta el consentimiento informado firmado: no se podrá marcar como terminado al firmar.
+                    </span>
+                  )}
+                </span>
                 <label className="flex items-center gap-1">
                   <input type="checkbox" name="trabajado" value={it.id} defaultChecked={trabajados.has(it.id)}
                     aria-label={`Trabajado: ${it.descripcion}`} />

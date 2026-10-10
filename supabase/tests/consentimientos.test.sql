@@ -112,24 +112,24 @@ select pruebas.debe_fallar($$select public.firmar_evolucion('afafafaf-0000-0000-
 -- Registrar la firma: con el escaneo subido; la asistente puede registrarlo
 -- ---------------------------------------------------------------------------
 select pruebas.como('af000000-0000-0000-0000-00000000000c');
-select pruebas.debe_fallar($$select public.registrar_consentimiento('afafafaf-0000-0000-0000-0000000000c1', 'firmado', current_date,
+select pruebas.debe_fallar($$select public.registrar_consentimiento('afafafaf-0000-0000-0000-0000000000c1', 'firmado', (now() at time zone 'America/Lima')::date,
   'afafafaf-0000-0000-0000-000000000000/afafafaf-0000-0000-0000-0000000000f1/77777777-7777-4777-8777-777777777777.pdf',
   'application/pdf', 20000, 'consentimiento.pdf')$$, 'no se terminó de subir');
 insert into storage.objects (bucket_id, name) values
   ('clinico', 'afafafaf-0000-0000-0000-000000000000/afafafaf-0000-0000-0000-0000000000f1/77777777-7777-4777-8777-777777777777.pdf');
-select pruebas.debe_fallar($$select public.registrar_consentimiento('afafafaf-0000-0000-0000-0000000000c1', 'firmado', current_date + 1,
+select pruebas.debe_fallar($$select public.registrar_consentimiento('afafafaf-0000-0000-0000-0000000000c1', 'firmado', (now() at time zone 'America/Lima')::date + 1,
   'afafafaf-0000-0000-0000-000000000000/afafafaf-0000-0000-0000-0000000000f1/77777777-7777-4777-8777-777777777777.pdf',
   'application/pdf', 20000, 'consentimiento.pdf')$$, 'fecha de firma');
-select pruebas.debe_fallar($$select public.registrar_consentimiento('afafafaf-0000-0000-0000-0000000000c1', 'firmado', current_date,
+select pruebas.debe_fallar($$select public.registrar_consentimiento('afafafaf-0000-0000-0000-0000000000c1', 'firmado', (now() at time zone 'America/Lima')::date,
   'afafafaf-0000-0000-0000-000000000000/afafafaf-0000-0000-0000-0000000000f2/77777777-7777-4777-8777-777777777777.pdf',
   'application/pdf', 20000, 'consentimiento.pdf')$$, 'Ruta de archivo inválida');
-select public.registrar_consentimiento('afafafaf-0000-0000-0000-0000000000c1', 'firmado', current_date,
+select public.registrar_consentimiento('afafafaf-0000-0000-0000-0000000000c1', 'firmado', (now() at time zone 'America/Lima')::date,
   'afafafaf-0000-0000-0000-000000000000/afafafaf-0000-0000-0000-0000000000f1/77777777-7777-4777-8777-777777777777.pdf',
   'application/pdf', 20000, 'consentimiento.pdf');
 select pruebas.igual((select count(*) from public.consentimiento c join public.archivo_clinico a on a.id = c.archivo_id
                        where c.id = 'afafafaf-0000-0000-0000-0000000000c1' and c.estado = 'firmado' and a.tipo = 'consentimiento'
                          and c.registrado_por = 'af000000-0000-0000-0000-00000000000c'), 1, 'firmado con su escaneo');
-select pruebas.debe_fallar($$select public.registrar_consentimiento('afafafaf-0000-0000-0000-0000000000c1', 'negado', current_date,
+select pruebas.debe_fallar($$select public.registrar_consentimiento('afafafaf-0000-0000-0000-0000000000c1', 'negado', (now() at time zone 'America/Lima')::date,
   'x', 'application/pdf', 1, 'x')$$, 'ya fue registrado');
 
 -- Con el consentimiento firmado, la firma de la evolución realiza la exodoncia
@@ -153,7 +153,7 @@ insert into public.consentimiento (id, clinica_id, paciente_id, tipo, plantilla_
    'af000000-0000-0000-0000-00000000000b');
 insert into storage.objects (bucket_id, name) values
   ('clinico', 'afafafaf-0000-0000-0000-000000000000/afafafaf-0000-0000-0000-0000000000f2/88888888-8888-4888-8888-888888888888.jpg');
-select public.registrar_consentimiento('afafafaf-0000-0000-0000-0000000000c3', 'negado', current_date,
+select public.registrar_consentimiento('afafafaf-0000-0000-0000-0000000000c3', 'negado', (now() at time zone 'America/Lima')::date,
   'afafafaf-0000-0000-0000-000000000000/afafafaf-0000-0000-0000-0000000000f2/88888888-8888-4888-8888-888888888888.jpg',
   'image/jpeg', 30000, 'negativa.jpg');
 select pruebas.debe_fallar($$select public.revocar_consentimiento('afafafaf-0000-0000-0000-0000000000c3', 'Cambió de opinión')$$,
@@ -173,7 +173,7 @@ select pruebas.debe_fallar($$insert into public.consentimiento (clinica_id, paci
   values ('afafafaf-0000-0000-0000-000000000000', 'afafafaf-0000-0000-0000-0000000000f2', 'uso_imagen',
           'afafafaf-0000-0000-0000-0000000000b1', array['difusion'], 'af000000-0000-0000-0000-00000000000b')$$,
   'tipo correcto');
-select public.registrar_consentimiento('afafafaf-0000-0000-0000-0000000000c4', 'firmado', current_date,
+select public.registrar_consentimiento('afafafaf-0000-0000-0000-0000000000c4', 'firmado', (now() at time zone 'America/Lima')::date,
   'afafafaf-0000-0000-0000-000000000000/afafafaf-0000-0000-0000-0000000000f1/99999999-9999-4999-8999-999999999999.pdf',
   'application/pdf', 20000, 'uso-imagen.pdf');
 select public.revocar_consentimiento('afafafaf-0000-0000-0000-0000000000c4', 'El paciente ya no autoriza la difusión');
@@ -183,7 +183,7 @@ select pruebas.igual((select count(*) from public.consentimiento where id = 'afa
 -- Recepción, otra clínica y visitante no ven consentimientos
 select pruebas.como('af000000-0000-0000-0000-00000000000d');
 select pruebas.igual((select count(*) from public.consentimiento), 0, 'recepción no ve consentimientos');
-select pruebas.debe_fallar($$select public.registrar_consentimiento('afafafaf-0000-0000-0000-0000000000c1', 'firmado', current_date,
+select pruebas.debe_fallar($$select public.registrar_consentimiento('afafafaf-0000-0000-0000-0000000000c1', 'firmado', (now() at time zone 'America/Lima')::date,
   'x', 'application/pdf', 1, 'x')$$, 'personal clínico');
 select pruebas.como('bf000000-0000-0000-0000-00000000000a');
 select pruebas.igual((select count(*) from public.consentimiento) + (select count(*) from public.plantilla_consentimiento), 0,

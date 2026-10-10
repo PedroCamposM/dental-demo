@@ -95,7 +95,7 @@ export function FormularioProcedimiento({ id, inicial }: Props) {
           <span>
             Requiere consentimiento informado firmado
             <span className="block text-xs text-gray-500">
-              No se podrá marcar como realizado sin él (las plantillas de consentimiento llegan en una próxima etapa).
+              No se podrá marcar como realizado sin él. La plantilla se elige en la ficha del procedimiento.
             </span>
           </span>
         </label>

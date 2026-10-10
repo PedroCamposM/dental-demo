@@ -53,37 +53,37 @@ select pruebas.como('ae000000-0000-0000-0000-00000000000b');
 select pruebas.debe_fallar($$insert into public.archivo_clinico (clinica_id, paciente_id, tipo, ruta, mime, bytes, tomada_el, subido_por)
   values ('aeaeaeae-0000-0000-0000-000000000000', 'aeaeaeae-0000-0000-0000-0000000000f1', 'radiografia',
           'aeaeaeae-0000-0000-0000-000000000000/aeaeaeae-0000-0000-0000-0000000000f1/55555555-5555-4555-8555-555555555555.jpg',
-          'image/jpeg', 1000, current_date, 'ae000000-0000-0000-0000-00000000000b')$$, 'no se terminó de subir');
+          'image/jpeg', 1000, (now() at time zone 'America/Lima')::date, 'ae000000-0000-0000-0000-00000000000b')$$, 'no se terminó de subir');
 select pruebas.debe_fallar($$insert into public.archivo_clinico (clinica_id, paciente_id, tipo, ruta, mime, bytes, tomada_el, subido_por)
   values ('aeaeaeae-0000-0000-0000-000000000000', 'aeaeaeae-0000-0000-0000-0000000000f2', 'radiografia',
           'aeaeaeae-0000-0000-0000-000000000000/aeaeaeae-0000-0000-0000-0000000000f1/11111111-1111-4111-8111-111111111111.jpg',
-          'image/jpeg', 1000, current_date, 'ae000000-0000-0000-0000-00000000000b')$$, 'Ruta de archivo inválida');
+          'image/jpeg', 1000, (now() at time zone 'America/Lima')::date, 'ae000000-0000-0000-0000-00000000000b')$$, 'Ruta de archivo inválida');
 select pruebas.debe_fallar($$insert into public.archivo_clinico (clinica_id, paciente_id, tipo, ruta, mime, bytes, tomada_el, subido_por)
   values ('aeaeaeae-0000-0000-0000-000000000000', 'aeaeaeae-0000-0000-0000-0000000000f1', 'radiografia',
           'aeaeaeae-0000-0000-0000-000000000000/aeaeaeae-0000-0000-0000-0000000000f1/11111111-1111-4111-8111-111111111111.jpg',
-          'image/jpeg', 1000, current_date + 2, 'ae000000-0000-0000-0000-00000000000b')$$, 'futura');
+          'image/jpeg', 1000, (now() at time zone 'America/Lima')::date + 2, 'ae000000-0000-0000-0000-00000000000b')$$, 'futura');
 select pruebas.debe_fallar($$insert into public.archivo_clinico (clinica_id, paciente_id, tipo, ruta, mime, bytes, tomada_el, subido_por)
   values ('aeaeaeae-0000-0000-0000-000000000000', 'aeaeaeae-0000-0000-0000-0000000000f1', 'consentimiento',
           'aeaeaeae-0000-0000-0000-000000000000/aeaeaeae-0000-0000-0000-0000000000f1/11111111-1111-4111-8111-111111111111.jpg',
-          'image/jpeg', 1000, current_date, 'ae000000-0000-0000-0000-00000000000b')$$, 'row-level security');
+          'image/jpeg', 1000, (now() at time zone 'America/Lima')::date, 'ae000000-0000-0000-0000-00000000000b')$$, 'row-level security');
 select pruebas.debe_fallar($$insert into public.archivo_clinico (clinica_id, paciente_id, tipo, ruta, mime, bytes, tomada_el, subido_por)
   values ('aeaeaeae-0000-0000-0000-000000000000', 'aeaeaeae-0000-0000-0000-0000000000f1', 'radiografia',
           'aeaeaeae-0000-0000-0000-000000000000/aeaeaeae-0000-0000-0000-0000000000f1/11111111-1111-4111-8111-111111111111.jpg',
-          'image/jpeg', 1000, current_date, 'ae000000-0000-0000-0000-00000000000c')$$, 'row-level security');
+          'image/jpeg', 1000, (now() at time zone 'America/Lima')::date, 'ae000000-0000-0000-0000-00000000000c')$$, 'row-level security');
 insert into public.archivo_clinico (id, clinica_id, paciente_id, tipo, ruta, mime, bytes, tomada_el, pieza, subido_por) values
   ('aeaeaeae-0000-0000-0000-0000000000a1', 'aeaeaeae-0000-0000-0000-000000000000', 'aeaeaeae-0000-0000-0000-0000000000f1',
    'radiografia', 'aeaeaeae-0000-0000-0000-000000000000/aeaeaeae-0000-0000-0000-0000000000f1/11111111-1111-4111-8111-111111111111.jpg',
-   'image/jpeg', 120000, current_date, 36, 'ae000000-0000-0000-0000-00000000000b');
+   'image/jpeg', 120000, (now() at time zone 'America/Lima')::date, 36, 'ae000000-0000-0000-0000-00000000000b');
 select pruebas.debe_fallar($$insert into public.archivo_clinico (clinica_id, paciente_id, tipo, ruta, mime, bytes, tomada_el, pieza, subido_por)
   values ('aeaeaeae-0000-0000-0000-000000000000', 'aeaeaeae-0000-0000-0000-0000000000f1', 'radiografia',
           'aeaeaeae-0000-0000-0000-000000000000/aeaeaeae-0000-0000-0000-0000000000f1/33333333-3333-4333-8333-333333333333.pdf',
-          'application/pdf', 1000, current_date, 19, 'ae000000-0000-0000-0000-00000000000b')$$, 'check constraint');
+          'application/pdf', 1000, (now() at time zone 'America/Lima')::date, 19, 'ae000000-0000-0000-0000-00000000000b')$$, 'check constraint');
 
 select pruebas.como('ae000000-0000-0000-0000-00000000000c');
 insert into public.archivo_clinico (id, clinica_id, paciente_id, tipo, ruta, mime, bytes, tomada_el, subido_por) values
   ('aeaeaeae-0000-0000-0000-0000000000a2', 'aeaeaeae-0000-0000-0000-000000000000', 'aeaeaeae-0000-0000-0000-0000000000f1',
    'documento', 'aeaeaeae-0000-0000-0000-000000000000/aeaeaeae-0000-0000-0000-0000000000f1/33333333-3333-4333-8333-333333333333.pdf',
-   'application/pdf', 5000, current_date - 30, 'ae000000-0000-0000-0000-00000000000c');
+   'application/pdf', 5000, (now() at time zone 'America/Lima')::date - 30, 'ae000000-0000-0000-0000-00000000000c');
 
 -- Regla 1: no se edita ni se borra; se anula con motivo
 select pruebas.debe_fallar($$update public.archivo_clinico set pieza = 46 where id = 'aeaeaeae-0000-0000-0000-0000000000a2'$$,
