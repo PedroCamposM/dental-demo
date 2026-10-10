@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { AlertasPaciente } from "@/components/alertas-paciente";
 import { Encabezado } from "@/components/encabezado";
 import { ESTADOS_ACTIVOS, ESTADOS_CITA, type EstadoCita } from "@/lib/agenda/citas";
+import { NOMBRE_CONTROL, TIPOS_CONTROL, type TipoControl } from "@/lib/tablero/calculos";
 import { fechaLima, formatearFecha, horaLima } from "@/lib/fechas";
 import {
   ESTADOS_CIVILES, esMenorDeEdad, GRADOS_INSTRUCCION, SEGUROS, SEXOS, TIPOS_DOCUMENTO, type EntradaPaciente,
@@ -50,6 +51,13 @@ export default async function FichaPaciente({ params, searchParams }: {
         .gte("inicio", new Date().toISOString())
         .order("inicio").limit(5)
         .returns<{ id: string; inicio: string; estado: EstadoCita; nota: string | null; usuario: { nombre: string } | null }[]>()
+    : { data: null };
+  // Controles programados (Etapa 8: seguimiento clínico): los pendientes, del más próximo al más lejano.
+  const { data: controles } = modulos.etapa8
+    ? await supabase.from("seguimiento").select("id, tipo, fecha_programada, nota")
+        .eq("paciente_id", id).in("tipo", TIPOS_CONTROL).in("resultado", ["pendiente", "mensaje_enviado", "no_contesta", "contactado"])
+        .order("fecha_programada").limit(5)
+        .returns<{ id: string; tipo: TipoControl; fecha_programada: string; nota: string | null }[]>()
     : { data: null };
   const menor = p.fecha_nacimiento ? esMenorDeEdad(p.fecha_nacimiento, fechaLima(new Date())) : false;
   const inicial = Object.fromEntries(
@@ -181,6 +189,28 @@ export default async function FichaPaciente({ params, searchParams }: {
                     </span>
                   </li>
                 ))}
+              </ul>
+            )}
+          </section>
+        )}
+        {modulos.etapa8 && !editar && (
+          <section aria-labelledby="titulo-controles" className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
+            <h2 id="titulo-controles" className="text-lg font-semibold">Controles programados</h2>
+            {(controles ?? []).length === 0 ? (
+              <p className="mt-2 text-sm text-gray-500">No tiene controles pendientes.</p>
+            ) : (
+              <ul className="mt-3 divide-y divide-gray-100 text-sm">
+                {(controles ?? []).map((c) => {
+                  const vencido = c.fecha_programada < fechaLima(new Date());
+                  return (
+                    <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                      <span className="font-medium">{NOMBRE_CONTROL[c.tipo] ?? "Control"}{c.nota ? ` · ${c.nota}` : ""}</span>
+                      <span className={vencido ? "text-red-700" : "text-gray-600"}>
+                        {vencido ? "Vencido: debía ser el " : ""}{formatearFecha(c.fecha_programada)}
+                      </span>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </section>
