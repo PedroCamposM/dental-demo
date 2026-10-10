@@ -176,4 +176,25 @@ select pg_temp.al_menos((select count(*) from laboratorio, pg_temp.c where clini
 select pg_temp.al_menos((select count(*) from orden_laboratorio, pg_temp.c where clinica_id = c.id and estado = 'en_laboratorio'
                          and fecha_entrega_prevista < (now() at time zone 'America/Lima')::date), 1, 'trabajo de laboratorio atrasado');
 
+-- Etapa 12: historia clínica coherente para la demo
+select pg_temp.al_menos((select count(distinct item_plan_id) from endodoncia_conducto, pg_temp.c where clinica_id = c.id), 5,
+                        'endodoncias con sus conductos');
+select pg_temp.al_menos((select count(*) from endodoncia_conducto e join item_plan i on i.id = e.item_plan_id
+                           join item_plan cor on cor.plan_id = i.plan_id and cor.procedimiento ilike 'Corona%', pg_temp.c
+                         where e.clinica_id = c.id), 3, 'endodoncias seguidas de coronas');
+select pg_temp.al_menos((select count(distinct item_plan_id) from ortodoncia_control, pg_temp.c where clinica_id = c.id), 5,
+                        'ortodoncias con controles');
+select pg_temp.al_menos((select min(n) from (select count(*) n from ortodoncia_control, pg_temp.c where clinica_id = c.id
+                                             group by item_plan_id) x), 4, 'controles mensuales por ortodoncia');
+select pg_temp.al_menos((select count(*) from implante_fase f, pg_temp.c where f.clinica_id = c.id and f.fase = 'protesica'
+                           and f.anulado_at is null), 1, 'implante en fase protésica');
+select pg_temp.al_menos((select count(*) from seguimiento s join cirugia_registro r on r.item_plan_id = s.item_plan_id, pg_temp.c
+                         where s.clinica_id = c.id and s.tipo = 'retiro_puntos' and s.resultado = 'pendiente'), 1,
+                        'cirugía con retiro de puntos pendiente');
+select pg_temp.al_menos((select count(distinct paciente_id) from odontopediatria_registro, pg_temp.c
+                         where clinica_id = c.id and apoderado_presente), 3, 'niños con apoderado presente');
+select pg_temp.al_menos((select count(*) from (select paciente_id from periodontograma, pg_temp.c
+                         where clinica_id = c.id and firmado_at is not null group by paciente_id having count(*) >= 2) x), 1,
+                        'periodontogramas para comparar');
+
 select 'seed: todas las verificaciones pasaron' as resultado;
