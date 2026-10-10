@@ -4,6 +4,7 @@ import { fechaLima } from "@/lib/fechas";
 import { modulos } from "@/lib/funciones";
 import { createClient } from "@/lib/supabase/server";
 import {
+  TIPOS_CONTROL,
   calcularTablero,
   type CitaFila,
   type CuotaFila,
@@ -69,7 +70,8 @@ export const cargarTablero = cache(async (): Promise<TableroCargado> => {
       .gte("inicio", haceUnAnio).order("id").range(a, b)),
     todas<SeguimientoFila>((a, b) => supabase.from("seguimiento")
       .select("id, paciente_id, plan_id, tipo, fecha_programada, resultado")
-      .eq("tipo", "control").lt("fecha_programada", hoy).order("id").range(a, b)),
+      // Con la Etapa 8, también los controles clínicos (los tipos nuevos existen desde la 0917).
+      .in("tipo", modulos.etapa8 ? TIPOS_CONTROL : ["control"]).lt("fecha_programada", hoy).order("id").range(a, b)),
     todas<Plantilla & { tipo: TipoSeguimiento }>((a, b) => supabase.from("plantilla_mensaje")
       .select("id, tipo, cuerpo").eq("activa", true).order("created_at").range(a, b)),
     todas<{ tipo: TipoSeguimiento; paciente_id: string; realizado_at: string }>((a, b) => supabase.from("seguimiento")

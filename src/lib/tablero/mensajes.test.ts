@@ -41,7 +41,7 @@ describe("variables de cada mensaje y las que ofrece el editor de plantillas", (
       mensajePresupuesto({ ...contacto, planIds: ["p"], titulo: "t", alternativas: 1, centimos: 1, presentado: "2026-10-01", dias: 1, vencido: false }, "c"),
       mensajeDetenido({ ...contacto, planId: "p", titulo: "t", centimos: 1, ultimaVisita: null, diasSinVisita: null }, "c"),
       mensajeCuotas({ ...contacto, planIds: ["p"], cuotaId: "q", numeros: [1], cuotas: 1, centimos: 1, venceMasAntigua: "2026-10-01", diasAtraso: 1 }, "c"),
-      mensajeControl({ ...contacto, seguimientoId: "s", planId: null, fecha: "2026-10-01", diasVencido: 1, resultado: "pendiente" }, "c"),
+      mensajeControl({ ...contacto, seguimientoId: "s", planId: null, fecha: "2026-10-01", motivo: "Control", diasVencido: 1, resultado: "pendiente" }, "c"),
       mensajeNoShow({ ...contacto, citaId: "x", inicio: "2026-10-02T15:00:00Z" }, "c"),
     ];
     for (const m of mensajes) {

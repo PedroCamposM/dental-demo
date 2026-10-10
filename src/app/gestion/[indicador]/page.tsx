@@ -82,7 +82,7 @@ export default async function ListaIndicador({ params }: Params) {
       case "controles":
         return t.controlesVencidos.lista.map((x) => ({
           clave: x.seguimientoId, contacto: x, titulo: "Control periódico", monto: null,
-          detalles: [`Debía volver el ${formatearFecha(x.fecha)} (${hace(x.diasVencido)})`],
+          detalles: [`${x.motivo}: debía volver el ${formatearFecha(x.fecha)} (${hace(x.diasVencido)})`],
           mensaje: mensajeControl(x, c),
         }));
       case "no-show":

@@ -64,3 +64,6 @@ export const conEtapa6 = conEtapa5 && process.env.HABILITAR_ETAPA6 === "1";
 
 /** Imágenes, consentimientos, recetas y documentos clínicos (CI con HABILITAR_ETAPA7=1). */
 export const conEtapa7 = conEtapa6 && process.env.HABILITAR_ETAPA7 === "1";
+
+/** Seguimiento clínico, tablero clínico, pagos y cierre de caja (CI con HABILITAR_ETAPA8=1). */
+export const conEtapa8 = conEtapa7 && process.env.HABILITAR_ETAPA8 === "1";

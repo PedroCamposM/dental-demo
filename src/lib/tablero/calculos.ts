@@ -46,11 +46,24 @@ export type CitaFila = {
   estado: EstadoCita;
   item_ids: string[];
 };
+/** Controles (el de los 6 meses de la v1 y los clínicos de la Etapa 8). */
+export const NOMBRE_CONTROL = {
+  control: "Control",
+  control_posoperatorio: "Control posoperatorio",
+  retiro_puntos: "Retiro de puntos",
+  control_ortodoncia: "Control de ortodoncia",
+  mantenimiento_periodontal: "Mantenimiento periodontal",
+  control_anual: "Control anual",
+} as const;
+export type TipoControl = keyof typeof NOMBRE_CONTROL;
+export const TIPOS_CONTROL = Object.keys(NOMBRE_CONTROL) as TipoControl[];
+export const esControl = (tipo: string): tipo is TipoControl => Object.hasOwn(NOMBRE_CONTROL, tipo);
+
 export type SeguimientoFila = {
   id: string;
   paciente_id: string;
   plan_id: string | null;
-  tipo: "presupuesto" | "tratamiento_detenido" | "cuota_vencida" | "control";
+  tipo: "presupuesto" | "tratamiento_detenido" | "cuota_vencida" | TipoControl;
   fecha_programada: string;
   resultado: ResultadoSeguimiento;
 };
@@ -105,6 +118,8 @@ export type ControlVencido = Contacto & {
   seguimientoId: string;
   planId: string | null;
   fecha: string;
+  /** Qué control es (p. ej. «Retiro de puntos»). */
+  motivo: string;
   diasVencido: number;
   resultado: ResultadoSeguimiento;
 };
@@ -300,7 +315,7 @@ function controlesVencidos(
   );
   const porPaciente = new Map<string, ControlVencido>();
   for (const s of datos.seguimientos) {
-    if (s.tipo !== "control" || s.fecha_programada >= hoy || s.resultado === "agendo_cita") continue;
+    if (!esControl(s.tipo) || s.fecha_programada >= hoy || s.resultado === "agendo_cita") continue;
     if (conCitaFutura.has(s.paciente_id)) continue;
     const previo = porPaciente.get(s.paciente_id);
     if (previo && previo.fecha <= s.fecha_programada) continue;   // un paciente, una fila: el control más antiguo
@@ -309,6 +324,7 @@ function controlesVencidos(
       seguimientoId: s.id,
       planId: s.plan_id,
       fecha: s.fecha_programada,
+      motivo: NOMBRE_CONTROL[s.tipo as TipoControl] ?? "Control",
       diasVencido: diasEntre(s.fecha_programada, hoy),
       resultado: s.resultado,
     });

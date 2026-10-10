@@ -235,6 +235,17 @@ describe("controles vencidos", () => {
   });
 });
 
+describe("controles clínicos (Etapa 8)", () => {
+  it("cuentan como controles vencidos, con su motivo", () => {
+    const p = paciente();
+    const t = calcularTablero(datos({
+      pacientes: [p],
+      seguimientos: [{ ...control(p.id, "2026-10-01"), tipo: "retiro_puntos" }],
+    }), AHORA);
+    expect(t.controlesVencidos.lista[0]).toMatchObject({ pacienteId: p.id, motivo: "Retiro de puntos" });
+  });
+});
+
 describe("no-show del mes", () => {
   it("cuenta las inasistencias del mes sobre las citas ya ocurridas", () => {
     const p = paciente();

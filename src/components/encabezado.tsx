@@ -7,13 +7,17 @@ import { veGestion } from "@/lib/permisos";
 import { NOMBRE_ROL, type Rol, type Sesion } from "@/lib/sesion";
 import { COOKIE_BLOQUEO } from "@/lib/sesion-segura/inactividad";
 
-type Seccion = "pacientes" | "agenda" | "gestion" | "plantillas" | "configuracion";
+type Seccion = "pacientes" | "agenda" | "clinico" | "gestion" | "caja" | "plantillas" | "configuracion";
 
 // La atención del paciente va primero; la gestión es un módulo más.
-const SECCIONES: { clave: Seccion; href: string; texto: string; ve: (rol: Rol) => boolean; etapa1?: boolean; etapa2?: boolean }[] = [
+const SECCIONES: {
+  clave: Seccion; href: string; texto: string; ve: (rol: Rol) => boolean; etapa1?: boolean; etapa2?: boolean; etapa8?: boolean;
+}[] = [
   { clave: "pacientes", href: "/pacientes", texto: "Pacientes", ve: () => true, etapa1: true },
   { clave: "agenda", href: "/agenda", texto: "Agenda", ve: () => true, etapa2: true },
+  { clave: "clinico", href: "/clinico", texto: "Tablero clínico", ve: (rol) => rol !== "recepcion", etapa8: true },
   { clave: "gestion", href: "/gestion", texto: "Gestión", ve: veGestion },
+  { clave: "caja", href: "/caja", texto: "Caja", ve: (rol) => rol === "admin" || rol === "recepcion", etapa8: true },
   { clave: "plantillas", href: "/plantillas", texto: "Plantillas", ve: (rol) => rol === "admin" || rol === "recepcion" },
   { clave: "configuracion", href: "/configuracion", texto: "Configuración", ve: (rol) => rol === "admin", etapa1: true },
 ];
@@ -21,7 +25,7 @@ const SECCIONES: { clave: Seccion; href: string; texto: string; ve: (rol: Rol) =
 export async function Encabezado({ sesion, seccion }: { sesion: Sesion; seccion?: Seccion }) {
   const bloqueado = (await cookies()).get(COOKIE_BLOQUEO)?.value === "1";
   const visibles = SECCIONES.filter(
-    (s) => (!s.etapa1 || modulos.etapa1) && (!s.etapa2 || modulos.etapa2) && s.ve(sesion.rol),
+    (s) => (!s.etapa1 || modulos.etapa1) && (!s.etapa2 || modulos.etapa2) && (!s.etapa8 || modulos.etapa8) && s.ve(sesion.rol),
   );
   return (
     <header className="border-b border-gray-200 bg-white">
