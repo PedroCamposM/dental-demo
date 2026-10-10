@@ -33,7 +33,7 @@ test("la odontóloga deja un plan aceptado para cobrar", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Registrar pago" })).toHaveCount(0);
 });
 
-test("recepción registra pagos, no acepta montos que exceden el saldo y cierra la caja", async ({ page }) => {
+test("recepción registra pagos, no acepta montos que exceden el saldo y los ve en la caja del día", async ({ page }) => {
   expect(pacienteId, "depende de la prueba anterior").not.toBe("");
   await entrar(page, "recepcion@clinica-demo.example");
   await page.goto(`/pacientes/${pacienteId}/plan`);
@@ -54,21 +54,30 @@ test("recepción registra pagos, no acepta montos que exceden el saldo y cierra 
   await page.getByRole("link", { name: "Caja", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Caja", level: 1 })).toBeVisible();
   await expect(page.getByRole("region", { name: "Pagos del día" })).toContainText(APELLIDO);
-  await page.getByLabel("Efectivo contado (S/)").fill("0");
-  page.once("dialog", (d) => void d.accept());
-  await page.getByRole("button", { name: "Cerrar caja del día" }).click();
-  await expect(page.getByRole("heading", { name: "Caja cerrada" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "Resumen del día" })).toContainText("Yape");
+});
 
-  // Día cerrado: el pago ya no se registra; se corrige con un ajuste
-  await page.goto(`/pacientes/${pacienteId}/plan`);
-  await pagos.getByLabel("Monto (S/)").fill("10");
-  await pagos.getByRole("button", { name: "Registrar pago" }).click();
-  await expect(pagos.getByRole("alert")).toContainText("ya se cerró");
+// Se cierra el día anterior (no hoy): así la prueba se puede repetir el mismo día y no
+// bloquea los pagos de hoy de otras pruebas. Que un día cerrado no reciba pagos ni
+// anulaciones lo prueba supabase/tests/caja.test.sql.
+test("recepción cierra la caja de ayer y la corrige con un ajuste", async ({ page }) => {
+  await entrar(page, "recepcion@clinica-demo.example");
   await page.goto("/caja");
+  await page.getByRole("link", { name: "← Anterior" }).click();
+  await expect(page).toHaveURL(/fecha=/);
+  const resumen = page.getByRole("region", { name: /Resumen del día|Caja cerrada/ });
+  await expect(resumen).toBeVisible();
+  if (await page.getByRole("button", { name: "Cerrar caja del día" }).count() > 0) {
+    await page.getByLabel("Efectivo contado (S/)").fill("0");
+    page.once("dialog", (d) => void d.accept());
+    await page.getByRole("button", { name: "Cerrar caja del día" }).click();
+  }
+  await expect(page.getByRole("heading", { name: "Caja cerrada" })).toBeVisible();
+  const motivo = `Vuelto mal entregado ${dniAlAzar()}`;
   await page.getByLabel("Monto (S/, negativo para restar)").fill("-5");
-  await page.getByLabel("Motivo").fill("Vuelto mal entregado");
+  await page.getByLabel("Motivo").fill(motivo);
   await page.getByRole("button", { name: "Registrar ajuste" }).click();
-  await expect(page.getByRole("region", { name: "Ajustes posteriores al cierre" })).toContainText("Vuelto mal entregado");
+  await expect(page.getByRole("region", { name: "Ajustes posteriores al cierre" })).toContainText(motivo);
 });
 
 test("la odontóloga no entra a la caja", async ({ page }) => {

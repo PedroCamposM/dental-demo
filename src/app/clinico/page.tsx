@@ -17,6 +17,7 @@ type Paciente = { id: string; nombres: string; apellidos: string } | null;
 type Fila = { clave: string; paciente: Paciente; texto: string; detalle?: string; href: string; urgente?: boolean };
 
 const nombre = (p: Paciente) => (p ? `${p.apellidos}, ${p.nombres}` : "Paciente");
+const haceDias = (d: number) => `hace ${d} ${d === 1 ? "día" : "días"}`;
 
 /**
  * Tablero clínico (CLAUDE.md): tratamientos en curso, evoluciones sin firmar,
@@ -78,14 +79,30 @@ export default async function TableroClinico() {
   for (const c of consentimientos.data ?? []) cubiertos.add(c.item_plan_id);
   const sinFormato = (itemsReq.data ?? []).filter((i) => !cubiertos.has(i.id));
 
+  // Controles vencidos, como en el Tablero de gestión: no cuentan si el paciente ya tiene
+  // cita agendada o si fue atendido en o después de la fecha del control.
+  const idsControl = [...new Set((controles.data ?? []).map((c) => c.paciente?.id).filter((x): x is string => !!x))];
+  const citasControl = idsControl.length > 0
+    ? await supabase.from("cita").select("paciente_id, inicio, estado").in("paciente_id", idsControl)
+        .in("estado", ["programada", "confirmada", "en_sala", "atendida"])
+        .gte("inicio", `${(controles.data ?? [])[0]?.fecha_programada ?? hoy}T00:00:00-05:00`)
+        .returns<{ paciente_id: string; inicio: string; estado: string }[]>()
+    : { data: [], error: null };
+  if (citasControl.error) registrarError("tablero_clinico.citas", citasControl.error);
+  const ahora = Date.now();
+  const resuelto = (pacienteId: string | undefined, fecha: string) => (citasControl.data ?? []).some((c) =>
+    c.paciente_id === pacienteId && (c.estado === "atendida" ? fechaLima(c.inicio) >= fecha : Date.parse(c.inicio) >= ahora));
   // Un control vencido por paciente (el más antiguo)
   const controlPorPaciente = new Map<string, NonNullable<typeof controles.data>[number]>();
   for (const c of controles.data ?? []) {
+    if (resuelto(c.paciente?.id, c.fecha_programada)) continue;
     const k = c.paciente?.id ?? c.id;
     if (!controlPorPaciente.has(k)) controlPorPaciente.set(k, c);
   }
 
-  const secciones: { titulo: string; vacio: string; filas: Fila[] }[] = [
+  // Las consultas tienen tope: si se alcanzó, el conteo se muestra como «N+».
+  const lleno = (d: unknown[] | null, tope: number) => (d ?? []).length >= tope;
+  const secciones: { titulo: string; vacio: string; filas: Fila[]; mas?: boolean }[] = [
     ...((interconsultas.data ?? []).length > 0 ? [{
       titulo: "Interconsultas por responder", vacio: "",
       filas: (interconsultas.data ?? []).map((i) => ({
@@ -94,18 +111,19 @@ export default async function TableroClinico() {
       })),
     }] : []),
     {
-      titulo: "Evoluciones sin firmar", vacio: "Todas las evoluciones están firmadas.",
+      titulo: "Evoluciones sin firmar", vacio: "Todas las evoluciones están firmadas.", mas: lleno(borradores.data, 50),
       filas: (borradores.data ?? []).map((n) => {
         const dias = diasEntre(fechaLima(n.fecha), hoy);
         return {
           clave: n.id, paciente: n.paciente, texto: `Borrador de ${autor.get(n.odontologo_id) ?? "—"}`,
-          detalle: dias === 0 ? "Abierta hoy" : `Abierta hace ${dias} ${dias === 1 ? "día" : "días"}`,
+          detalle: dias === 0 ? "Abierta hoy" : `Abierta ${haceDias(dias)}`,
           href: `/pacientes/${n.paciente?.id}/evolucion#evolucion-${n.id}`, urgente: dias > 0,
         };
       }),
     },
     {
       titulo: "Consentimientos pendientes", vacio: "No hay consentimientos pendientes.",
+      mas: lleno(pendientes.data, 50) || lleno(itemsReq.data, 300),
       filas: [
         ...(pendientes.data ?? []).map((c) => ({
           clave: c.id, paciente: c.paciente, texto: `${c.titulo}: impreso, falta el formato firmado`,
@@ -119,16 +137,16 @@ export default async function TableroClinico() {
       ],
     },
     {
-      titulo: "Controles vencidos", vacio: "No hay controles vencidos.",
+      titulo: "Controles vencidos", vacio: "No hay controles vencidos.", mas: lleno(controles.data, 100),
       filas: [...controlPorPaciente.values()].map((c) => ({
         clave: c.id, paciente: c.paciente,
         texto: `${NOMBRE_CONTROL[c.tipo] ?? "Control"}${c.nota ? ` · ${c.nota}` : ""}`,
-        detalle: `Debía ser el ${formatearFecha(c.fecha_programada)} (hace ${diasEntre(c.fecha_programada, hoy)} días)`,
+        detalle: `Debía ser el ${formatearFecha(c.fecha_programada)} (${haceDias(diasEntre(c.fecha_programada, hoy))})`,
         href: `/pacientes/${c.paciente?.id}`, urgente: true,
       })),
     },
     {
-      titulo: "Tratamientos en curso", vacio: "No hay tratamientos en curso.",
+      titulo: "Tratamientos en curso", vacio: "No hay tratamientos en curso.", mas: lleno(enCurso.data, 50),
       filas: (enCurso.data ?? []).map((p) => {
         const vigentes = p.item_plan.filter((i) => i.estado !== "cancelado" && i.estado !== "reemplazado");
         const hechos = vigentes.filter((i) => i.estado === "realizado").length;
@@ -139,7 +157,7 @@ export default async function TableroClinico() {
       }),
     },
     {
-      titulo: "Tratamientos detenidos", vacio: "No hay tratamientos detenidos.",
+      titulo: "Tratamientos detenidos", vacio: "No hay tratamientos detenidos.", mas: lleno(detenidos.data, 100),
       filas: planesDetenidos.map((p) => ({
         clave: p.id, paciente: p.paciente, texto: p.titulo,
         detalle: `Sin cita en los próximos 30 días · pendiente ${formatearSoles(
@@ -157,12 +175,13 @@ export default async function TableroClinico() {
         <p className="mt-1 text-sm text-gray-600">Lo clínico pendiente de la clínica, para que cada tratamiento llegue al final.</p>
         {error && <p role="alert" className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">No se pudo cargar todo. Recarga la página.</p>}
         <div className="mt-6 grid gap-4 lg:grid-cols-2">
-          {secciones.map((s) => (
-            <section key={s.titulo} aria-labelledby={`t-${s.titulo}`} className="rounded-xl border border-gray-200 bg-white">
+          {secciones.map((s, n) => (
+            // El id no lleva espacios: aria-labelledby es una lista de ids separados por espacios.
+            <section key={s.titulo} aria-labelledby={`t-clinico-${n}`} className="rounded-xl border border-gray-200 bg-white">
               <header className="flex items-baseline justify-between border-b border-gray-100 px-4 py-3">
-                <h2 id={`t-${s.titulo}`} className="font-semibold">{s.titulo}</h2>
+                <h2 id={`t-clinico-${n}`} className="font-semibold">{s.titulo}</h2>
                 <span className={`rounded-full px-2 py-0.5 text-sm font-medium ${s.filas.length > 0 ? "bg-amber-50 text-amber-800" : "bg-gray-100 text-gray-600"}`}>
-                  {s.filas.length}
+                  {s.filas.length}{s.mas ? "+" : ""}
                 </span>
               </header>
               {s.filas.length === 0 ? <p className="px-4 py-4 text-sm text-gray-500">{s.vacio}</p> : (

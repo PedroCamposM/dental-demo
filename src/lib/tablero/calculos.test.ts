@@ -244,6 +244,16 @@ describe("controles clínicos (Etapa 8)", () => {
     }), AHORA);
     expect(t.controlesVencidos.lista[0]).toMatchObject({ pacienteId: p.id, motivo: "Retiro de puntos" });
   });
+
+  it("un control queda cubierto si el paciente fue atendido en o después de su fecha", () => {
+    const [a, b] = [paciente(), paciente()];
+    const t = calcularTablero(datos({
+      pacientes: [a, b],
+      citas: [cita(a.id, "2026-10-03T15:00:00Z", "atendida"), cita(b.id, "2026-09-20T15:00:00Z", "atendida")],
+      seguimientos: [control(a.id, "2026-10-01"), control(b.id, "2026-10-01")],
+    }), AHORA);
+    expect(t.controlesVencidos.lista.map((x) => x.pacienteId)).toEqual([b.id]);
+  });
 });
 
 describe("no-show del mes", () => {

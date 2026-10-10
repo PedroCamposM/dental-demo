@@ -2,8 +2,10 @@
 --
 -- Aditiva:
 -- - registrar_pago(): registra el pago y lo aplica en una sola operación (a las cuotas
---   pendientes en orden, o, sin cuotas, a los ítems: primero lo realizado). Montos en
---   céntimos (regla 7).
+--   pendientes en orden y, con ellas, a los ítems; lo que sobre, a los ítems: primero lo
+--   realizado). Montos en céntimos (regla 7). Es la única vía de la app para registrar
+--   pagos: se retira el INSERT directo sobre pago y pago_aplicacion de la v1 (así nadie
+--   fecha un pago en otro día ni deja un pago sin aplicar).
 -- - cierre_caja: resumen del día por método y por profesional, efectivo contado y
 --   diferencia. Una vez cerrado el día, sus pagos no se registran ni se anulan.
 -- - ajuste_caja: la corrección de un día cerrado, con motivo (no se editan pagos).
@@ -68,8 +70,9 @@ declare
   v_plan public.plan_tratamiento;
   v_pago uuid;
   v_resta integer := monto;
-  v_tiene_cuotas boolean;
+  v_cuota integer;
   r record;
+  ri record;
   v_aplica integer;
 begin
   if privado.rol_actual() not in ('admin', 'recepcion') then
@@ -89,28 +92,39 @@ begin
   values (v_plan.clinica_id, v_plan.id, monto, metodo, nullif(left(btrim(referencia), 80), ''), auth.uid())
   returning id into v_pago;
 
-  v_tiene_cuotas := exists (select 1 from public.cuota where plan_id = v_plan.id);
-  if v_tiene_cuotas then
-    for r in select cuota_id, saldo_centimos from public.v_cuota_saldo
-              where plan_id = v_plan.id and saldo_centimos > 0 order by numero loop
-      exit when v_resta = 0;
-      v_aplica := least(v_resta, r.saldo_centimos);
+  -- 1) Cuotas con saldo, en orden. Cada parte de cuota también se aplica a los ítems con
+  --    saldo (como el seed de la v1), para que el estado de cobro de los ítems avance.
+  for r in select cuota_id, saldo_centimos from public.v_cuota_saldo
+            where plan_id = v_plan.id and saldo_centimos > 0 order by numero loop
+    exit when v_resta = 0;
+    v_cuota := least(v_resta, r.saldo_centimos);
+    v_resta := v_resta - v_cuota;
+    for ri in select c.item_plan_id, c.saldo_centimos from public.v_item_cobro c
+                join public.item_plan i on i.id = c.item_plan_id
+               where c.plan_id = v_plan.id and c.saldo_centimos > 0 and c.estado <> 'cancelado'
+               order by (c.estado = 'realizado') desc, i.fase nulls first, i.orden loop
+      exit when v_cuota = 0;
+      v_aplica := least(v_cuota, ri.saldo_centimos);
+      insert into public.pago_aplicacion (clinica_id, pago_id, cuota_id, item_plan_id, monto_centimos)
+      values (v_plan.clinica_id, v_pago, r.cuota_id, ri.item_plan_id, v_aplica);
+      v_cuota := v_cuota - v_aplica;
+    end loop;
+    if v_cuota > 0 then   -- cuotas por más que los ítems (p. ej. financiamiento): solo a la cuota
       insert into public.pago_aplicacion (clinica_id, pago_id, cuota_id, monto_centimos)
-      values (v_plan.clinica_id, v_pago, r.cuota_id, v_aplica);
-      v_resta := v_resta - v_aplica;
-    end loop;
-  else
-    for r in select c.item_plan_id, c.saldo_centimos from public.v_item_cobro c
-               join public.item_plan i on i.id = c.item_plan_id
-              where c.plan_id = v_plan.id and c.saldo_centimos > 0 and c.estado <> 'cancelado'
-              order by (c.estado = 'realizado') desc, i.fase nulls first, i.orden loop
-      exit when v_resta = 0;
-      v_aplica := least(v_resta, r.saldo_centimos);
-      insert into public.pago_aplicacion (clinica_id, pago_id, item_plan_id, monto_centimos)
-      values (v_plan.clinica_id, v_pago, r.item_plan_id, v_aplica);
-      v_resta := v_resta - v_aplica;
-    end loop;
-  end if;
+      values (v_plan.clinica_id, v_pago, r.cuota_id, v_cuota);
+    end if;
+  end loop;
+  -- 2) Lo que quede, a los ítems con saldo (sin cuotas, o ítems no cubiertos por las cuotas).
+  for r in select c.item_plan_id, c.saldo_centimos from public.v_item_cobro c
+             join public.item_plan i on i.id = c.item_plan_id
+            where c.plan_id = v_plan.id and c.saldo_centimos > 0 and c.estado <> 'cancelado'
+            order by (c.estado = 'realizado') desc, i.fase nulls first, i.orden loop
+    exit when v_resta = 0;
+    v_aplica := least(v_resta, r.saldo_centimos);
+    insert into public.pago_aplicacion (clinica_id, pago_id, item_plan_id, monto_centimos)
+    values (v_plan.clinica_id, v_pago, r.item_plan_id, v_aplica);
+    v_resta := v_resta - v_aplica;
+  end loop;
   if v_resta > 0 then
     raise exception 'El pago excede el saldo del plan (sobran %)', to_char(v_resta / 100.0, 'FM999G999G990D00');
   end if;
@@ -118,6 +132,8 @@ begin
 end $$;
 revoke all on function public.registrar_pago(uuid, integer, public.metodo_pago, text) from public, anon;
 grant execute on function public.registrar_pago(uuid, integer, public.metodo_pago, text) to authenticated;
+
+revoke insert on public.pago, public.pago_aplicacion from authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Resumen y cierre del día

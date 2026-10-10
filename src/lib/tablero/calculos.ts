@@ -313,10 +313,18 @@ function controlesVencidos(
     datos.citas.filter((c) => CITA_AGENDADA.includes(c.estado) && Date.parse(c.inicio) >= ahora.getTime())
       .map((c) => c.paciente_id),
   );
+  // Última atención por paciente: un control queda cubierto si lo atendieron en o después de su fecha.
+  const ultimaAtencion = new Map<string, string>();
+  for (const c of datos.citas) {
+    if (c.estado !== "atendida") continue;
+    const dia = fechaLima(c.inicio);
+    if ((ultimaAtencion.get(c.paciente_id) ?? "") < dia) ultimaAtencion.set(c.paciente_id, dia);
+  }
   const porPaciente = new Map<string, ControlVencido>();
   for (const s of datos.seguimientos) {
     if (!esControl(s.tipo) || s.fecha_programada >= hoy || s.resultado === "agendo_cita") continue;
     if (conCitaFutura.has(s.paciente_id)) continue;
+    if ((ultimaAtencion.get(s.paciente_id) ?? "") >= s.fecha_programada) continue;
     const previo = porPaciente.get(s.paciente_id);
     if (previo && previo.fecha <= s.fecha_programada) continue;   // un paciente, una fila: el control más antiguo
     porPaciente.set(s.paciente_id, {

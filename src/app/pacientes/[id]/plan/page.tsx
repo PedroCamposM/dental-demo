@@ -121,8 +121,16 @@ export default async function PlanTratamiento({ params, searchParams }: {
     : { data: null, error: null };
   if (pagosR.error) registrarError("plan.pagos", pagosR.error, { paciente: id });
   const pagosPlan = pagosR.data ?? [];
-  const pagadoPlan = pagosPlan.filter((x) => !x.anulado_at).reduce((s, x) => s + x.monto_centimos, 0);
+  // Lo pagado y el saldo salen de lo aplicado a los ítems (registrar_pago aplica también las
+  // cuotas a los ítems), igual que la tarjeta del plan y lo que la base acepta cobrar.
+  const saldoPlan = Math.max(0, t.total - t.pagado);
   const cobra = (sesion.rol === "admin" || sesion.rol === "recepcion") && !paciente.data.anulado_at;
+  // Días con la caja cerrada: sus pagos no se anulan (se corrigen con un ajuste en Caja).
+  const diasPago = [...new Set(pagosPlan.filter((x) => !x.anulado_at).map((x) => fechaLima(x.pagado_at)))];
+  const cerrados = new Set(cobra && diasPago.length > 0
+    ? ((await supabase.from("cierre_caja").select("fecha").in("fecha", diasPago).returns<{ fecha: string }[]>()).data ?? [])
+        .map((c) => c.fecha)
+    : []);
   const base = `/pacientes/${id}/plan`;
   const conAlternativas = (g: string) => planes.some((x) => x.grupo_id === g && x.alternativa !== "A");
 
@@ -289,7 +297,7 @@ export default async function PlanTratamiento({ params, searchParams }: {
                     <div className="flex flex-wrap items-baseline justify-between gap-2">
                       <h3 id="t-pagos" className="font-semibold">Pagos</h3>
                       <p className="text-sm tabular-nums">
-                        Pagado {formatearSoles(pagadoPlan)} · saldo {formatearSoles(Math.max(0, t.total - pagadoPlan))}
+                        Pagado {formatearSoles(t.pagado)} · saldo {formatearSoles(saldoPlan)}
                       </p>
                     </div>
                     {pagosPlan.length > 0 && (
@@ -301,14 +309,16 @@ export default async function PlanTratamiento({ params, searchParams }: {
                               {x.referencia ? ` · ${x.referencia}` : ""}
                             </span>
                             {x.anulado_at ? <span className="text-xs text-gray-500">Anulado: {x.motivo_anulacion}</span>
-                              : cobra && <AnularPago pacienteId={id} id={x.id} descripcion={`el pago de ${formatearSoles(x.monto_centimos)}`} />}
+                              : cobra && (cerrados.has(fechaLima(x.pagado_at))
+                                ? <span className="text-xs text-gray-500">Caja cerrada: se corrige con un ajuste en Caja</span>
+                                : <AnularPago pacienteId={id} id={x.id} descripcion={`el pago de ${formatearSoles(x.monto_centimos)}`} />)}
                           </li>
                         ))}
                       </ul>
                     )}
-                    {cobra && t.total - pagadoPlan > 0 && (
+                    {cobra && saldoPlan > 0 && (
                       <div className="mt-3 border-t border-gray-100 pt-3">
-                        <RegistrarPago pacienteId={id} planId={actual.id} saldo={formatearSoles(t.total - pagadoPlan)} />
+                        <RegistrarPago pacienteId={id} planId={actual.id} saldo={formatearSoles(saldoPlan)} />
                       </div>
                     )}
                   </div>

@@ -52,5 +52,39 @@ select pruebas.igual((select count(*) from public.plan_tratamiento where id = 'a
                         and estado = 'terminado' and terminado_at is not null), 1, 'plan terminado');
 select pruebas.igual((select count(*) from public.seguimiento where plan_id = 'a3a3a3a3-0000-0000-0000-0000000000a1'
                         and tipo = 'control' and item_plan_id is null), 1, 'control de los 6 meses al terminar');
+
+-- Regla 5 también si el último pendiente se cancela: el plan termina con su control
+select pruebas.como(null);
+insert into public.plan_tratamiento (id, clinica_id, paciente_id, odontologo_id, titulo, estado, aceptado_at) values
+  ('a3a3a3a3-0000-0000-0000-0000000000a2', 'a3a3a3a3-0000-0000-0000-000000000000', 'a3a3a3a3-0000-0000-0000-0000000000f1',
+   'a3000000-0000-0000-0000-00000000000b', 'Operatoria', 'aceptado', now());
+insert into public.item_plan (id, clinica_id, plan_id, procedimiento, procedimiento_id, precio_centimos, odontologo_id, estado, orden, pieza) values
+  ('a3a3a3a3-0000-0000-0000-0000000000e3', 'a3a3a3a3-0000-0000-0000-000000000000', 'a3a3a3a3-0000-0000-0000-0000000000a2',
+   'Resina', 'a3a3a3a3-0000-0000-0000-0000000000d2', 18000, 'a3000000-0000-0000-0000-00000000000b', 'aceptado', 1, 26),
+  ('a3a3a3a3-0000-0000-0000-0000000000e4', 'a3a3a3a3-0000-0000-0000-000000000000', 'a3a3a3a3-0000-0000-0000-0000000000a2',
+   'Resina', 'a3a3a3a3-0000-0000-0000-0000000000d2', 18000, 'a3000000-0000-0000-0000-00000000000b', 'aceptado', 2, 27);
+set role authenticated;
+select pruebas.como('a3000000-0000-0000-0000-00000000000b');
+insert into public.nota_evolucion (id, clinica_id, paciente_id, odontologo_id, texto) values
+  ('a3a3a3a3-0000-0000-0000-000000000093', 'a3a3a3a3-0000-0000-0000-000000000000', 'a3a3a3a3-0000-0000-0000-0000000000f1',
+   'a3000000-0000-0000-0000-00000000000b', 'Resina en la 26');
+insert into public.evolucion_item (clinica_id, nota_id, item_id, terminado) values
+  ('a3a3a3a3-0000-0000-0000-000000000000', 'a3a3a3a3-0000-0000-0000-000000000093', 'a3a3a3a3-0000-0000-0000-0000000000e3', true);
+select public.firmar_evolucion('a3a3a3a3-0000-0000-0000-000000000093');
+select pruebas.igual((select count(*) from public.plan_tratamiento where id = 'a3a3a3a3-0000-0000-0000-0000000000a2'
+                        and estado = 'en_curso'), 1, 'segundo plan en curso');
+update public.item_plan set estado = 'cancelado', motivo_cancelacion = 'La paciente decidió no hacerlo'
+ where id = 'a3a3a3a3-0000-0000-0000-0000000000e4';
+-- El proceso no queda encendido para lo que siga en la transacción
+select pruebas.igual((select count(*) where coalesce(current_setting('dental.proceso', true), '') <> 'on'), 1, 'bandera de proceso restaurada');
+-- Un seguimiento manual no se vincula a un ítem (bloquearía el control automático)
+select pruebas.debe_fallar($$insert into public.seguimiento (clinica_id, paciente_id, plan_id, item_plan_id, tipo, fecha_programada)
+  values ('a3a3a3a3-0000-0000-0000-000000000000', 'a3a3a3a3-0000-0000-0000-0000000000f1', 'a3a3a3a3-0000-0000-0000-0000000000a2',
+          'a3a3a3a3-0000-0000-0000-0000000000e4', 'control', (now() at time zone 'America/Lima')::date)$$, 'lo crea el sistema');
+reset role;
+select pruebas.igual((select count(*) from public.plan_tratamiento where id = 'a3a3a3a3-0000-0000-0000-0000000000a2'
+                        and estado = 'terminado'), 1, 'plan terminado al cancelar el último pendiente');
+select pruebas.igual((select count(*) from public.seguimiento where plan_id = 'a3a3a3a3-0000-0000-0000-0000000000a2'
+                        and tipo = 'control'), 1, 'control de los 6 meses del plan cancelado al final');
 select pruebas.como(null);
 \echo 'seguimiento: todas las aserciones pasaron'

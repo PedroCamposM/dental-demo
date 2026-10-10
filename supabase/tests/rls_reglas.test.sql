@@ -165,9 +165,16 @@ set role authenticated;
 select pruebas.como('a0000000-0000-0000-0000-00000000000b');
 select pruebas.debe_fallar($$insert into public.pago (clinica_id, plan_id, monto_centimos, metodo, registrado_por)
   values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-0000000000e1', 1000, 'yape',
-          'a0000000-0000-0000-0000-00000000000b')$$, 'row-level security');
+          'a0000000-0000-0000-0000-00000000000b')$$, 'permission denied');
 
 select pruebas.como('a0000000-0000-0000-0000-00000000000c');
+-- Etapa 8: ni recepción inserta pagos directo (se registran con registrar_pago(), que los
+-- aplica y respeta el cierre de caja). Las filas siguientes se cargan como sistema para
+-- probar las reglas de aplicación de la v1.
+select pruebas.debe_fallar($$insert into public.pago (clinica_id, plan_id, monto_centimos, metodo, registrado_por)
+  values ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-0000000000e1', 1000, 'yape',
+          'a0000000-0000-0000-0000-00000000000c')$$, 'permission denied');
+reset role;
 -- Pago mixto: 500 en Yape + 300 en efectivo para la corona (aún no realizada: adelanto)
 insert into public.pago (id, clinica_id, plan_id, monto_centimos, metodo, registrado_por) values
   ('aaaaaaaa-0000-0000-0000-0000000000a1', 'aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-0000000000e1',
@@ -176,12 +183,15 @@ insert into public.pago (id, clinica_id, plan_id, monto_centimos, metodo, regist
    30000, 'efectivo', 'a0000000-0000-0000-0000-00000000000c');
 insert into public.pago_aplicacion (clinica_id, pago_id, item_plan_id, monto_centimos) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-0000000000a1', 'aaaaaaaa-0000-0000-0000-0000000000c2', 50000);
+set role authenticated;
 select pruebas.igual((select count(*) from public.v_item_cobro where estado_cobro = 'parcial'), 1, 'corona parcial');
+reset role;
 select pruebas.debe_fallar($$insert into public.pago_aplicacion (clinica_id, pago_id, item_plan_id, monto_centimos) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-0000000000a1', 'aaaaaaaa-0000-0000-0000-0000000000c1', 1)$$,
   'excede el monto del pago');
 insert into public.pago_aplicacion (clinica_id, pago_id, item_plan_id, monto_centimos) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-0000000000a2', 'aaaaaaaa-0000-0000-0000-0000000000c2', 30000);
+set role authenticated;
 select pruebas.igual((select saldo_centimos from public.v_item_cobro
                       where item_plan_id = 'aaaaaaaa-0000-0000-0000-0000000000c2'), 0, 'corona cobrada');
 select pruebas.igual((select count(*) from public.v_item_cobro where estado_cobro = 'cobrado' and estado <> 'realizado'), 1,
@@ -197,10 +207,10 @@ update public.pago set anulado_at = now(), anulado_por = auth.uid(), motivo_anul
   where id = 'aaaaaaaa-0000-0000-0000-0000000000a2';
 select pruebas.igual((select saldo_centimos from public.v_item_cobro
                       where item_plan_id = 'aaaaaaaa-0000-0000-0000-0000000000c2'), 30000, 'pago anulado no cuenta');
+reset role;
 select pruebas.debe_fallar($$insert into public.pago_aplicacion (clinica_id, pago_id, item_plan_id, monto_centimos) values
   ('aaaaaaaa-0000-0000-0000-000000000000', 'aaaaaaaa-0000-0000-0000-0000000000a2', 'aaaaaaaa-0000-0000-0000-0000000000c2', 1)$$,
   'El pago está anulado');
-reset role;
 
 -- ---------------------------------------------------------------------------
 -- Regla 4 (detenido) y regla 3 (control al terminar)

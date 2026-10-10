@@ -49,6 +49,14 @@ select pruebas.igual((select cobrado_centimos from public.v_item_cobro where ite
 select public.registrar_pago('a4a4a4a4-0000-0000-0000-0000000000a2', 150000, 'yape', 'OP-123');
 select pruebas.igual((select pagado_centimos from public.v_cuota_saldo where cuota_id = 'a4a4a4a4-0000-0000-0000-0000000000c1'), 100000, 'cuota 1 pagada');
 select pruebas.igual((select pagado_centimos from public.v_cuota_saldo where cuota_id = 'a4a4a4a4-0000-0000-0000-0000000000c2'), 50000, 'cuota 2 a medias');
+select pruebas.igual((select cobrado_centimos from public.v_item_cobro where item_plan_id = 'a4a4a4a4-0000-0000-0000-0000000000e3'), 150000,
+                     'lo pagado en cuotas también avanza el cobro del ítem');
+-- Los pagos solo entran por registrar_pago(): ni recepción los inserta directo (con otra fecha o sin aplicar)
+select pruebas.debe_fallar($$insert into public.pago (clinica_id, plan_id, monto_centimos, metodo, registrado_por, pagado_at)
+  values ('a4a4a4a4-0000-0000-0000-000000000000', 'a4a4a4a4-0000-0000-0000-0000000000a1', 1000, 'yape',
+          'a4000000-0000-0000-0000-00000000000d', now() + interval '5 days')$$, 'permission denied');
+select pruebas.debe_fallar($$insert into public.pago_aplicacion (clinica_id, pago_id, item_plan_id, monto_centimos)
+  select clinica_id, id, 'a4a4a4a4-0000-0000-0000-0000000000e2', 1 from public.pago limit 1$$, 'permission denied');
 
 -- Resumen y cierre del día
 select pruebas.igual((select (public.resumen_caja((now() at time zone 'America/Lima')::date) ->> 'total_centimos')::bigint), 175000,
