@@ -216,3 +216,14 @@ begin
     perform set_config('dental.proceso', 'off', true);
   end if;
 end $$;
+
+-- La clínica de la demo queda registrada para «refrescar fechas» (migración 0923), con las
+-- fechas del seed como las de hoy.
+do $$
+begin
+  if to_regclass('privado.clinica_demo') is not null then
+    execute $q$insert into privado.clinica_demo (clinica_id, referencia)
+               values ('c0000000-0000-4000-8000-000000000001', (now() at time zone 'America/Lima')::date)
+               on conflict do nothing$q$;
+  end if;
+end $$;
