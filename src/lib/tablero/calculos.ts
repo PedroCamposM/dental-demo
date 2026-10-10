@@ -58,6 +58,13 @@ export const NOMBRE_CONTROL = {
 export type TipoControl = keyof typeof NOMBRE_CONTROL;
 export const TIPOS_CONTROL = Object.keys(NOMBRE_CONTROL) as TipoControl[];
 export const esControl = (tipo: string): tipo is TipoControl => Object.hasOwn(NOMBRE_CONTROL, tipo);
+/**
+ * Controles que una cita futura no cubre: tienen plazo clínico (los puntos se retiran a los
+ * días indicados), así que siguen vencidos hasta que se atiende al paciente en o después de
+ * su fecha, aunque ya tenga otra cita más adelante.
+ */
+export const CONTROLES_CON_PLAZO: readonly TipoControl[] = ["retiro_puntos"];
+export const cubiertoPorCitaFutura = (tipo: string) => !(CONTROLES_CON_PLAZO as readonly string[]).includes(tipo);
 
 export type SeguimientoFila = {
   id: string;
@@ -305,7 +312,8 @@ function cuotasVencidas(datos: DatosTablero, hoy: string, contacto: (id: string)
   return indicador(lista);
 }
 
-// Controles con fecha pasada, salvo que el paciente ya agendó (resultado o cita futura).
+// Controles con fecha pasada, salvo que el paciente ya agendó (resultado o cita futura; una
+// cita futura no cubre el retiro de puntos) o fue atendido en o después de la fecha.
 function controlesVencidos(
   datos: DatosTablero, ahora: Date, hoy: string, contacto: (id: string) => Contacto,
 ): Indicador<ControlVencido> {
@@ -321,12 +329,17 @@ function controlesVencidos(
     if ((ultimaAtencion.get(c.paciente_id) ?? "") < dia) ultimaAtencion.set(c.paciente_id, dia);
   }
   const porPaciente = new Map<string, ControlVencido>();
+  const previoTienePlazo = new Map<string, boolean>();
   for (const s of datos.seguimientos) {
     if (!esControl(s.tipo) || s.fecha_programada >= hoy || s.resultado === "agendo_cita") continue;
-    if (conCitaFutura.has(s.paciente_id)) continue;
+    if (conCitaFutura.has(s.paciente_id) && cubiertoPorCitaFutura(s.tipo)) continue;
     if ((ultimaAtencion.get(s.paciente_id) ?? "") >= s.fecha_programada) continue;
+    // Un paciente, una fila: el control con plazo (retiro de puntos) primero; si no, el más antiguo.
     const previo = porPaciente.get(s.paciente_id);
-    if (previo && previo.fecha <= s.fecha_programada) continue;   // un paciente, una fila: el control más antiguo
+    const conPlazo = !cubiertoPorCitaFutura(s.tipo);
+    const previoConPlazo = previoTienePlazo.get(s.paciente_id) ?? false;
+    if (previo && ((previoConPlazo && !conPlazo) || (previoConPlazo === conPlazo && previo.fecha <= s.fecha_programada))) continue;
+    previoTienePlazo.set(s.paciente_id, conPlazo);
     porPaciente.set(s.paciente_id, {
       ...contacto(s.paciente_id),
       seguimientoId: s.id,

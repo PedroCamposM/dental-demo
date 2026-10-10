@@ -25,10 +25,12 @@ test("alertas clínicas: alergia a penicilina y anticoagulado, en toda vista del
   await expect(alertas).toContainText("Anticoagulado: Warfarina 5 mg diaria");
 });
 
-test("tablero clínico: controles vencidos y laboratorio atrasado", async ({ page }) => {
+test("tablero clínico: retiro de puntos vencido y laboratorio atrasado", async ({ page }) => {
   await entrar(page, "mendoza@clinica-demo.example");
   await page.goto("/clinico");
-  await expect(page.getByRole("region", { name: "Controles vencidos" }).getByRole("listitem").first()).toBeVisible();
+  // El retiro de puntos vencido figura aunque el paciente ya tenga cita más adelante
+  const vencidos = page.getByRole("region", { name: "Controles vencidos" });
+  await expect(vencidos.getByRole("listitem").filter({ hasText: "Benites Neyra" })).toContainText("Retiro de puntos");
   const lab = page.getByRole("region", { name: "Trabajos de laboratorio por llegar" });
   await expect(lab).toContainText("Atrasado");
   for (const titulo of ["Tratamientos en curso", "Tratamientos detenidos", "Evoluciones sin firmar", "Consentimientos pendientes"]) {

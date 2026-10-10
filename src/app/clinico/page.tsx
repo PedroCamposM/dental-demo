@@ -10,7 +10,7 @@ import { registrarError } from "@/lib/registro";
 import { obtenerSesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
 import { diasAtraso } from "@/lib/clinico/laboratorio";
-import { NOMBRE_CONTROL, TIPOS_CONTROL, type TipoControl } from "@/lib/tablero/calculos";
+import { NOMBRE_CONTROL, TIPOS_CONTROL, cubiertoPorCitaFutura, type TipoControl } from "@/lib/tablero/calculos";
 
 export const metadata: Metadata = { title: "Tablero clínico – Dental Demo" };
 
@@ -91,7 +91,7 @@ export default async function TableroClinico() {
   const sinFormato = (itemsReq.data ?? []).filter((i) => !cubiertos.has(i.id));
 
   // Controles vencidos, como en el Tablero de gestión: no cuentan si el paciente ya tiene
-  // cita agendada o si fue atendido en o después de la fecha del control.
+  // cita agendada (salvo el retiro de puntos) o si fue atendido en o después de la fecha del control.
   const idsControl = [...new Set((controles.data ?? []).map((c) => c.paciente?.id).filter((x): x is string => !!x))];
   const citasControl = idsControl.length > 0
     ? await supabase.from("cita").select("paciente_id, inicio, estado").in("paciente_id", idsControl)
@@ -101,12 +101,14 @@ export default async function TableroClinico() {
     : { data: [], error: null };
   if (citasControl.error) registrarError("tablero_clinico.citas", citasControl.error);
   const ahora = Date.now();
-  const resuelto = (pacienteId: string | undefined, fecha: string) => (citasControl.data ?? []).some((c) =>
-    c.paciente_id === pacienteId && (c.estado === "atendida" ? fechaLima(c.inicio) >= fecha : Date.parse(c.inicio) >= ahora));
+  // Una cita futura no cubre el retiro de puntos (tiene plazo clínico): solo la atención en o después de su fecha.
+  const resuelto = (pacienteId: string | undefined, fecha: string, tipo: TipoControl) => (citasControl.data ?? []).some((c) =>
+    c.paciente_id === pacienteId && (c.estado === "atendida" ? fechaLima(c.inicio) >= fecha
+      : cubiertoPorCitaFutura(tipo) && Date.parse(c.inicio) >= ahora));
   // Controles vencidos: el más antiguo de cada paciente y tipo
   const controlPorPaciente = new Map<string, NonNullable<typeof controles.data>[number]>();
   for (const c of controles.data ?? []) {
-    if (resuelto(c.paciente?.id, c.fecha_programada)) continue;
+    if (resuelto(c.paciente?.id, c.fecha_programada, c.tipo)) continue;
     // Uno por paciente y tipo: un retiro de puntos no queda oculto tras un control más antiguo.
     const k = `${c.paciente?.id ?? c.id}:${c.tipo}`;
     if (!controlPorPaciente.has(k)) controlPorPaciente.set(k, c);

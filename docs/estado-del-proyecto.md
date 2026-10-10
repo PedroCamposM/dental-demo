@@ -517,9 +517,10 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   pacientes por uuid (distintos en cada base); ahora por apellidos y nombres.
 - Tablero clínico: «Controles vencidos» muestra uno por paciente **y tipo** (antes, uno por
   paciente: un retiro de puntos podía quedar oculto tras un control más antiguo). Un control
-  sigue sin contar como vencido si el paciente ya tiene cita (regla existente); por eso el
-  retiro de puntos del guion (paciente con cita) se muestra en «Controles programados» de
-  la ficha.
+  sigue sin contar como vencido si el paciente ya tiene cita (regla existente), **salvo el
+  retiro de puntos** (decisión de Pedro, 10-oct): tiene plazo clínico, así que solo lo cubre
+  la atención en o después de su fecha. Vale para los dos tableros; en el de gestión, si el
+  paciente tiene varios controles vencidos, su fila es el retiro de puntos.
 - Remoto: CI verde (run 38085707364); «Aplicar migraciones» run 38086112311 (respaldo
   previo): 0923 aplicada, clínica de demo registrada (referencia 2026-10-10).
   `seed_etapa12.sql` cargado por la API: 27 conductos, 12 cirugías, 1 retiro de puntos

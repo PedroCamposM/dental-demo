@@ -13,7 +13,8 @@ encendidas. Contraseña: `DemoTrujillo2026`. Seguir `docs/guion-demo.md` de prin
 - [ ] Una endodoncia realizada tiene sus conductos en Especialidades → Endodoncia, y el
       paciente tiene la corona en el plan.
 - [ ] Víctor Ramírez Burgos: ficha con Apoderado; Especialidades → Odontopediatría con conducta.
-- [ ] Ricardo Benites Neyra: en la ficha, «Controles programados» muestra el retiro de puntos vencido (en rojo); Especialidades → Cirugía con técnica y sutura.
+- [ ] Ricardo Benites Neyra: «Retiro de puntos» en Tablero clínico → Controles vencidos (aunque tiene cita más adelante) y en la ficha → Controles programados (en rojo); Especialidades → Cirugía con técnica y sutura.
+- [ ] Tablero de gestión → Controles vencidos: también lo muestra, con su WhatsApp.
 - [ ] Tablero clínico → Laboratorio: una corona de zirconio «Atrasado».
 - [ ] Mariela Alvarado Rodríguez → Periodontograma: dos firmados; «Comparar» muestra los cambios.
 - [ ] Siguen los casos de gestión: presupuestos abiertos, cuotas vencidas y tratamientos detenidos.

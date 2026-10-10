@@ -245,6 +245,37 @@ describe("controles clínicos (Etapa 8)", () => {
     expect(t.controlesVencidos.lista[0]).toMatchObject({ pacienteId: p.id, motivo: "Retiro de puntos" });
   });
 
+  it("una cita futura no cubre el retiro de puntos vencido; sí cubre el control común", () => {
+    const p = paciente();
+    const t = calcularTablero(datos({
+      pacientes: [p],
+      citas: [cita(p.id, "2026-10-15T15:00:00Z", "programada")],
+      seguimientos: [control(p.id, "2026-04-01"), { ...control(p.id, "2026-10-05"), tipo: "retiro_puntos" }],
+    }), AHORA);
+    expect(t.controlesVencidos.cantidad).toBe(1);
+    expect(t.controlesVencidos.lista[0]).toMatchObject({ pacienteId: p.id, motivo: "Retiro de puntos", fecha: "2026-10-05" });
+  });
+
+  it("con varios controles vencidos, la fila del paciente es el retiro de puntos aunque haya uno más antiguo", () => {
+    const p = paciente();
+    const t = calcularTablero(datos({
+      pacientes: [p],
+      seguimientos: [{ ...control(p.id, "2026-10-05"), tipo: "retiro_puntos" }, control(p.id, "2026-04-01")],
+    }), AHORA);
+    expect(t.controlesVencidos.lista).toHaveLength(1);
+    expect(t.controlesVencidos.lista[0]).toMatchObject({ motivo: "Retiro de puntos" });
+  });
+
+  it("el retiro de puntos queda cubierto si el paciente fue atendido en o después de su fecha", () => {
+    const p = paciente();
+    const t = calcularTablero(datos({
+      pacientes: [p],
+      citas: [cita(p.id, "2026-10-06T15:00:00Z", "atendida")],
+      seguimientos: [{ ...control(p.id, "2026-10-05"), tipo: "retiro_puntos" }],
+    }), AHORA);
+    expect(t.controlesVencidos.cantidad).toBe(0);
+  });
+
   it("un control queda cubierto si el paciente fue atendido en o después de su fecha", () => {
     const [a, b] = [paciente(), paciente()];
     const t = calcularTablero(datos({
