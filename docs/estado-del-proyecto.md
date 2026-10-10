@@ -455,6 +455,22 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   previo): 0919–0920 aplicadas. Comprobado: 9 tablas nuevas con RLS y 4 funciones.
   Falta `HABILITAR_ETAPA9=1` en Vercel.
 
+## v2 — Etapa 10 (laboratorio): en cierre
+
+- **0921** `laboratorio`: laboratorios de la clínica (los administra el admin) y
+  `orden_laboratorio` vinculada al ítem del plan: pieza, tipo de trabajo, color,
+  indicaciones, fechas de envío, entrega prevista y recepción, estado y costo (céntimos).
+  Estados por funciones: enviar (y cambiar la entrega prevista), recibir, cancelar con
+  motivo; la orden no se edita ni se borra. La prescribe el cirujano dentista; envío y
+  recepción también la asistente; recepción no la ve.
+- «Atrasada» se calcula con las fechas (en laboratorio y con la entrega prevista vencida);
+  no se guarda, así no queda desactualizada. El tipo de seguimiento «laboratorio atrasado»
+  (0917) no se usa por ahora: el atraso es del laboratorio, no un contacto con el paciente.
+- Pantallas (`HABILITAR_ETAPA10`): Configuración → Laboratorios, pestaña «Laboratorio» del
+  paciente, página «Laboratorio» y sección del Tablero clínico.
+- `seed_etapa10.sql`: dos laboratorios y tres órdenes de demo (una atrasada).
+- Checklist: `docs/checklist-etapa10.md`.
+
 ## Remoto al 2026-10-10
 
 - Pedro autorizó («Hazlo»). «Aplicar migraciones» run 38013481738 (respaldo cifrado
