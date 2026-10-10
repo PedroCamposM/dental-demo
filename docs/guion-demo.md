@@ -47,7 +47,7 @@ Paciente nuevo, registrado por la recepción.
 | Ortodoncia con controles mensuales | Especialidades → Ortodoncia: «Controles (5)» | Camila Cruz Ruiz |
 | Implante en fase protésica | Especialidades → Implantes | Diana Lescano Torres |
 | Niño con apoderado | Filiación → Apoderado; Especialidades → Odontopediatría (conducta Frankl) | Víctor Ramírez Burgos |
-| Cirugía con retiro de puntos pendiente | Tablero clínico → Controles vencidos: «Retiro de puntos» | Ricardo Benites Neyra |
+| Cirugía con retiro de puntos pendiente | Ficha → Controles programados: «Retiro de puntos» (vencido, en rojo); Especialidades → Cirugía | Ricardo Benites Neyra (ya tiene cita, por eso no figura en «Controles vencidos») |
 | Trabajo de laboratorio atrasado | Tablero clínico → Trabajos de laboratorio; menú Laboratorio | La corona de zirconio marcada «Atrasado» |
 | Periodontograma con comparación | Periodontograma → Comparar fechas | Mariela Alvarado Rodríguez |
 

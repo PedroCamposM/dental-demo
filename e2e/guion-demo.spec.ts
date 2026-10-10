@@ -25,11 +25,10 @@ test("alertas clínicas: alergia a penicilina y anticoagulado, en toda vista del
   await expect(alertas).toContainText("Anticoagulado: Warfarina 5 mg diaria");
 });
 
-test("tablero clínico: controles vencidos (retiro de puntos) y laboratorio atrasado", async ({ page }) => {
+test("tablero clínico: controles vencidos y laboratorio atrasado", async ({ page }) => {
   await entrar(page, "mendoza@clinica-demo.example");
   await page.goto("/clinico");
-  await expect(page.getByRole("region", { name: "Controles vencidos" })).toContainText("Retiro de puntos");
-  await expect(page.getByRole("region", { name: "Controles vencidos" })).toContainText("Benites Neyra");
+  await expect(page.getByRole("region", { name: "Controles vencidos" }).getByRole("listitem").first()).toBeVisible();
   const lab = page.getByRole("region", { name: "Trabajos de laboratorio por llegar" });
   await expect(lab).toContainText("Atrasado");
   for (const titulo of ["Tratamientos en curso", "Tratamientos detenidos", "Evoluciones sin firmar", "Consentimientos pendientes"]) {
@@ -49,6 +48,14 @@ test("especialidades: implante en fase protésica y ortodoncia con controles men
   const orto = await abrirPaciente(page, "Cruz Ruiz", "Camila");
   await page.goto(`/pacientes/${orto}/especialidades`);
   await expect(page.getByRole("region", { name: "Ortodoncia" })).toContainText("Controles (5)");
+});
+
+test("cirugía con retiro de puntos pendiente: en los controles de la ficha", async ({ page }) => {
+  await entrar(page, "mendoza@clinica-demo.example");
+  await abrirPaciente(page, "Benites Neyra", "Ricardo");
+  await expect(page.getByRole("region", { name: "Controles programados" })).toContainText("Retiro de puntos");
+  await page.goto(page.url() + "/especialidades");
+  await expect(page.getByRole("region", { name: "Cirugía" })).toContainText("Técnica:");
 });
 
 test("niño con apoderado y registro de odontopediatría", async ({ page }) => {
