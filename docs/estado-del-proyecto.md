@@ -455,7 +455,7 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   previo): 0919–0920 aplicadas. Comprobado: 9 tablas nuevas con RLS y 4 funciones.
   Falta `HABILITAR_ETAPA9=1` en Vercel.
 
-## v2 — Etapa 10 (laboratorio): en cierre
+## v2 — Etapa 10 (laboratorio): aplicada en el remoto
 
 - **0921** `laboratorio`: laboratorios de la clínica (los administra el admin) y
   `orden_laboratorio` vinculada al ítem del plan: pieza, tipo de trabajo, color,
@@ -470,6 +470,13 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   paciente, página «Laboratorio» y sección del Tablero clínico.
 - `seed_etapa10.sql`: dos laboratorios y tres órdenes de demo (una atrasada).
 - Checklist: `docs/checklist-etapa10.md`.
+- Revisión: el agente revisor no pudo terminar (límite semanal de uso); la revisé yo
+  (permisos, transiciones, fechas, consultas). Corregido: el seed no era idempotente del
+  todo (al repetirlo agregaba órdenes en otras coronas). En CI: dos selectores del e2e.
+  **Pendiente:** revisión independiente de la Etapa 10 cuando se restablezca el límite.
+- Remoto: CI verde (run 38079448077) y «Aplicar migraciones» run 38079871097 (respaldo
+  previo): 0921 aplicada; `seed_etapa10.sql` cargado por la API. Comprobado: 2
+  laboratorios, 3 órdenes, 1 atrasada. Falta `HABILITAR_ETAPA10=1` en Vercel.
 
 ## Remoto al 2026-10-10
 
