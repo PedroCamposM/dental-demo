@@ -351,9 +351,40 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
 - Para el remoto: «Aplicar migraciones» (0910, 0911 y 0912), cargar `seed_etapa4.sql` y
   `seed_etapa5.sql`, y `HABILITAR_ETAPA4/5/6=1` en Vercel Preview.
 
+## v2 — Etapa 7 (imágenes, consentimientos, recetas, constancias, interconsultas): en la rama
+
+- **Decisión de Pedro (2026-10-09):** el consentimiento informado se **imprime y se firma
+  a mano** (con huella) y se sube el escaneo. La NTS 139 (4.3.3 c y formato 16) no admite
+  la firma electrónica del paciente para el consentimiento; CLAUDE.md pedía firma en
+  pantalla. Pedro preguntó por tener también firma en pantalla o huella digital: se puede
+  agregar como respaldo, pero no reemplaza al papel; la huella digital requiere un lector
+  biométrico (o el servicio de RENIEC). Por ahora, papel + escaneo.
+- **0913** `archivos_clinicos`: bucket privado `clinico` (rutas `clínica/paciente/uuid.ext`,
+  políticas por clínica y rol, sin UPDATE/DELETE), `archivo_clinico` (fecha, pieza,
+  sesión; se anula con motivo), URLs firmadas de 5 minutos, subida directa desde el
+  navegador. `privado.fusion_mover_extra` para que la fusión mueva las tablas nuevas.
+- **0914** `consentimientos`: plantillas (admin; las de ejemplo marcadas), plantilla por
+  procedimiento, consentimiento con copia del texto, firma/negativa con escaneo,
+  revocación y anulación; uso de imagen. **Regla 3 completa** (realizado = evolución
+  firmada + consentimiento firmado si se requiere; se hereda entre versiones del plan
+  por `item_plan.item_origen_id`).
+- **0915** `recetas_constancias`: receta (atómica, plantillas propias del profesional;
+  el sistema no sugiere dosis), constancia de atención y certificado de descanso.
+- **0916** `interconsultas`: interna (pendiente del otro dentista, en Pacientes) y externa
+  (formato imprimible, resultado con documento).
+- Pantallas (`HABILITAR_ETAPA7`): pestañas «Imágenes y archivos», «Consentimientos»,
+  «Recetas y documentos» e «Interconsultas»; Configuración → Consentimientos. Formatos
+  imprimibles (imprimir o guardar como PDF desde el navegador).
+- `seed_etapa7.sql`: plantillas de consentimiento DE EJEMPLO (la clínica debe revisarlas).
+- Revisión independiente de 7.1–7.2: 2 altas, 3 medias, 6 bajas; corregidas las altas,
+  medias y las bajas de seguridad (rechazo temprano de otra clínica, formato vs.
+  extensión). Pendientes menores: objetos huérfanos si falla el registro tras subir;
+  formatos pendientes conservan el texto de ejemplo si luego se revisa la plantilla.
+- Checklist: `docs/checklist-etapa7.md`. Falta en `/docs`: formatos reales de la clínica
+  piloto (consentimientos) para reemplazar las plantillas de ejemplo.
+
 ## Próximas etapas (CLAUDE.md)
 
-7 consentimientos, recetas, imágenes ·
 8 tablero clínico y caja · 9 especialidades · 10 laboratorio · 11 PDF · 12 seed y guion.
 Falta en `/docs`: formatos de la clínica piloto (historia y consentimientos),
 necesarios antes de la Etapa 7. La Etapa 4 incluye además lo de las fichas
