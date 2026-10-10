@@ -132,8 +132,10 @@ export async function desactivarPlantillaReceta(previo: EstadoSimple, form: Form
   if (d.error !== null) return { error: d.error, intento };
   if (!UUID.test(id)) return { error: "Plantilla inválida.", intento };
   const supabase = await createClient();
-  const { error } = await supabase.from("plantilla_receta").update({ activa: false }).eq("id", id);
+  const { data, error } = await supabase.from("plantilla_receta").update({ activa: false }).eq("id", id)
+    .select("id").maybeSingle();
   if (error) return { error: mensajeDeError(error, "receta.plantilla_desactivar", "quitar la plantilla"), intento };
+  if (!data) return { error: "Plantilla no encontrada. Recarga la página.", intento };
   revalidatePath(`/pacientes/${pacienteId}/documentos`);
   return { error: null, intento };
 }

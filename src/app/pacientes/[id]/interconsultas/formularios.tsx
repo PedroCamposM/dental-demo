@@ -97,6 +97,11 @@ export function Responder({ clinicaId, pacienteId, id, externa }: {
     ev.preventDefault();
     setErrorSubida(null);
     const datos = new FormData(ev.currentTarget);
+    // Se valida antes de subir: un archivo subido no se puede borrar del bucket.
+    if (String(datos.get("respuesta") ?? "").trim().length < 3) {
+      setErrorSubida("Escribe la respuesta o el resultado.");
+      return;
+    }
     const archivo = datos.get("archivo");
     datos.delete("archivo");
     if (archivo instanceof File && archivo.size > 0) {

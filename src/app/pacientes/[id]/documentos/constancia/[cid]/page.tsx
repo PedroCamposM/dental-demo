@@ -16,8 +16,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 type Constancia = {
   id: string; tipo: TipoConstancia; fecha_atencion: string; hora_inicio: string | null; hora_fin: string | null;
   descanso_desde: string | null; descanso_dias: number | null; cie10: string | null; observaciones: string | null;
-  emitida_at: string; anulado_at: string | null;
-  profesional: { nombre: string; cop: string | null } | null;
+  emitida_at: string; anulado_at: string | null; profesional_nombre: string; profesional_cop: string | null;
   catalogo_cie10: { descripcion: string } | null;
 };
 
@@ -30,7 +29,7 @@ export default async function ImprimirConstancia({ params }: { params: Promise<{
   const [{ data: c, error }, { data: clinica }] = await Promise.all([
     supabase.from("constancia")
       .select("id, tipo, fecha_atencion, hora_inicio, hora_fin, descanso_desde, descanso_dias, cie10, observaciones, emitida_at, "
-        + "anulado_at, profesional:usuario!constancia_clinica_id_profesional_id_fkey(nombre, cop), catalogo_cie10(descripcion)")
+        + "anulado_at, profesional_nombre, profesional_cop, catalogo_cie10(descripcion)")
       .eq("id", cid).eq("paciente_id", id).maybeSingle<Constancia>(),
     supabase.from("clinica").select("nombre, ruc").eq("id", sesion.clinicaId).maybeSingle<{ nombre: string; ruc: string | null }>(),
   ]);
@@ -51,7 +50,7 @@ export default async function ImprimirConstancia({ params }: { params: Promise<{
       <h1 className="mt-6 text-center text-[14pt] font-bold uppercase">{TIPOS_CONSTANCIA[c.tipo]}</h1>
       <div className="mt-6 flex flex-col gap-4 text-justify text-[12pt] leading-relaxed">
         <p>
-          El cirujano dentista que suscribe, {c.profesional?.nombre ?? "—"}, con COP {c.profesional?.cop ?? "—"}, hace constar que{" "}
+          El cirujano dentista que suscribe, {c.profesional_nombre}, con COP {c.profesional_cop ?? "—"}, hace constar que{" "}
           <b>{paciente.nombres} {paciente.apellidos}</b>, identificado(a) con {documento}, fue atendido(a) en este consultorio
           el día {formatearFechaLarga(c.fecha_atencion)}{horas}.
         </p>
@@ -68,7 +67,7 @@ export default async function ImprimirConstancia({ params }: { params: Promise<{
       </div>
       <div className="mt-16 grid grid-cols-2 gap-8">
         <div />
-        <LineaFirma rotulo={`Firma y sello · ${c.profesional?.nombre ?? ""} · COP ${c.profesional?.cop ?? ""}`} />
+        <LineaFirma rotulo={`Firma y sello · ${c.profesional_nombre} · COP ${c.profesional_cop ?? ""}`} />
       </div>
       <p className="mt-6 text-[8pt] text-gray-700">Código del documento: {c.id}</p>
     </DocumentoImprimible>

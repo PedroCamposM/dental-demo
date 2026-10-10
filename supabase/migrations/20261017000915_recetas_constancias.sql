@@ -17,6 +17,9 @@ create table public.receta (
   clinica_id        uuid not null,
   paciente_id       uuid not null,
   profesional_id    uuid not null,
+  -- Nombre y colegiatura al emitirla (la reimpresión muestra lo que se entregó)
+  profesional_nombre text not null,
+  profesional_cop    text,
   nota_id           uuid,
   indicaciones      text check (char_length(indicaciones) <= 2000),
   emitida_at        timestamptz not null default now(),
@@ -73,6 +76,8 @@ create table public.constancia (
   clinica_id        uuid not null,
   paciente_id       uuid not null,
   profesional_id    uuid not null,
+  profesional_nombre text not null default '',
+  profesional_cop    text,
   tipo              text not null check (tipo in ('atencion', 'descanso')),
   -- Atención: fecha y horas en que se atendió
   fecha_atencion    date not null,
@@ -104,13 +109,17 @@ alter table public.constancia enable row level security;
 create index constancia_paciente_idx on public.constancia (paciente_id, emitida_at desc);
 
 create function privado.preparar_constancia() returns trigger
-language plpgsql set search_path = '' as $$
+language plpgsql security definer set search_path = '' as $$
 begin
   if auth.uid() is not null then
+    if new.clinica_id is distinct from privado.clinica_actual() then
+      raise exception 'Documento de otra clínica';
+    end if;
     new.profesional_id := auth.uid();
     new.emitida_at := now();
     new.anulado_at := null; new.anulado_por := null; new.motivo_anulacion := null;
   end if;
+  select u.nombre, u.cop into new.profesional_nombre, new.profesional_cop from public.usuario u where u.id = new.profesional_id;
   if new.fecha_atencion > (now() at time zone 'America/Lima')::date then
     raise exception 'La fecha de atención no puede ser futura';
   end if;
@@ -160,14 +169,21 @@ begin
                                           where id = id_nota and paciente_id = id_paciente and anulado_at is null) then
     raise exception 'La sesión no corresponde a este paciente';
   end if;
-  if jsonb_typeof(items) <> 'array' or jsonb_array_length(items) not between 1 and 20 then
+  if items is null or jsonb_typeof(items) is distinct from 'array' or jsonb_array_length(items) not between 1 and 20 then
     raise exception 'La receta lleva entre 1 y 20 medicamentos';
   end if;
-  insert into public.receta (clinica_id, paciente_id, profesional_id, nota_id, indicaciones)
-  values (v_clinica, id_paciente, auth.uid(), id_nota, nullif(btrim(indicaciones), ''))
+  insert into public.receta (clinica_id, paciente_id, profesional_id, profesional_nombre, profesional_cop, nota_id, indicaciones)
+  select v_clinica, id_paciente, u.id, u.nombre, u.cop, id_nota, nullif(btrim(indicaciones), '')
+    from public.usuario u where u.id = auth.uid()
   returning id into v_receta;
   for v_item in select * from jsonb_array_elements(items) loop
     v_orden := v_orden + 1;
+    if jsonb_typeof(v_item) is distinct from 'object'
+       or coalesce(btrim(v_item ->> 'medicamento'), '') = '' or coalesce(btrim(v_item ->> 'presentacion'), '') = ''
+       or coalesce(btrim(v_item ->> 'dosis'), '') = '' or coalesce(btrim(v_item ->> 'frecuencia'), '') = ''
+       or coalesce(btrim(v_item ->> 'duracion'), '') = '' then
+      raise exception 'Medicamento %: completa medicamento, presentación, dosis, frecuencia y duración', v_orden;
+    end if;
     insert into public.receta_item (clinica_id, receta_id, orden, medicamento, presentacion, dosis, frecuencia, duracion,
                                     indicaciones)
     values (v_clinica, v_receta, v_orden, btrim(v_item ->> 'medicamento'), btrim(v_item ->> 'presentacion'),

@@ -28,12 +28,13 @@ export function GenerarProcedimiento({ pacienteId, items, plantillas, itemInicia
   pacienteId: string; items: OpcionItem[]; plantillas: OpcionPlantilla[]; itemInicial?: string;
 }) {
   const [estado, accion, enviando] = useActionState<EstadoSimple, FormData>(generarConsentimiento, INICIAL);
-  if (items.length === 0) return <p className="text-sm text-gray-500">No hay procedimientos pendientes en los planes del paciente.</p>;
   return (
     <div className="flex flex-col gap-3">
-      {/* La `key` vuelve a elegir el primer ítem pendiente después de cada formato generado. */}
-      <CuerpoGenerar key={estado.exitos} pacienteId={pacienteId} items={items} plantillas={plantillas}
-        itemInicial={estado.exitos === 0 ? itemInicial : undefined} accion={accion} enviando={enviando} />
+      {items.length === 0
+        ? <p className="text-sm text-gray-500">No hay procedimientos pendientes sin consentimiento en los planes del paciente.</p>
+        // La `key` vuelve a elegir el primer ítem pendiente después de cada formato generado.
+        : <CuerpoGenerar key={estado.exitos} pacienteId={pacienteId} items={items} plantillas={plantillas}
+            itemInicial={estado.exitos === 0 ? itemInicial : undefined} accion={accion} enviando={enviando} />}
       <Mensajes estado={estado} />
     </div>
   );
@@ -44,6 +45,7 @@ function CuerpoGenerar({ pacienteId, items, plantillas, itemInicial, accion, env
   accion: (f: FormData) => void; enviando: boolean;
 }) {
   const [itemId, setItemId] = useState((items.find((i) => i.id === itemInicial) ?? items[0])?.id ?? "");
+  const [plantillaLibre, setPlantillaLibre] = useState("");
   const item = items.find((i) => i.id === itemId);
   // Si el catálogo asigna la plantilla al procedimiento, se usa esa (la base lo exige igual).
   const fija = item?.plantillaId ? plantillas.find((p) => p.id === item.plantillaId) : undefined;
@@ -54,7 +56,8 @@ function CuerpoGenerar({ pacienteId, items, plantillas, itemInicial, accion, env
       <div className="grid gap-3 sm:grid-cols-2">
         <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
           <label htmlFor="g-item">Procedimiento del plan</label>
-          <select id="g-item" name="item_plan_id" value={itemId} onChange={(e) => setItemId(e.target.value)} className={ENTRADA}>
+          <select id="g-item" name="item_plan_id" value={itemId} onChange={(e) => { setItemId(e.target.value); setPlantillaLibre(""); }}
+            className={ENTRADA}>
             {items.map((i) => <option key={i.id} value={i.id}>{i.texto}{i.requiere ? " · requiere consentimiento" : ""}</option>)}
           </select>
         </div>
@@ -69,7 +72,8 @@ function CuerpoGenerar({ pacienteId, items, plantillas, itemInicial, accion, env
               <span className="text-xs font-normal text-gray-500">La asigna el catálogo de procedimientos.</span>
             </>
           ) : (
-            <select key={itemId} id="g-plantilla" name="plantilla_id" defaultValue="" className={ENTRADA}>
+            <select id="g-plantilla" name="plantilla_id" value={plantillaLibre} onChange={(e) => setPlantillaLibre(e.target.value)}
+              className={ENTRADA}>
               <option value="">Elegir…</option>
               {plantillas.map((p) => <option key={p.id} value={p.id}>{p.nombre}{p.ejemplo ? " (ejemplo sin revisar)" : ""}</option>)}
             </select>

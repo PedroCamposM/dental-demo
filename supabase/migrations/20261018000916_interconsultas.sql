@@ -1,7 +1,7 @@
 -- Etapa 7 (v2), rebanada 4: interconsultas y derivaciones.
 --
 -- - Interna: a otro cirujano dentista de la clínica. Queda como tarea pendiente de ese
---   profesional (la ve en Inicio) hasta que responda.
+--   profesional (la ve en Pacientes → «Interconsultas por responder») hasta que responda.
 -- - Externa: a un médico u otro centro, con motivo y datos clínicos relevantes, en un
 --   formato imprimible. Se registra la respuesta (p. ej. el riesgo quirúrgico) y se
 --   adjunta el documento escaneado.
@@ -60,8 +60,9 @@ begin
     raise exception 'La interconsulta interna se dirige a otro cirujano dentista activo de la clínica';
   end if;
   if new.nota_id is not null and not exists (select 1 from public.nota_evolucion n
-                                              where n.id = new.nota_id and n.paciente_id = new.paciente_id) then
-    raise exception 'La sesión no corresponde a este paciente';
+                                              where n.id = new.nota_id and n.paciente_id = new.paciente_id
+                                                and n.anulado_at is null) then
+    raise exception 'La sesión no corresponde a este paciente o está anulada';
   end if;
   new.destino := nullif(btrim(new.destino), '');
   new.creada_at := now();

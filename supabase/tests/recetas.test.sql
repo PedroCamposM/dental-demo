@@ -37,7 +37,11 @@ select pruebas.debe_fallar($$select public.emitir_receta('a1a1a1a1-0000-0000-000
                            'entre 1 y 20');
 select pruebas.debe_fallar($$select public.emitir_receta('a1a1a1a1-0000-0000-0000-0000000000f1', null, null,
   '[{"medicamento":"Ibuprofeno","presentacion":"400 mg","dosis":"","frecuencia":"cada 8 horas","duracion":"3 días"}]')$$,
-  'check constraint');
+  'Medicamento 1: completa');
+select pruebas.debe_fallar($$select public.emitir_receta('a1a1a1a1-0000-0000-0000-0000000000f1', null, null, null)$$,
+                           'entre 1 y 20');
+select pruebas.debe_fallar($$select public.emitir_receta('a1a1a1a1-0000-0000-0000-0000000000f1', null, null, '[1]')$$,
+                           'Medicamento 1: completa');
 select pruebas.debe_fallar($$select public.emitir_receta('a1a1a1a1-0000-0000-0000-0000000000f1',
   'a1a1a1a1-0000-0000-0000-000000000091', null,
   '[{"medicamento":"Ibuprofeno","presentacion":"400 mg","dosis":"1 tableta","frecuencia":"cada 8 horas","duracion":"3 días"}]')$$,
@@ -49,7 +53,8 @@ insert into ids select 'r', public.emitir_receta('a1a1a1a1-0000-0000-0000-000000
     {"medicamento":"Clorhexidina","presentacion":"0.12% colutorio","dosis":"15 ml","frecuencia":"cada 12 horas","duracion":"7 días"}]');
 select pruebas.igual((select count(*) from public.receta_item i join ids on ids.id = i.receta_id), 2, 'dos medicamentos en orden');
 select pruebas.igual((select count(*) from public.receta r join ids on ids.id = r.id
-                       where r.profesional_id = 'a1000000-0000-0000-0000-00000000000b'), 1, 'emitida a nombre de quien la firma');
+                       where r.profesional_id = 'a1000000-0000-0000-0000-00000000000b' and r.profesional_nombre = 'Odontóloga V'
+                         and r.profesional_cop = '9822'), 1, 'emitida a nombre (y con el COP) de quien la firma');
 select pruebas.debe_fallar($$insert into public.receta (clinica_id, paciente_id, profesional_id)
   values ('a1a1a1a1-0000-0000-0000-000000000000', 'a1a1a1a1-0000-0000-0000-0000000000f1', 'a1000000-0000-0000-0000-00000000000b')$$,
   'permission denied');

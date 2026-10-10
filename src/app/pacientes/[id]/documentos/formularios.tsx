@@ -53,6 +53,9 @@ function CuerpoReceta({ pacienteId, plantillas, sesiones, accion, enviando, esta
 }) {
   const [filas, setFilas] = useState<Fila[]>([vacia()]);
   const [indicaciones, setIndicaciones] = useState("");
+  // Controlados: React limpia los campos no controlados después de cada envío, también si hay errores.
+  const [nota, setNota] = useState("");
+  const [guardarComo, setGuardarComo] = useState("");
   const cambiar = (i: number, c: CampoMedicamento, v: string) =>
     setFilas((f) => f.map((fila, j) => (j === i ? { ...fila, [c]: v } : fila)));
   const usarPlantilla = (id: string) => {
@@ -76,7 +79,7 @@ function CuerpoReceta({ pacienteId, plantillas, sesiones, accion, enviando, esta
         )}
         <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
           <label htmlFor="r-sesion">Sesión (opcional)</label>
-          <select id="r-sesion" name="nota_id" defaultValue="" className={ENTRADA}>
+          <select id="r-sesion" name="nota_id" value={nota} onChange={(e) => setNota(e.target.value)} className={ENTRADA}>
             <option value="">Sin sesión</option>
             {sesiones.map((s) => <option key={s.id} value={s.id}>{s.texto}</option>)}
           </select>
@@ -110,12 +113,13 @@ function CuerpoReceta({ pacienteId, plantillas, sesiones, accion, enviando, esta
       )}
       <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
         <label htmlFor="r-indicaciones">Indicaciones generales (opcional)</label>
-        <textarea id="r-indicaciones" name="indicaciones" rows={2} maxLength={2000} value={indicaciones}
+        <textarea id="r-indicaciones" name="indicaciones_generales" rows={2} maxLength={2000} value={indicaciones}
           onChange={(e) => setIndicaciones(e.target.value)} className={ENTRADA} />
       </div>
       <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
         <label htmlFor="r-guardar">Guardar también como plantilla (opcional)</label>
-        <input id="r-guardar" name="guardar_como" maxLength={80} placeholder="Nombre de la plantilla" className={ENTRADA} />
+        <input id="r-guardar" name="guardar_como" maxLength={80} placeholder="Nombre de la plantilla" value={guardarComo}
+          onChange={(e) => setGuardarComo(e.target.value)} className={ENTRADA} />
       </div>
       <p className="text-xs text-gray-500">El sistema no sugiere medicamentos ni dosis: escribe lo que indicas.</p>
       <div className="flex flex-wrap items-center gap-3">

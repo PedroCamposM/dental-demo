@@ -44,6 +44,25 @@ create trigger updated_at before update on public.plantilla_consentimiento
 create trigger auditar after insert or update on public.plantilla_consentimiento
   for each row execute function privado.auditar_simple();
 
+-- Una plantilla que el catálogo usa no se desactiva (el procedimiento quedaría sin poder
+-- generar su consentimiento): primero se cambia la plantilla del procedimiento.
+create function privado.validar_desactivar_plantilla() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare
+  v_proc text;
+begin
+  if old.activa and not new.activa then
+    select string_agg(p.codigo || ' ' || p.nombre, ', ' order by p.codigo) into v_proc from public.procedimiento p
+     where p.consentimiento_plantilla_id = new.id and p.activo;
+    if v_proc is not null then
+      raise exception 'La usan estos procedimientos del catálogo: %. Cambia su plantilla antes de desactivarla', v_proc;
+    end if;
+  end if;
+  return new;
+end $$;
+create trigger validar_desactivar before update of activa on public.plantilla_consentimiento
+  for each row execute function privado.validar_desactivar_plantilla();
+
 create policy plantilla_consentimiento_select on public.plantilla_consentimiento for select to authenticated
   using (clinica_id = (select privado.clinica_actual())
          and ((select privado.ve_clinico()) or (select privado.rol_actual()) = 'admin'));
@@ -339,8 +358,11 @@ create function privado.congelar_procedimiento_item() returns trigger
 language plpgsql security definer set search_path = '' as $$
 begin
   if auth.uid() is not null and not privado.en_fusion()
-     and (new.procedimiento_id is distinct from old.procedimiento_id or new.pieza is distinct from old.pieza
-          or new.item_origen_id is distinct from old.item_origen_id)
+     and new.item_origen_id is distinct from old.item_origen_id then
+    raise exception 'El ítem de origen lo fija la copia del plan y no cambia';
+  end if;
+  if auth.uid() is not null and not privado.en_fusion()
+     and (new.procedimiento_id is distinct from old.procedimiento_id or new.pieza is distinct from old.pieza)
      and (old.estado <> 'propuesto'
           or exists (select 1 from public.consentimiento c where c.item_plan_id = old.id and c.anulado_at is null)) then
     raise exception 'El procedimiento y la pieza de un ítem aceptado o con consentimiento no cambian: haz una versión nueva del plan';
@@ -350,13 +372,28 @@ end $$;
 create trigger congelar_procedimiento before update on public.item_plan
   for each row execute function privado.congelar_procedimiento_item();
 
+-- El ítem de origen solo puede ser uno del plan del que se copió este plan (mismo
+-- paciente, ver completar_grupo): así nadie «presta» el consentimiento de otro.
+create function privado.validar_item_origen_plan() returns trigger
+language plpgsql security definer set search_path = '' as $$
+begin
+  if new.item_origen_id is not null and not exists (
+       select 1 from public.item_plan o join public.plan_tratamiento p on p.id = new.plan_id
+        where o.id = new.item_origen_id and o.plan_id = p.plan_origen_id and o.clinica_id = new.clinica_id) then
+    raise exception 'El ítem de origen debe ser del plan del que se copió';
+  end if;
+  return new;
+end $$;
+create trigger validar_origen_copia before insert on public.item_plan
+  for each row execute function privado.validar_item_origen_plan();
+
 -- Consentimiento firmado vigente para el ítem o para el ítem del que se copió (en
 -- cualquier versión anterior), del mismo procedimiento y pieza.
 create function privado.tiene_consentimiento(id_item uuid) returns boolean
 language sql stable security definer set search_path = '' as $$
   with recursive cadena as (
     select i.id, i.item_origen_id, i.procedimiento_id, i.pieza from public.item_plan i where i.id = id_item
-    union all
+    union  -- (sin repetidos: una cadena circular no puede repetirse sin fin)
     select o.id, o.item_origen_id, o.procedimiento_id, o.pieza
       from public.item_plan o join cadena c on o.id = c.item_origen_id
      where o.procedimiento_id is not distinct from c.procedimiento_id and o.pieza is not distinct from c.pieza

@@ -14,6 +14,11 @@ describe("validarReceta", () => {
     }), textos({}));
     expect(r).toEqual({ ok: true, datos: expect.objectContaining({ items: [expect.objectContaining({ medicamento: "Ibuprofeno", indicaciones: null })] }) });
   });
+  it("las indicaciones generales no se confunden con las de cada medicamento", () => {
+    const r = validarReceta(listas(fila), textos({ indicaciones_generales: "Dieta blanda" }));
+    expect(r.ok && r.datos.items.length).toBe(1);
+    expect(r.ok && r.datos.indicaciones).toBe("Dieta blanda");
+  });
   it("una fila empezada debe completarse (no se sugiere nada)", () => {
     const r = validarReceta(listas({ ...fila, dosis: [""] }), textos({}));
     expect(r.ok).toBe(false);

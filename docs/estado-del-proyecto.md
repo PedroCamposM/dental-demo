@@ -380,6 +380,15 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   medias y las bajas de seguridad (rechazo temprano de otra clínica, formato vs.
   extensión). Pendientes menores: objetos huérfanos si falla el registro tras subir;
   formatos pendientes conservan el texto de ejemplo si luego se revisa la plantilla.
+- Segunda revisión independiente (7.3–7.5 y correcciones): 1 alta, 3 medias, 6 bajas;
+  corregidas. Alta: `item_origen_id` se podía fijar a mano para «prestar» el
+  consentimiento de otro paciente (o formar un ciclo); ahora solo lo pone la copia del
+  plan y debe ser un ítem del plan de origen. Medias: `emitir_receta` con datos vacíos,
+  plantilla desactivada que usa el catálogo, subir el documento antes de validar la
+  respuesta. Bajas: los campos del formulario de receta ya no se borran tras un error;
+  recetas y constancias guardan nombre y COP del profesional al emitirse; otros ajustes.
+  En CI apareció un error real del formulario de receta: dos campos `indicaciones`
+  (general y por medicamento) creaban un medicamento fantasma; corregido con prueba.
 - Checklist: `docs/checklist-etapa7.md`. Falta en `/docs`: formatos reales de la clínica
   piloto (consentimientos) para reemplazar las plantillas de ejemplo.
 

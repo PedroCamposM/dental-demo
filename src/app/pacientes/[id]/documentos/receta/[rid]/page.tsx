@@ -15,7 +15,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Receta = {
   id: string; indicaciones: string | null; emitida_at: string; anulado_at: string | null;
-  profesional: { nombre: string; cop: string | null } | null;
+  profesional_nombre: string; profesional_cop: string | null;
   receta_item: { orden: number; medicamento: string; presentacion: string; dosis: string; frecuencia: string; duracion: string;
     indicaciones: string | null }[];
 };
@@ -28,7 +28,7 @@ export default async function ImprimirReceta({ params }: { params: Promise<{ id:
   const supabase = await createClient();
   const [{ data: r, error }, { data: clinica }] = await Promise.all([
     supabase.from("receta")
-      .select("id, indicaciones, emitida_at, anulado_at, profesional:usuario!receta_clinica_id_profesional_id_fkey(nombre, cop), "
+      .select("id, indicaciones, emitida_at, anulado_at, profesional_nombre, profesional_cop, "
         + "receta_item(orden, medicamento, presentacion, dosis, frecuencia, duracion, indicaciones)")
       .eq("id", rid).eq("paciente_id", id).maybeSingle<Receta>(),
     supabase.from("clinica").select("nombre, ruc").eq("id", sesion.clinicaId).maybeSingle<{ nombre: string; ruc: string | null }>(),
@@ -44,8 +44,8 @@ export default async function ImprimirReceta({ params }: { params: Promise<{ id:
           {clinica?.ruc && <p className="text-[9pt]">RUC {clinica.ruc}</p>}
         </div>
         <div className="text-right text-[10pt]">
-          <p className="font-bold">{r.profesional?.nombre ?? "—"}</p>
-          <p>Cirujano dentista · COP {r.profesional?.cop ?? "—"}</p>
+          <p className="font-bold">{r.profesional_nombre}</p>
+          <p>Cirujano dentista · COP {r.profesional_cop ?? "—"}</p>
         </div>
       </header>
       <h1 className="mt-3 text-center text-[13pt] font-bold uppercase">Receta</h1>
@@ -74,7 +74,7 @@ export default async function ImprimirReceta({ params }: { params: Promise<{ id:
       )}
       <div className="mt-10 grid grid-cols-2 gap-8">
         <div />
-        <LineaFirma rotulo={`Firma y sello · ${r.profesional?.nombre ?? ""} · COP ${r.profesional?.cop ?? ""}`} />
+        <LineaFirma rotulo={`Firma y sello · ${r.profesional_nombre} · COP ${r.profesional_cop ?? ""}`} />
       </div>
       <p className="mt-6 text-[8pt] text-gray-700">Código de la receta: {r.id}</p>
     </DocumentoImprimible>

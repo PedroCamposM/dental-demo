@@ -18,7 +18,7 @@ test("la odontóloga pide una interconsulta interna y otra externa", async ({ pa
   await page.waitForURL(/\/interconsultas$/);
 
   await page.getByRole("radio", { name: /^Interna/ }).check();
-  await page.getByLabel("Profesional").selectOption({ label: "Dra. Lucía Valverde Ríos" });
+  await page.locator("#i-destinatario").selectOption({ label: "Dra. Lucía Valverde Ríos" });
   await page.getByLabel("Motivo de la interconsulta").fill(MOTIVO);
   await page.getByRole("button", { name: "Registrar interconsulta" }).click();
   await expect(page.getByText("Interconsulta enviada: el profesional la verá en sus pendientes.")).toBeVisible();

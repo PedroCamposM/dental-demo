@@ -39,7 +39,7 @@ export function validarReceta(lista: (campo: string) => string[], t: (campo: str
     else if (v.medicamento.length < 2) filas[i] = "Escribe el nombre del medicamento.";
     else items.push({ ...v, indicaciones: v.indicaciones || null });
   }
-  const indicaciones = t("indicaciones").trim();
+  const indicaciones = t("indicaciones_generales").trim();
   const nota = t("nota_id");
   const plantilla = t("guardar_como").trim().replace(/\s+/g, " ");
   let general: string | undefined;

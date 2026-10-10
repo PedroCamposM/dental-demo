@@ -186,6 +186,14 @@ select pruebas.igual((select count(*) from public.consentimiento where id = 'afa
 -- El procedimiento de un ítem aceptado no cambia (no se esquiva la regla 3)
 select pruebas.debe_fallar($$update public.item_plan set procedimiento_id = null
                              where id = 'afafafaf-0000-0000-0000-0000000000e2'$$, 'no cambian');
+-- El ítem de origen no se fija a mano (no se «presta» el consentimiento de otro paciente)
+select pruebas.debe_fallar($$insert into public.item_plan (clinica_id, plan_id, procedimiento, procedimiento_id, precio_centimos,
+                               odontologo_id, estado, orden, item_origen_id)
+  values ('afafafaf-0000-0000-0000-000000000000', 'afafafaf-0000-0000-0000-0000000000a1', 'Exodoncia simple',
+          'afafafaf-0000-0000-0000-0000000000d1', 12000, 'af000000-0000-0000-0000-00000000000b', 'propuesto', 9,
+          'afafafaf-0000-0000-0000-0000000000e3')$$, 'del plan del que se copió');
+select pruebas.debe_fallar($$update public.item_plan set item_origen_id = id where id = 'afafafaf-0000-0000-0000-0000000000e2'$$,
+                           'no cambia');
 -- Si el catálogo asigna una plantilla al procedimiento, se usa esa
 select pruebas.como('af000000-0000-0000-0000-00000000000a');
 insert into public.plantilla_consentimiento (id, clinica_id, tipo, nombre, descripcion, riesgos) values
@@ -196,6 +204,11 @@ select pruebas.debe_fallar($$insert into public.consentimiento (clinica_id, paci
   values ('afafafaf-0000-0000-0000-000000000000', 'afafafaf-0000-0000-0000-0000000000f2', 'procedimiento',
           'afafafaf-0000-0000-0000-0000000000b3', 'afafafaf-0000-0000-0000-0000000000e3', 'af000000-0000-0000-0000-00000000000b')$$,
   'la del catálogo');
+-- Una plantilla que usa el catálogo no se desactiva
+select pruebas.como('af000000-0000-0000-0000-00000000000a');
+select pruebas.debe_fallar($$update public.plantilla_consentimiento set activa = false
+                             where id = 'afafafaf-0000-0000-0000-0000000000b1'$$, 'La usan estos procedimientos');
+select pruebas.como('af000000-0000-0000-0000-00000000000b');
 -- El consentimiento firmado sigue valiendo en una versión nueva del plan
 insert into public.consentimiento (id, clinica_id, paciente_id, tipo, plantilla_id, item_plan_id, profesional_id) values
   ('afafafaf-0000-0000-0000-0000000000c5', 'afafafaf-0000-0000-0000-000000000000', 'afafafaf-0000-0000-0000-0000000000f2',
