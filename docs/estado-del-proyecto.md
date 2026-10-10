@@ -513,6 +513,23 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
 - Guion: `docs/guion-demo.md`. Playwright: `e2e/flujo-completo.spec.ts` (alta → historia
   → odontograma → diagnóstico → plan → cita → evolución firmada → pago → control) y
   `e2e/guion-demo.spec.ts` (los casos del seed). Checklist: `docs/checklist-etapa12.md`.
+- Seeds deterministas: laboratorio (seed10), ortodoncias y periodontogramas (seed12) elegían
+  pacientes por uuid (distintos en cada base); ahora por apellidos y nombres.
+- Tablero clínico: «Controles vencidos» muestra uno por paciente **y tipo** (antes, uno por
+  paciente: un retiro de puntos podía quedar oculto tras un control más antiguo). Un control
+  sigue sin contar como vencido si el paciente ya tiene cita (regla existente); por eso el
+  retiro de puntos del guion (paciente con cita) se muestra en «Controles programados» de
+  la ficha.
+- Remoto: CI verde (run 38085707364); «Aplicar migraciones» run 38086112311 (respaldo
+  previo): 0923 aplicada, clínica de demo registrada (referencia 2026-10-10).
+  `seed_etapa12.sql` cargado por la API: 27 conductos, 12 cirugías, 1 retiro de puntos
+  pendiente, 4 implantes (1 en fase protésica), 6 ortodoncias con 30 controles,
+  20 registros de odontopediatría, 4 periodontogramas firmados. Los pacientes del guion
+  coinciden con los del remoto. Había un periodontograma en borrador hecho a mano: se
+  conserva (el seed ahora solo se salta ese bloque si ya hay periodontogramas firmados).
+- **Pendiente:** revisión independiente de las etapas 10, 11 y 12 (límite semanal del
+  agente revisor, se restablece el 13-oct). Encender `HABILITAR_ETAPA12` no hace falta:
+  la etapa no agrega módulos nuevos detrás de una bandera.
 
 ## Remoto al 2026-10-10
 

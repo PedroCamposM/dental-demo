@@ -182,7 +182,7 @@ begin
   end if;
 
   -- 6. Periodontogramas: dos por paciente (hace 6 meses y hace 1) en dos pacientes, con mejoría.
-  if not exists (select 1 from public.periodontograma where clinica_id = c) then
+  if not exists (select 1 from public.periodontograma where clinica_id = c and firmado_at is not null) then  -- un borrador hecho a mano no lo impide
     perform set_config('dental.proceso', 'on', true);
     for r in select pa.id as paciente_id from public.paciente pa
               where pa.clinica_id = c and pa.anulado_at is null and pa.fecha_nacimiento < v_hoy - interval '30 years'
