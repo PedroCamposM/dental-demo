@@ -425,7 +425,7 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   previo): 0917–0918 aplicadas. Comprobado: 11 tipos de seguimiento, sin INSERT directo en
   `pago`, 4 funciones nuevas, 19 planes detenidos. Falta `HABILITAR_ETAPA8=1` en Vercel.
 
-## v2 — Etapa 9 (periodontograma y registros por especialidad): en cierre
+## v2 — Etapa 9 (periodontograma y registros por especialidad): aplicada en el remoto
 
 - **0919** `periodontograma`: examen por fecha, borrador → firmado por el cirujano
   dentista responsable (la asistente puede registrarlo a su nombre, no firmarlo).
@@ -451,6 +451,9 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
 - En CI apareció un error real: «Guardar y firmar» llegaba al servidor como «guardar»
   (el botón que envía no llegaba en el formulario); ahora son dos formularios.
 - Checklist: `docs/checklist-etapa9.md`.
+- Remoto: CI verde (run 38030933815) y «Aplicar migraciones» run 38031491013 (respaldo
+  previo): 0919–0920 aplicadas. Comprobado: 9 tablas nuevas con RLS y 4 funciones.
+  Falta `HABILITAR_ETAPA9=1` en Vercel.
 
 ## Remoto al 2026-10-10
 
