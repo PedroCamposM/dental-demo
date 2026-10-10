@@ -114,6 +114,13 @@ select pruebas.igual((select count(*) from public.nota_evolucion), 0, 'recepció
 
 select pruebas.como('c1000000-0000-0000-0000-00000000000e');   -- admin sin COP
 select pruebas.igual((select count(*) from public.nota_evolucion), 0, 'admin sin COP no ve notas');
+select pruebas.igual((select count(*) from public.auditoria where tabla in ('nota_evolucion', 'odontograma')), 0,
+                     'admin sin COP tampoco ve el contenido clínico a través de la auditoría');
+select pruebas.igual((select (count(*) > 0)::int from public.auditoria where tabla = 'paciente'), 1,
+                     'admin sin COP sí ve la auditoría no clínica');
+select pruebas.como('c1000000-0000-0000-0000-00000000000a');   -- admin con COP
+select pruebas.igual((select count(*) from public.auditoria where tabla = 'nota_evolucion'), 1,
+                     'admin con COP ve la auditoría clínica');
 reset role;
 
 -- ---------------------------------------------------------------------------
@@ -145,8 +152,8 @@ select pruebas.debe_fallar($$update public.item_plan set estado = 'aceptado', ci
   where id = 'cccccccc-0000-0000-0000-0000000000c1'$$, 'Solo un cirujano dentista');
 select pruebas.debe_fallar($$update public.plan_tratamiento set titulo = 'Otro'
   where id = 'cccccccc-0000-0000-0000-0000000000e1'$$, 'Solo un cirujano dentista');
-select pruebas.debe_fallar($$update public.item_plan set estado = 'aceptado'
-  where id = 'cccccccc-0000-0000-0000-0000000000c1'$$, 'programar o desprogramar');
+select pruebas.debe_fallar($$update public.item_plan set estado = 'realizado'
+  where id = 'cccccccc-0000-0000-0000-0000000000c1'$$, 'cirujano dentista');
 -- El paciente acepta en recepción
 update public.plan_tratamiento set estado = 'aceptado', aceptado_at = now()
   where id = 'cccccccc-0000-0000-0000-0000000000e1';
@@ -154,12 +161,11 @@ select pruebas.debe_fallar($$update public.plan_tratamiento set estado = 'termin
   where id = 'cccccccc-0000-0000-0000-0000000000e1'$$, 'acepta o rechaza');
 select pruebas.debe_fallar($$update public.plan_tratamiento set terminado_at = now()
   where id = 'cccccccc-0000-0000-0000-0000000000e1'$$, 'Solo un cirujano dentista');
-reset role;
-select pruebas.como(null);
+-- Recepción registra que el paciente acepta el ítem propuesto y luego lo programa
 update public.item_plan set estado = 'aceptado' where id = 'cccccccc-0000-0000-0000-0000000000c1';
-set role authenticated;
-select pruebas.como('c1000000-0000-0000-0000-00000000000d');
 update public.item_plan set estado = 'programado' where id = 'cccccccc-0000-0000-0000-0000000000c1';
+select pruebas.debe_fallar($$update public.item_plan set estado = 'cancelado', motivo_cancelacion = 'x'
+  where id = 'cccccccc-0000-0000-0000-0000000000c1'$$, 'aceptar o cancelar ítems propuestos');
 select pruebas.igual((select count(*) from public.item_plan where estado = 'programado'), 1, 'recepción programa un ítem');
 
 select pruebas.como('c1000000-0000-0000-0000-00000000000e');   -- admin sin COP: como recepción en lo clínico
@@ -221,7 +227,7 @@ select pruebas.como(null);
 
 -- ---------------------------------------------------------------------------
 -- Regla 8: toda tabla de public tiene RLS y clinica_id (excepto el tenant y el
--- catálogo NTS 188), anon no tiene permisos y nadie puede borrar datos.
+-- catálogos globales NTS 188 y CIE-10), anon no tiene permisos y nadie puede borrar datos.
 -- ---------------------------------------------------------------------------
 select pruebas.igual((
   select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
@@ -229,7 +235,7 @@ select pruebas.igual((
 select pruebas.igual((
   select count(*) from information_schema.tables t
   where t.table_schema = 'public' and t.table_type = 'BASE TABLE'
-    and t.table_name not in ('clinica', 'catalogo_hallazgo')
+    and t.table_name not in ('clinica', 'catalogo_hallazgo', 'catalogo_cie10')
     and not exists (select 1 from information_schema.columns k
                     where k.table_schema = 'public' and k.table_name = t.table_name and k.column_name = 'clinica_id')),
   0, 'tablas sin clinica_id');

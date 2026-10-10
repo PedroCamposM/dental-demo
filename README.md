@@ -1,6 +1,7 @@
 # Dental Demo
 
-Demo de software dental centrado en el **plan de tratamiento**. Ver [`CLAUDE.md`](./CLAUDE.md) para el alcance y las reglas.
+Demo de software dental centrado en el **plan de tratamiento**. Ver [`CLAUDE.md`](./CLAUDE.md) para el alcance y las reglas,
+y [`docs/estado-del-proyecto.md`](./docs/estado-del-proyecto.md) para el estado actual, las decisiones tomadas y lo pendiente.
 
 ## Stack
 
@@ -24,7 +25,10 @@ npm run dev
   (`supabase db dump` de esquema, datos y roles, guardado como artefacto por 90 días);
   si falla, no aplica nada. Luego conteos antes, `db push`, verificaciones de
   `supabase/verificaciones/2*.sql` y conteos después.
-  Secretos necesarios en GitHub: `SUPABASE_ACCESS_TOKEN` y `SUPABASE_DB_PASSWORD`.
+  Secretos necesarios en GitHub: `SUPABASE_ACCESS_TOKEN`, `SUPABASE_DB_PASSWORD` y
+  `BACKUP_PASSPHRASE` (16+ caracteres; guárdala también fuera de GitHub). El respaldo se
+  sube **cifrado** (`respaldo.tar.gz.gpg`). Para abrirlo:
+  `gpg -d respaldo.tar.gz.gpg | tar -xz`.
 - Producción sale de `main`; las ramas tienen vista previa en Vercel.
 
 ## Despliegue en Vercel
@@ -76,12 +80,15 @@ aislamiento entre clínicas, permisos por rol, catálogo NTS 188, inalterabilida
 pagos sin sobreaplicar y reglas 1, 3 y 4.
 
 Después de las pruebas, `test:db` carga `supabase/seed.sql` y verifica con
-`supabase/tests/seed.check.sql` que estén los casos que necesita el tablero.
+`supabase/tests/seed.check.sql` que estén los casos que necesita el Tablero de gestión.
 
-## Tablero "dinero en riesgo"
+## Tablero de gestión
 
-La pantalla principal (`/`) muestra el total en riesgo y seis indicadores en soles.
-Cada uno abre `/riesgo/<indicador>` con la lista de pacientes y un botón **Enviar
+La portada (`/`) lleva a cada usuario a **Pacientes**: la atención clínica va primero.
+El Tablero de gestión (`/gestion`, para admin, odontólogo y recepción; no para el
+asistente) muestra seis indicadores: primero cuántos pacientes o tratamientos necesitan
+seguimiento y, debajo, el monto. Cada uno abre `/gestion/<indicador>` (los enlaces
+viejos `/riesgo/<indicador>` redirigen) con la lista de pacientes y un botón **Enviar
 mensaje**: arma el texto desde la plantilla de la clínica (editable antes de enviar),
 abre WhatsApp con un enlace `wa.me` y registra el envío en `seguimiento`.
 
@@ -96,8 +103,6 @@ Los cálculos están en `src/lib/tablero/calculos.ts` (funciones puras con tests
 | Controles vencidos | Controles con fecha pasada, sin resultado "agendó cita" ni cita futura; uno por paciente |
 | No-show del mes | Citas "no asistió" del mes sobre las citas ya ocurridas (atendidas + no asistió) |
 
-El **total en riesgo** suma presupuestos abiertos, detenidos y cuotas vencidas, sin
-volver a contar las cuotas de un plan que ya figura como detenido.
 
 ## Plantillas de mensajes
 
@@ -109,7 +114,7 @@ una plantilla con variables que ese mensaje no llena.
 ## Datos de demo (`supabase/seed.sql`)
 
 Crea **Clínica Dental Demo – Trujillo** con 3 odontólogos, recepción y 120 pacientes
-ficticios. Las fechas se calculan desde hoy, así el tablero siempre tiene casos vigentes:
+ficticios. Las fechas se calculan desde hoy, así el Tablero de gestión siempre tiene casos vigentes:
 ortodoncias con cuotas atrasadas, presupuestos de implantes sin respuesta, tratamientos
 detenidos, controles vencidos y no-shows del mes. Todo es inventado: nunca usar datos
 reales de pacientes.

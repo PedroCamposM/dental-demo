@@ -6,15 +6,22 @@ import { fusionarPacientes, type EstadoFusion } from "../../acciones";
 export type Candidato = { id: string; nombre: string; detalle: string };
 
 export function FormularioFusion({ conservar, candidatos }: { conservar: string; candidatos: Candidato[] }) {
-  const [estado, accion, fusionando] = useActionState<EstadoFusion, FormData>(fusionarPacientes, { error: null });
+  const [estado, accion, fusionando] = useActionState<EstadoFusion, FormData>(fusionarPacientes, {
+    error: null, duplicado: "", motivo: "",
+  });
+  // Sin validación del navegador: el servidor valida y muestra el mensaje en español.
+  // Las `key` vuelven a montar los campos con lo elegido tras un envío con errores.
   return (
-    <form action={accion} className="flex flex-col gap-4">
+    <form action={accion} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="conservar" value={conservar} />
       <fieldset className="flex flex-col gap-2">
         <legend className="mb-1 text-sm font-medium text-gray-700">Registro duplicado que se absorberá</legend>
         {candidatos.map((c) => (
           <label key={c.id} className="flex items-start gap-2 rounded-md border border-gray-200 p-3 hover:bg-gray-50">
-            <input type="radio" name="duplicado" value={c.id} className="mt-1" required />
+            <input
+              key={`${c.id}-${estado.duplicado}`} type="radio" name="duplicado" value={c.id} className="mt-1"
+              defaultChecked={estado.duplicado === c.id}
+            />
             <span>
               <span className="font-medium">{c.nombre}</span>
               <span className="block text-sm text-gray-500">{c.detalle}</span>
@@ -25,7 +32,7 @@ export function FormularioFusion({ conservar, candidatos }: { conservar: string;
       <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
         Motivo (queda en la auditoría)
         <textarea
-          name="motivo" rows={2} required minLength={5}
+          key={estado.motivo} name="motivo" rows={2} defaultValue={estado.motivo} aria-required
           className="rounded-md border border-gray-300 p-2 font-normal focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600/30"
         />
       </label>

@@ -1,13 +1,13 @@
-// Indicadores del tablero "dinero en riesgo". Funciones puras: reciben las
+// Indicadores del Tablero de gestión. Funciones puras: reciben las
 // filas que RLS deja ver a la clínica y el instante actual. Montos en céntimos.
 import { diasEntre, fechaLima, inicioMesLima } from "@/lib/fechas";
 
 // ---------------------------------------------------------------------------
 // Filas de entrada (mismos nombres que las columnas de la base)
 // ---------------------------------------------------------------------------
-export type EstadoPlan = "propuesto" | "aceptado" | "en_curso" | "detenido" | "terminado" | "rechazado";
+export type EstadoPlan = "propuesto" | "aceptado" | "en_curso" | "detenido" | "terminado" | "rechazado" | "reemplazado";
 export type EstadoItem = "propuesto" | "aceptado" | "programado" | "realizado" | "cancelado";
-export type EstadoCita = "programada" | "confirmada" | "atendida" | "no_asistio" | "cancelada";
+export type EstadoCita = "programada" | "confirmada" | "en_sala" | "atendida" | "no_asistio" | "cancelada";
 export type ResultadoSeguimiento =
   | "pendiente" | "mensaje_enviado" | "contactado" | "no_contesta" | "agendo_cita" | "rechazo" | "pago";
 
@@ -27,6 +27,8 @@ export type PlanFila = {
   presentado_at: string;
   aceptado_at: string | null;
   fecha_vencimiento: string | null;
+  /** Etapa 5: versiones y alternativas de una misma propuesta (si la base ya lo tiene). */
+  grupo_id?: string | null;
 };
 export type ItemFila = { id: string; plan_id: string; estado: EstadoItem; precio_centimos: number };
 export type CuotaFila = {
@@ -44,11 +46,31 @@ export type CitaFila = {
   estado: EstadoCita;
   item_ids: string[];
 };
+/** Controles (el de los 6 meses de la v1 y los clínicos de la Etapa 8). */
+export const NOMBRE_CONTROL = {
+  control: "Control",
+  control_posoperatorio: "Control posoperatorio",
+  retiro_puntos: "Retiro de puntos",
+  control_ortodoncia: "Control de ortodoncia",
+  mantenimiento_periodontal: "Mantenimiento periodontal",
+  control_anual: "Control anual",
+} as const;
+export type TipoControl = keyof typeof NOMBRE_CONTROL;
+export const TIPOS_CONTROL = Object.keys(NOMBRE_CONTROL) as TipoControl[];
+export const esControl = (tipo: string): tipo is TipoControl => Object.hasOwn(NOMBRE_CONTROL, tipo);
+/**
+ * Controles que una cita futura no cubre: tienen plazo clínico (los puntos se retiran a los
+ * días indicados), así que siguen vencidos hasta que se atiende al paciente en o después de
+ * su fecha, aunque ya tenga otra cita más adelante.
+ */
+export const CONTROLES_CON_PLAZO: readonly TipoControl[] = ["retiro_puntos"];
+export const cubiertoPorCitaFutura = (tipo: string) => !(CONTROLES_CON_PLAZO as readonly string[]).includes(tipo);
+
 export type SeguimientoFila = {
   id: string;
   paciente_id: string;
   plan_id: string | null;
-  tipo: "presupuesto" | "tratamiento_detenido" | "cuota_vencida" | "control";
+  tipo: "presupuesto" | "tratamiento_detenido" | "cuota_vencida" | TipoControl;
   fecha_programada: string;
   resultado: ResultadoSeguimiento;
 };
@@ -103,6 +125,8 @@ export type ControlVencido = Contacto & {
   seguimientoId: string;
   planId: string | null;
   fecha: string;
+  /** Qué control es (p. ej. «Retiro de puntos»). */
+  motivo: string;
   diasVencido: number;
   resultado: ResultadoSeguimiento;
 };
@@ -141,7 +165,7 @@ export type Tablero = {
 
 const ESTADOS_ACTIVOS: EstadoPlan[] = ["aceptado", "en_curso", "detenido"];
 const ITEMS_PENDIENTES: EstadoItem[] = ["aceptado", "programado"];
-const CITA_AGENDADA: EstadoCita[] = ["programada", "confirmada"];
+const CITA_AGENDADA: EstadoCita[] = ["programada", "confirmada", "en_sala"];
 const DIA_MS = 86_400_000;
 
 // ---------------------------------------------------------------------------
@@ -157,19 +181,22 @@ export function calcularTablero(datos: DatosTablero, ahora: Date): Tablero {
   const delMes = datos.planes.filter((p) => Date.parse(p.presentado_at) >= inicioMes);
   const listaMes = agruparAlternativas(delMes).map((grupo) => {
     // Si alguna alternativa se aceptó, esa representa al presupuesto; si no, la de mayor valor.
-    const principal = grupo.find((p) => p.aceptado_at) ?? mayorValor(grupo, valorPlan);
+    const aceptada = grupo.find((p) => p.aceptado_at);
+    const principal = aceptada ?? mayorValor(grupo, valorPlan);
     return {
       ...contacto(principal.paciente_id),
       planIds: grupo.map((p) => p.id),
       titulo: principal.titulo,
-      centimos: Math.max(...grupo.map((p) => valorPlan.get(p.id) ?? 0)),
+      // Aceptado: vale la alternativa elegida; si no, la de mayor valor.
+      centimos: aceptada ? (valorPlan.get(aceptada.id) ?? 0) : Math.max(...grupo.map((p) => valorPlan.get(p.id) ?? 0)),
       presentado: fechaLima(principal.presentado_at),
       estado: principal.estado,
     };
   });
   listaMes.sort((a, b) => b.presentado.localeCompare(a.presentado) || b.centimos - a.centimos);
   const presentado = listaMes.map((x) => x.centimos);
-  const aceptados = datos.planes.filter((p) => p.aceptado_at && Date.parse(p.aceptado_at) >= inicioMes);
+  // Una versión reemplazada ya cuenta en la que la reemplazó.
+  const aceptados = datos.planes.filter((p) => p.aceptado_at && Date.parse(p.aceptado_at) >= inicioMes && p.estado !== "reemplazado");
   const centimosPresentado = suma(presentado);
   const centimosAceptado = suma(aceptados.map((p) => valorPlan.get(p.id) ?? 0));
 
@@ -285,7 +312,8 @@ function cuotasVencidas(datos: DatosTablero, hoy: string, contacto: (id: string)
   return indicador(lista);
 }
 
-// Controles con fecha pasada, salvo que el paciente ya agendó (resultado o cita futura).
+// Controles con fecha pasada, salvo que el paciente ya agendó (resultado o cita futura; una
+// cita futura no cubre el retiro de puntos) o fue atendido en o después de la fecha.
 function controlesVencidos(
   datos: DatosTablero, ahora: Date, hoy: string, contacto: (id: string) => Contacto,
 ): Indicador<ControlVencido> {
@@ -293,17 +321,31 @@ function controlesVencidos(
     datos.citas.filter((c) => CITA_AGENDADA.includes(c.estado) && Date.parse(c.inicio) >= ahora.getTime())
       .map((c) => c.paciente_id),
   );
+  // Última atención por paciente: un control queda cubierto si lo atendieron en o después de su fecha.
+  const ultimaAtencion = new Map<string, string>();
+  for (const c of datos.citas) {
+    if (c.estado !== "atendida") continue;
+    const dia = fechaLima(c.inicio);
+    if ((ultimaAtencion.get(c.paciente_id) ?? "") < dia) ultimaAtencion.set(c.paciente_id, dia);
+  }
   const porPaciente = new Map<string, ControlVencido>();
+  const previoTienePlazo = new Map<string, boolean>();
   for (const s of datos.seguimientos) {
-    if (s.tipo !== "control" || s.fecha_programada >= hoy || s.resultado === "agendo_cita") continue;
-    if (conCitaFutura.has(s.paciente_id)) continue;
+    if (!esControl(s.tipo) || s.fecha_programada >= hoy || s.resultado === "agendo_cita") continue;
+    if (conCitaFutura.has(s.paciente_id) && cubiertoPorCitaFutura(s.tipo)) continue;
+    if ((ultimaAtencion.get(s.paciente_id) ?? "") >= s.fecha_programada) continue;
+    // Un paciente, una fila: el control con plazo (retiro de puntos) primero; si no, el más antiguo.
     const previo = porPaciente.get(s.paciente_id);
-    if (previo && previo.fecha <= s.fecha_programada) continue;   // un paciente, una fila: el control más antiguo
+    const conPlazo = !cubiertoPorCitaFutura(s.tipo);
+    const previoConPlazo = previoTienePlazo.get(s.paciente_id) ?? false;
+    if (previo && ((previoConPlazo && !conPlazo) || (previoConPlazo === conPlazo && previo.fecha <= s.fecha_programada))) continue;
+    previoTienePlazo.set(s.paciente_id, conPlazo);
     porPaciente.set(s.paciente_id, {
       ...contacto(s.paciente_id),
       seguimientoId: s.id,
       planId: s.plan_id,
       fecha: s.fecha_programada,
+      motivo: NOMBRE_CONTROL[s.tipo as TipoControl] ?? "Control",
       diasVencido: diasEntre(s.fecha_programada, hoy),
       resultado: s.resultado,
     });
@@ -336,11 +378,14 @@ function noShow(
 // Ayudantes
 // ---------------------------------------------------------------------------
 
-/** Alternativas (A, B…) de un mismo presupuesto: mismo paciente, presentadas el mismo día. */
-export function agruparAlternativas<P extends Pick<PlanFila, "paciente_id" | "presentado_at">>(planes: P[]): P[][] {
+/**
+ * Alternativas (A, B…) y versiones de un mismo presupuesto. Con la Etapa 5, el grupo
+ * de la base; antes, mismo paciente y mismo día de presentación.
+ */
+export function agruparAlternativas<P extends Pick<PlanFila, "paciente_id" | "presentado_at" | "grupo_id">>(planes: P[]): P[][] {
   const grupos = new Map<string, P[]>();
   for (const p of planes) {
-    const clave = `${p.paciente_id}|${fechaLima(p.presentado_at)}`;
+    const clave = p.grupo_id ?? `${p.paciente_id}|${fechaLima(p.presentado_at)}`;
     grupos.set(clave, [...(grupos.get(clave) ?? []), p]);
   }
   return [...grupos.values()];
@@ -377,4 +422,23 @@ function indicador<T extends { centimos: number }>(lista: T[]): Indicador<T> {
 
 function suma(valores: number[]): number {
   return valores.reduce((a, b) => a + b, 0);
+}
+
+const ACEPTADO: EstadoPlan[] = ["aceptado", "en_curso", "detenido", "terminado"];
+
+/**
+ * De los presupuestos presentados este mes, cuántos ya se aceptaron (con su valor).
+ * Mismo conjunto que la lista del mes, así la tarjeta y la lista coinciden.
+ */
+export function resumenDelMes(lista: PresupuestoDelMes[]) {
+  const aceptados = lista.filter((p) => ACEPTADO.includes(p.estado));
+  const centimosPresentado = suma(lista.map((p) => p.centimos));
+  const centimosAceptado = suma(aceptados.map((p) => p.centimos));
+  return {
+    presentados: lista.length,
+    aceptados: aceptados.length,
+    centimosPresentado,
+    centimosAceptado,
+    proporcion: centimosPresentado > 0 ? centimosAceptado / centimosPresentado : null,
+  };
 }

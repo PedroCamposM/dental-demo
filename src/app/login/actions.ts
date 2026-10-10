@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { destinoSeguro } from "@/lib/auth/rutas";
 import { mensajeErrorLogin } from "@/lib/auth/mensajes";
-import { COOKIE_ACTIVIDAD } from "@/lib/sesion-segura/inactividad";
+import { COOKIE_ACTIVIDAD, COOKIE_BLOQUEO, DURACION_COOKIE_S } from "@/lib/sesion-segura/inactividad";
 import { createClient } from "@/lib/supabase/server";
 
 export type EstadoLogin = { error: string | null; email: string };
@@ -22,7 +22,9 @@ export async function iniciarSesion(_previo: EstadoLogin, form: FormData): Promi
     return { error: mensajeErrorLogin(error), email };
   }
   // Sesión nueva: la inactividad de una sesión anterior no cuenta.
-  (await cookies()).set(COOKIE_ACTIVIDAD, String(Date.now()), { path: "/", sameSite: "lax" });
+  const almacen = await cookies();
+  almacen.set(COOKIE_ACTIVIDAD, String(Date.now()), { path: "/", sameSite: "lax", maxAge: DURACION_COOKIE_S });
+  almacen.delete(COOKIE_BLOQUEO);
   redirect(destinoSeguro(String(form.get("next") ?? "")));
 }
 

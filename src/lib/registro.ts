@@ -9,7 +9,9 @@ export function registrarError(contexto: string, error: unknown, extra: Record<s
     contexto,
     mensaje: e?.message ?? String(error),
     codigo: e?.code ?? null,
-    detalle: e?.details ?? null,
+    // Los errores de restricción (23xxx) traen la fila completa en "details":
+    // datos personales que no deben quedar en los logs.
+    detalle: e?.code?.startsWith("23") ? null : (e?.details ?? null),
     ...extra,
     en: new Date().toISOString(),
   }));

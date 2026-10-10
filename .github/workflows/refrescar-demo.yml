@@ -1,0 +1,29 @@
+# Refresca las fechas de la clínica de DEMOSTRACIÓN en el proyecto remoto (migración 0923):
+# corre todas sus fechas los días que pasaron desde la carga, para que la demo no
+# «envejezca» (citas de hoy, atrasos, controles por venir). No toca clínicas reales,
+# la auditoría ni las exportaciones. Se lanza a mano: Actions → "Refrescar fechas de la
+# demo" → Run workflow → escribir REFRESCAR.
+# Requiere el secreto SUPABASE_ACCESS_TOKEN.
+name: Refrescar fechas de la demo
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirmar:
+        description: Escribe REFRESCAR para confirmar
+        required: true
+
+concurrency:
+  group: migrar-remoto
+  cancel-in-progress: false
+
+jobs:
+  refrescar:
+    if: inputs.confirmar == 'REFRESCAR'
+    runs-on: ubuntu-24.04
+    env:
+      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Refrescar
+        run: scripts/consulta-remota.sh supabase/mantenimiento/refrescar_demo.sql

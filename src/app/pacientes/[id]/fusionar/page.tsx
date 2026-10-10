@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { AlertasPaciente } from "@/components/alertas-paciente";
 import { Encabezado } from "@/components/encabezado";
 import { formatearFecha } from "@/lib/fechas";
 import { modulos } from "@/lib/funciones";
@@ -53,6 +54,7 @@ export default async function Fusionar({ params, searchParams }: {
     <>
       <Encabezado sesion={sesion} seccion="pacientes" />
       <main className="mx-auto max-w-3xl px-4 py-8">
+        <AlertasPaciente pacienteId={id} />
         <Link href={`/pacientes/${id}`} className="text-sm font-medium text-teal-700 hover:underline">← Volver a la ficha</Link>
         <h1 className="mt-3 text-2xl font-semibold">Fusionar registros duplicados</h1>
         <div className="mt-4 rounded-lg border border-teal-200 bg-teal-50 p-4">

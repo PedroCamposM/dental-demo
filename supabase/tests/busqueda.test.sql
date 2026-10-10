@@ -21,6 +21,8 @@ select pruebas.igual((select count(*) from public.buscar_pacientes('RODRIGUEZ jo
 select pruebas.igual((select count(*) from public.buscar_pacientes('987 654 321')), 1, 'por teléfono con espacios');
 select pruebas.igual((select count(*) from public.buscar_pacientes('nunez')), 1, 'ñ y tildes');
 select pruebas.igual((select count(*) from public.buscar_pacientes('x')), 0, 'texto muy corto no busca');
+select pruebas.igual((select count(*) from public.buscar_pacientes('__')), 0, '_ no es comodín');
+select pruebas.igual((select count(*) from public.buscar_pacientes('%%')), 0, '% no es comodín');
 select pruebas.igual((select count(*) from public.posibles_duplicados('JOSÉ LUIS', 'vasquez  rodriguez', '1990-05-10')), 1,
                      'duplicado: mismo nombre normalizado y fecha');
 select pruebas.igual((select count(*) from public.posibles_duplicados('José Luis', 'Vásquez Rodríguez', '1990-05-11')), 0,

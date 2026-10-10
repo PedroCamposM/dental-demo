@@ -1,14 +1,20 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { AlertasPaciente } from "@/components/alertas-paciente";
 import { Encabezado } from "@/components/encabezado";
-import { fechaLima, formatearFecha } from "@/lib/fechas";
-import { esMenorDeEdad, SEXOS, TIPOS_DOCUMENTO, type EntradaPaciente } from "@/lib/pacientes/validacion";
+import { ESTADOS_ACTIVOS, ESTADOS_CITA, type EstadoCita } from "@/lib/agenda/citas";
+import { NOMBRE_CONTROL, TIPOS_CONTROL, type TipoControl } from "@/lib/tablero/calculos";
+import { fechaLima, formatearFecha, horaLima } from "@/lib/fechas";
+import {
+  ESTADOS_CIVILES, esMenorDeEdad, GRADOS_INSTRUCCION, SEGUROS, SEXOS, TIPOS_DOCUMENTO, type EntradaPaciente,
+} from "@/lib/pacientes/validacion";
 import { registrarError } from "@/lib/registro";
 import { modulos } from "@/lib/funciones";
 import { obtenerSesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
 import { FormularioPaciente } from "../formulario";
+import { PestanasPaciente } from "./pestanas";
 
 export const metadata: Metadata = { title: "Paciente – Dental Demo" };
 
@@ -38,6 +44,21 @@ export default async function FichaPaciente({ params, searchParams }: {
   }
   if (!data) notFound();
   const p = data;
+  // Próximas citas (Etapa 2: agenda)
+  const { data: citas } = modulos.etapa2
+    ? await supabase.from("cita").select("id, inicio, estado, nota, usuario!cita_clinica_id_odontologo_id_fkey(nombre)")
+        .eq("paciente_id", id).in("estado", modulos.etapa6 ? ESTADOS_ACTIVOS : ["programada", "confirmada"])
+        .gte("inicio", new Date().toISOString())
+        .order("inicio").limit(5)
+        .returns<{ id: string; inicio: string; estado: EstadoCita; nota: string | null; usuario: { nombre: string } | null }[]>()
+    : { data: null };
+  // Controles programados (Etapa 8: seguimiento clínico): los pendientes, del más próximo al más lejano.
+  const { data: controles } = modulos.etapa8
+    ? await supabase.from("seguimiento").select("id, tipo, fecha_programada, nota")
+        .eq("paciente_id", id).in("tipo", TIPOS_CONTROL).in("resultado", ["pendiente", "mensaje_enviado", "no_contesta", "contactado"])
+        .order("fecha_programada").limit(5)
+        .returns<{ id: string; tipo: TipoControl; fecha_programada: string; nota: string | null }[]>()
+    : { data: null };
   const menor = p.fecha_nacimiento ? esMenorDeEdad(p.fecha_nacimiento, fechaLima(new Date())) : false;
   const inicial = Object.fromEntries(
     Object.entries(p).filter(([, valor]) => typeof valor === "string").map(([k, valor]) => [k, valor]),
@@ -57,17 +78,26 @@ export default async function FichaPaciente({ params, searchParams }: {
     <>
       <Encabezado sesion={sesion} seccion="pacientes" />
       <main className="mx-auto max-w-4xl px-4 py-8">
+        <AlertasPaciente pacienteId={id} />
         <Link href="/pacientes" className="text-sm font-medium text-teal-700 hover:underline">← Pacientes</Link>
         <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold">{p.nombres} {p.apellidos}</h1>
             <p className="text-gray-600">
-              {p.numero_documento ? `${TIPOS_DOCUMENTO[p.tipo_documento as keyof typeof TIPOS_DOCUMENTO] ?? ""} ${p.numero_documento}` : "Sin documento"}
+              {!p.numero_documento ? "Sin documento" : modulos.etapa3
+                ? `Historia clínica N° ${p.numero_documento} (${TIPOS_DOCUMENTO[p.tipo_documento as keyof typeof TIPOS_DOCUMENTO] ?? ""})`
+                : `${TIPOS_DOCUMENTO[p.tipo_documento as keyof typeof TIPOS_DOCUMENTO] ?? ""} ${p.numero_documento}`}
               {menor && " · Menor de edad"}
             </p>
           </div>
           {!editar && !p.anulado_at && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              {modulos.etapa2 && (
+                <Link href={`/agenda/nueva?paciente=${id}`}
+                  className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800">
+                  Agendar cita
+                </Link>
+              )}
               <Link href={`/pacientes/${id}?editar=1`} className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">
                 Editar filiación
               </Link>
@@ -76,9 +106,16 @@ export default async function FichaPaciente({ params, searchParams }: {
                   Fusionar duplicado
                 </Link>
               )}
+              {modulos.etapa11 && sesion.esDentista && (
+                <Link href={`/pacientes/${id}/exportar`} className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">
+                  Exportar historia clínica
+                </Link>
+              )}
             </div>
           )}
         </div>
+
+        <PestanasPaciente id={id} actual="filiacion" veClinico={sesion.veClinico} />
 
         {(creado || guardado || fusionado) && (
           <p role="status" className="mt-4 rounded-md bg-teal-50 px-3 py-2 text-sm text-teal-800">
@@ -95,7 +132,7 @@ export default async function FichaPaciente({ params, searchParams }: {
         )}
 
         {editar && !p.anulado_at ? (
-          <section className="mt-6"><FormularioPaciente id={id} inicial={inicial} /></section>
+          <section className="mt-6"><FormularioPaciente id={id} inicial={inicial} nts139={modulos.etapa3} /></section>
         ) : (
           <section className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
             <h2 className="text-lg font-semibold">Filiación</h2>
@@ -104,7 +141,18 @@ export default async function FichaPaciente({ params, searchParams }: {
               {dato("Sexo", p.sexo ? SEXOS[p.sexo as keyof typeof SEXOS] : null)}
               {dato("Celular", p.telefono?.slice(2))}
               {dato("Ocupación", p.ocupacion)}
-              <div className="sm:col-span-2">{dato("Dirección", p.direccion)}</div>
+              <div className="sm:col-span-2">{dato(modulos.etapa3 ? "Domicilio actual" : "Dirección", p.direccion)}</div>
+              {modulos.etapa3 && (
+                <>
+                  {dato("Lugar de nacimiento", p.lugar_nacimiento)}
+                  <div className="sm:col-span-2">{dato("Domicilio de procedencia", p.procedencia)}</div>
+                  {dato("Grupo sanguíneo y Rh", p.grupo_sanguineo)}
+                  {dato("Estado civil", p.estado_civil ? ESTADOS_CIVILES[p.estado_civil as keyof typeof ESTADOS_CIVILES] : null)}
+                  {dato("Grado de instrucción", p.grado_instruccion ? GRADOS_INSTRUCCION[p.grado_instruccion as keyof typeof GRADOS_INSTRUCCION] : null)}
+                  {dato("Seguro", p.seguro ? `${SEGUROS[p.seguro as keyof typeof SEGUROS]}${p.seguro_numero ? ` · N° ${p.seguro_numero}` : ""}` : null)}
+                  {dato("Religión", p.religion)}
+                </>
+              )}
               {dato("Contacto de emergencia", p.contacto_emergencia_nombre &&
                 `${p.contacto_emergencia_nombre}${p.contacto_emergencia_parentesco ? ` (${p.contacto_emergencia_parentesco})` : ""}`)}
               {dato("Celular de emergencia", p.contacto_emergencia_telefono?.slice(2))}
@@ -117,8 +165,53 @@ export default async function FichaPaciente({ params, searchParams }: {
                   {dato("Nombre", `${p.apoderado_nombre}${p.apoderado_parentesco ? ` (${p.apoderado_parentesco})` : ""}`)}
                   {dato("DNI", p.apoderado_dni)}
                   {dato("Celular", p.apoderado_telefono?.slice(2))}
+                  {modulos.etapa3 && p.apoderado_direccion && <div className="sm:col-span-3">{dato("Domicilio", p.apoderado_direccion)}</div>}
                 </dl>
               </>
+            )}
+          </section>
+        )}
+
+        {modulos.etapa2 && !editar && (
+          <section aria-labelledby="titulo-citas" className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
+            <h2 id="titulo-citas" className="text-lg font-semibold">Próximas citas</h2>
+            {(citas ?? []).length === 0 ? (
+              <p className="mt-2 text-sm text-gray-500">No tiene citas agendadas.</p>
+            ) : (
+              <ul className="mt-3 divide-y divide-gray-100">
+                {(citas ?? []).map((c) => (
+                  <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                    <Link href={`/agenda?fecha=${fechaLima(c.inicio)}`} className="font-medium text-teal-800 hover:underline">
+                      {formatearFecha(fechaLima(c.inicio))}, {horaLima(c.inicio)}
+                    </Link>
+                    <span className="text-sm text-gray-600">
+                      {c.usuario?.nombre ?? ""}{c.nota ? ` · ${c.nota}` : ""} · {ESTADOS_CITA[c.estado]}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        )}
+        {modulos.etapa8 && !editar && (
+          <section aria-labelledby="titulo-controles" className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
+            <h2 id="titulo-controles" className="text-lg font-semibold">Controles programados</h2>
+            {(controles ?? []).length === 0 ? (
+              <p className="mt-2 text-sm text-gray-500">No tiene controles pendientes.</p>
+            ) : (
+              <ul className="mt-3 divide-y divide-gray-100 text-sm">
+                {(controles ?? []).map((c) => {
+                  const vencido = c.fecha_programada < fechaLima(new Date());
+                  return (
+                    <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                      <span className="font-medium">{NOMBRE_CONTROL[c.tipo] ?? "Control"}{c.nota ? ` · ${c.nota}` : ""}</span>
+                      <span className={vencido ? "text-red-700" : "text-gray-600"}>
+                        {vencido ? "Vencido: debía ser el " : ""}{formatearFecha(c.fecha_programada)}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
             )}
           </section>
         )}

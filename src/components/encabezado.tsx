@@ -1,21 +1,34 @@
+import { cookies } from "next/headers";
 import Link from "next/link";
 import { cerrarSesion } from "@/app/login/actions";
 import { ControlSesion } from "@/components/control-sesion";
 import { modulos } from "@/lib/funciones";
+import { veGestion } from "@/lib/permisos";
 import { NOMBRE_ROL, type Rol, type Sesion } from "@/lib/sesion";
+import { COOKIE_BLOQUEO } from "@/lib/sesion-segura/inactividad";
 
-type Seccion = "tablero" | "pacientes" | "plantillas" | "configuracion";
+type Seccion = "pacientes" | "agenda" | "clinico" | "laboratorio" | "gestion" | "caja" | "plantillas" | "configuracion";
 
-const SECCIONES: { clave: Seccion; href: string; texto: string; roles?: Rol[]; etapa1?: boolean }[] = [
-  { clave: "tablero", href: "/", texto: "Tablero" },
-  { clave: "pacientes", href: "/pacientes", texto: "Pacientes", etapa1: true },
-  { clave: "plantillas", href: "/plantillas", texto: "Plantillas" },
-  { clave: "configuracion", href: "/configuracion", texto: "Configuración", roles: ["admin"], etapa1: true },
+// La atención del paciente va primero; la gestión es un módulo más.
+const SECCIONES: {
+  clave: Seccion; href: string; texto: string; ve: (rol: Rol) => boolean; etapa1?: boolean; etapa2?: boolean; etapa8?: boolean;
+  etapa10?: boolean;
+}[] = [
+  { clave: "pacientes", href: "/pacientes", texto: "Pacientes", ve: () => true, etapa1: true },
+  { clave: "agenda", href: "/agenda", texto: "Agenda", ve: () => true, etapa2: true },
+  { clave: "clinico", href: "/clinico", texto: "Tablero clínico", ve: (rol) => rol !== "recepcion", etapa8: true },
+  { clave: "laboratorio", href: "/laboratorio", texto: "Laboratorio", ve: (rol) => rol !== "recepcion", etapa10: true },
+  { clave: "gestion", href: "/gestion", texto: "Gestión", ve: veGestion },
+  { clave: "caja", href: "/caja", texto: "Caja", ve: (rol) => rol === "admin" || rol === "recepcion", etapa8: true },
+  { clave: "plantillas", href: "/plantillas", texto: "Plantillas", ve: (rol) => rol === "admin" || rol === "recepcion" },
+  { clave: "configuracion", href: "/configuracion", texto: "Configuración", ve: (rol) => rol === "admin", etapa1: true },
 ];
 
-export function Encabezado({ sesion, seccion = "tablero" }: { sesion: Sesion; seccion?: Seccion }) {
+export async function Encabezado({ sesion, seccion }: { sesion: Sesion; seccion?: Seccion }) {
+  const bloqueado = (await cookies()).get(COOKIE_BLOQUEO)?.value === "1";
   const visibles = SECCIONES.filter(
-    (s) => (!s.etapa1 || modulos.etapa1) && (!s.roles || s.roles.includes(sesion.rol)),
+    (s) => (!s.etapa1 || modulos.etapa1) && (!s.etapa2 || modulos.etapa2) && (!s.etapa8 || modulos.etapa8)
+      && (!s.etapa10 || modulos.etapa10) && s.ve(sesion.rol),
   );
   return (
     <header className="border-b border-gray-200 bg-white">
@@ -43,7 +56,9 @@ export function Encabezado({ sesion, seccion = "tablero" }: { sesion: Sesion; se
           </nav>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {sesion.inactividadMinutos !== null && <ControlSesion minutos={sesion.inactividadMinutos} />}
+          {sesion.inactividadMinutos !== null && (
+            <ControlSesion minutos={sesion.inactividadMinutos} bloqueadoInicial={bloqueado} ahoraServidor={Date.now()} />
+          )}
           <form action={cerrarSesion}>
             <button
               type="submit"

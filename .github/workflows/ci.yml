@@ -52,7 +52,26 @@ jobs:
           export NEXT_PUBLIC_SUPABASE_URL="$API_URL"
           export NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY="${PUBLISHABLE_KEY:-$ANON_KEY}"
           export HABILITAR_ETAPA1=1
+          export HABILITAR_ETAPA2=1
+          export HABILITAR_ETAPA3=1
+          export HABILITAR_ETAPA4=1
+          export HABILITAR_ETAPA5=1
+          export HABILITAR_ETAPA6=1
+          export HABILITAR_ETAPA7=1
+          export HABILITAR_ETAPA8=1
+          export HABILITAR_ETAPA9=1
+          export HABILITAR_ETAPA10=1
+          export HABILITAR_ETAPA11=1
           npm run test:e2e
+      - name: Mostrar qué veía la página en cada prueba fallida
+        if: always()
+        run: |
+          [ -d test-results ] || exit 0
+          find test-results -name error-context.md ! -path '*retry*' | while read -r f; do
+            echo "::group::$f"
+            cat "$f" | head -200
+            echo "::endgroup::"
+          done
       - name: Guardar el reporte si falla
         if: failure()
         uses: actions/upload-artifact@v4

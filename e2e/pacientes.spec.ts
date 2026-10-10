@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { conSupabaseLocal, dniAlAzar, entrar } from "./ayudantes";
+import { conSupabaseLocal, dniAlAzar, entrar, registrarYEsperarFicha } from "./ayudantes";
 
 test.skip(!conSupabaseLocal, "Crea pacientes: solo contra Supabase local");
 
 test("recepción registra un paciente, recibe aviso de duplicado y lo encuentra al buscar", async ({ page }) => {
   await entrar(page, "recepcion@clinica-demo.example");
-  await page.getByRole("link", { name: "Pacientes" }).click();
+  await page.getByRole("link", { name: "Pacientes", exact: true }).click();
   await page.getByRole("link", { name: "Nuevo paciente" }).click();
 
   const dni = dniAlAzar();
@@ -20,7 +20,7 @@ test("recepción registra un paciente, recibe aviso de duplicado y lo encuentra 
   await page.getByLabel("Apellidos").fill(apellidos);
   await page.getByLabel("Fecha de nacimiento").fill("1988-04-12");
   await page.getByLabel("Sexo").selectOption("femenino");
-  await page.getByLabel("Celular", { exact: true }).fill("911 222 333");
+  await page.locator("#campo-telefono").fill("911 222 333");
   await page.getByLabel(/autoriza el tratamiento de sus datos/).check();
   await page.getByRole("button", { name: "Registrar paciente" }).click();
   await expect(page.getByText("Paciente registrado.")).toBeVisible();
@@ -33,10 +33,10 @@ test("recepción registra un paciente, recibe aviso de duplicado y lo encuentra 
   await page.getByLabel("Apellidos").fill("Persona");
   await page.getByLabel("Fecha de nacimiento").fill("1990-01-01");
   await page.getByLabel("Sexo").selectOption("masculino");
-  await page.getByLabel("Celular", { exact: true }).fill("922333444");
+  await page.locator("#campo-telefono").fill("922333444");
   await page.getByLabel(/autoriza el tratamiento de sus datos/).check();
   await page.getByRole("button", { name: "Registrar paciente" }).click();
-  await expect(page.getByText("Ya hay un paciente registrado con este documento.")).toBeVisible();
+  await expect(page.getByText(/Ya hay un paciente registrado con este documento/)).toBeVisible();
 
   // Mismo nombre (sin tildes) y fecha, otro documento: aviso de posible duplicado
   await page.goto("/pacientes/nuevo");
@@ -45,7 +45,7 @@ test("recepción registra un paciente, recibe aviso de duplicado y lo encuentra 
   await page.getByLabel("Apellidos").fill(apellidos.toLowerCase());
   await page.getByLabel("Fecha de nacimiento").fill("1988-04-12");
   await page.getByLabel("Sexo").selectOption("femenino");
-  await page.getByLabel("Celular", { exact: true }).fill("933444555");
+  await page.locator("#campo-telefono").fill("933444555");
   await page.getByLabel(/autoriza el tratamiento de sus datos/).check();
   await page.getByRole("button", { name: "Registrar paciente" }).click();
   await expect(page.getByText("Posible paciente duplicado")).toBeVisible();
@@ -71,14 +71,15 @@ test("un menor exige apoderado y la edición guarda la filiación", async ({ pag
   await page.getByLabel(/autoriza el tratamiento de sus datos/).check();
   await page.getByRole("button", { name: "Registrar paciente" }).click();
   await expect(page.getByText("Es menor de edad: ingresa el nombre del apoderado.")).toBeVisible();
+  // Tras un error del servidor, lo elegido se conserva (no hay que volver a elegirlo).
+  await expect(page.getByLabel("Sexo")).toHaveValue("masculino");
+  await expect(page.getByLabel(/autoriza el tratamiento de sus datos/)).toBeChecked();
 
   await page.getByLabel("Nombre completo").fill("Carmen Ruiz Vega");
-  await page.getByLabel("DNI", { exact: true }).fill("10000099");
-  await page.getByLabel("Celular", { exact: true }).last().fill("944555666");
-  await page.getByLabel("Parentesco", { exact: true }).last().fill("madre");
-  await page.getByLabel(/autoriza el tratamiento de sus datos/).check();
-  await page.getByRole("button", { name: "Registrar paciente" }).click();
-  await expect(page.getByText("Paciente registrado.")).toBeVisible();
+  await page.locator("#campo-apoderado_dni").fill("10000099");
+  await page.locator("#campo-apoderado_telefono").fill("944555666");
+  await page.locator("#campo-apoderado_parentesco").fill("madre");
+  await registrarYEsperarFicha(page);
   await expect(page.getByText("Carmen Ruiz Vega (madre)")).toBeVisible();
 
   await page.getByRole("link", { name: "Editar filiación" }).click();
@@ -98,11 +99,9 @@ test("admin fusiona un registro duplicado y el duplicado queda anulado, no borra
     await page.getByLabel("Apellidos").fill(apellidos);
     await page.getByLabel("Fecha de nacimiento").fill("1970-07-07");
     await page.getByLabel("Sexo").selectOption("femenino");
-    await page.getByLabel("Celular", { exact: true }).fill("955666777");
+    await page.locator("#campo-telefono").fill("955666777");
     await page.getByLabel(/autoriza el tratamiento de sus datos/).check();
-    await page.getByRole("button", { name: "Registrar paciente" }).click();
-    if (confirmar) await page.getByRole("button", { name: /crear de todas formas/ }).click();
-    await expect(page.getByText("Paciente registrado.")).toBeVisible();
+    await registrarYEsperarFicha(page, confirmar);
     return page.url().split("/pacientes/")[1]?.split("?")[0] ?? "";
   };
   const conservar = await crear(dniAlAzar(), false);
@@ -113,7 +112,7 @@ test("admin fusiona un registro duplicado y el duplicado queda anulado, no borra
   await page.locator(`input[name="duplicado"][value="${duplicado}"]`).check();
   await page.getByRole("button", { name: "Fusionar registros" }).click();
   await expect(page.getByText(/Escribe el motivo/)).toBeVisible();
-  await page.locator(`input[name="duplicado"][value="${duplicado}"]`).check();
+  await expect(page.locator(`input[name="duplicado"][value="${duplicado}"]`)).toBeChecked();
   await page.getByLabel(/Motivo/).fill("Se registró dos veces en recepción");
   await page.getByRole("button", { name: "Fusionar registros" }).click();
   await expect(page.getByText("Registros fusionados. El duplicado quedó anulado.")).toBeVisible();
@@ -126,7 +125,8 @@ test("admin fusiona un registro duplicado y el duplicado queda anulado, no borra
 test("recepción no ve la opción de fusionar", async ({ page }) => {
   await entrar(page, "recepcion@clinica-demo.example");
   await page.goto("/pacientes");
-  await page.getByRole("link").filter({ hasText: /, / }).first().click();
+  // No uno de la prueba de fusión (corre en paralelo y anula su duplicado).
+  await page.getByRole("link").filter({ hasText: /, / }).filter({ hasNotText: "Fusion" }).first().click();
   await expect(page.getByRole("link", { name: "Editar filiación" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Fusionar duplicado" })).toHaveCount(0);
 });

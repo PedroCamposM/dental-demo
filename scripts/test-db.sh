@@ -27,9 +27,15 @@ for f in supabase/tests/*.test.sql; do  # _ayudantes.sql se incluye desde cada t
   psql_ -o /dev/null -f "$f"
 done
 echo "seed: supabase/seed.sql"
-psql_ -o /dev/null -f supabase/seed.sql
-psql_ -o /dev/null -f supabase/seed_etapa1.sql
-psql_ -o /dev/null -f supabase/seed_etapa1.sql   # idempotente: la segunda vez no cambia nada
+# Como `supabase db reset`: todos los seeds de config.toml en UNA sesión (las
+# funciones y tablas pg_temp de un seed siguen existiendo en el siguiente).
+cat supabase/seed.sql supabase/seed_etapa1.sql supabase/seed_etapa2.sql supabase/seed_etapa3.sql \
+    supabase/seed_etapa4.sql supabase/seed_etapa5.sql supabase/seed_etapa7.sql supabase/seed_etapa10.sql supabase/seed_etapa12.sql | psql_ -o /dev/null
+# Idempotentes: cada uno, otra vez y por separado (como se cargan en el remoto).
+for f in supabase/seed_etapa1.sql supabase/seed_etapa2.sql supabase/seed_etapa3.sql supabase/seed_etapa4.sql \
+         supabase/seed_etapa5.sql supabase/seed_etapa7.sql supabase/seed_etapa10.sql supabase/seed_etapa12.sql; do
+  psql_ -o /dev/null -f "$f"
+done
 psql_ -o /dev/null -f supabase/tests/seed.check.sql
 echo "seed: verificaciones OK"
 for f in supabase/verificaciones/2*.sql; do
@@ -37,4 +43,28 @@ for f in supabase/verificaciones/2*.sql; do
   echo "verificación: $(basename "$f")"
   psql_ -o /dev/null -f "$f"
 done
+
+# Migración de datos sobre datos: en otra base, se aplican las migraciones hasta la
+# anterior a la última, se carga el seed de esas etapas y recién entonces la última
+# migración y su verificación (así el relleno toca filas, como en el remoto).
+ULTIMA="$(ls supabase/migrations/*.sql | tail -1)"
+echo "migración de datos sobre el seed: $(basename "$ULTIMA")"
+psql_ -c "create database datos" >/dev/null
+psqld() { "$PGBIN/psql" -h "$TMP" -p "$PORT" -U postgres -d datos -X -q -v ON_ERROR_STOP=1 "$@"; }
+psqld -o /dev/null -f supabase/tests/00_stub_supabase.sql
+for f in supabase/migrations/*.sql; do
+  [ "$f" = "$ULTIMA" ] && continue
+  psqld -o /dev/null -1 -f "$f"
+done
+# Seeds de las etapas anteriores a la última migración (los de la última van después).
+SEEDS_PREVIOS="supabase/seed.sql supabase/seed_etapa1.sql supabase/seed_etapa2.sql supabase/seed_etapa3.sql
+               supabase/seed_etapa4.sql supabase/seed_etapa5.sql supabase/seed_etapa7.sql supabase/seed_etapa10.sql
+               supabase/seed_etapa12.sql"
+SEEDS_ULTIMA=""
+# shellcheck disable=SC2086
+cat $SEEDS_PREVIOS | psqld -o /dev/null
+psqld -o /dev/null -1 -f "$ULTIMA"
+for f in supabase/verificaciones/2*.sql; do psqld -o /dev/null -f "$f"; done
+for f in $SEEDS_ULTIMA; do psqld -o /dev/null -f "$f"; done
+psqld -o /dev/null -f supabase/tests/seed.check.sql
 echo "OK"

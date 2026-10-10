@@ -103,4 +103,98 @@ select pg_temp.al_menos((select count(*) from v_item_cobro, pg_temp.c
                          where clinica_id = c.id and estado <> 'realizado' and cobrado_centimos > 0), 3,
                         'adelantos (cobrado sin realizar)');
 
+-- Etapa 2: catálogo de procedimientos coherente con los planes del seed
+select pg_temp.al_menos((select count(*) from procedimiento, pg_temp.c where clinica_id = c.id and activo), 20,
+                        'procedimientos activos en el catálogo');
+select pg_temp.ninguno((select count(*) from (select distinct i.procedimiento, i.precio_centimos
+                                              from item_plan i, pg_temp.c where i.clinica_id = c.id) u
+                        where not exists (select 1 from procedimiento p
+                                          where p.nombre = u.procedimiento and p.precio_base_centimos = u.precio_centimos)),
+                       'procedimientos de los planes que no están en el catálogo con su precio');
+
+select pg_temp.ninguno((select count(*) - 18 from horario_profesional, pg_temp.c where clinica_id = c.id and activo),
+                       'horarios distintos de 3 profesionales × 6 días');
+select pg_temp.ninguno((select count(*) from cita, pg_temp.c
+                        where clinica_id = c.id and estado in ('programada', 'confirmada') and inicio > now()
+                          and sillon_id is null), 'citas futuras sin sillón');
+
+select pg_temp.ninguno((select count(*) from cita a join cita b on b.clinica_id = a.clinica_id and b.id > a.id, pg_temp.c
+                        where a.clinica_id = c.id and a.inicio > now()
+                          and a.estado in ('programada', 'confirmada') and b.estado in ('programada', 'confirmada')
+                          and (a.odontologo_id = b.odontologo_id or a.sillon_id = b.sillon_id or a.paciente_id = b.paciente_id)
+                          and tstzrange(a.inicio, a.fin) && tstzrange(b.inicio, b.fin)),
+                       'citas futuras superpuestas (profesional, sillón o paciente)');
+
+-- Etapa 3: historia clínica coherente con los casos del guion
+select pg_temp.ninguno((select count(*) from paciente p, pg_temp.c
+                        where p.clinica_id = c.id and p.anulado_at is null
+                          and not exists (select 1 from cuestionario_salud q where q.paciente_id = p.id)),
+                       'pacientes sin historia clínica');
+select pg_temp.al_menos((select count(distinct paciente_id) from cuestionario_salud, pg_temp.c
+                         where clinica_id = c.id and 'Penicilina' = any (alergias)), 3, 'pacientes alérgicos a la penicilina');
+select pg_temp.al_menos((select count(distinct paciente_id) from cuestionario_salud, pg_temp.c
+                         where clinica_id = c.id and anticoagulado), 2, 'pacientes anticoagulados');
+select pg_temp.al_menos((select count(distinct paciente_id) from cuestionario_salud, pg_temp.c
+                         where clinica_id = c.id and embarazo = 'si'), 1, 'gestantes');
+select pg_temp.al_menos((select count(*) from cuestionario_salud, pg_temp.c where clinica_id = c.id and version = 2), 3,
+                        'historias con más de una versión');
+select pg_temp.al_menos((select count(*) from signos_vitales, pg_temp.c where clinica_id = c.id), 30, 'signos vitales');
+select pg_temp.ninguno((select count(*) from cuestionario_salud, pg_temp.c
+                        where clinica_id = c.id and embarazo = 'si' and registrado_at < now() - interval '30 days'),
+                       'embarazos registrados hace más de un mes (alerta desactualizada)');
+select pg_temp.ninguno((select count(*) from cuestionario_salud q join usuario u on u.id = q.registrado_por, pg_temp.c
+                        where q.clinica_id = c.id and (u.rol = 'recepcion' or (u.rol in ('admin', 'odontologo') and u.cop is null))),
+                       'historias registradas por quien no es del equipo clínico');
+select pg_temp.ninguno((select count(*) from cuestionario_salud q join paciente p on p.id = q.paciente_id
+                        where q.embarazo = 'si' and (p.sexo <> 'femenino'
+                              or extract(year from age(p.fecha_nacimiento)) not between 15 and 50)),
+                       'embarazos incoherentes con sexo o edad');
+select pg_temp.al_menos((select count(*) from paciente p, pg_temp.c where p.clinica_id = c.id and p.grupo_sanguineo is not null),
+                        30, 'pacientes con filiación NTS 139 (grupo sanguíneo)');
+select pg_temp.al_menos((select count(*) from cuestionario_salud, pg_temp.c
+                         where clinica_id = c.id and antecedentes_familiares is not null), 10, 'historias con antecedentes familiares');
+select pg_temp.al_menos((select count(*) from examen_clinico, pg_temp.c where clinica_id = c.id), 100, 'exámenes clínicos');
+select pg_temp.al_menos((select count(*) from diagnostico, pg_temp.c where clinica_id = c.id and tipo = 'definitivo'), 100,
+                        'diagnósticos definitivos');
+select pg_temp.al_menos((select count(*) from diagnostico, pg_temp.c where clinica_id = c.id and tipo = 'presuntivo'), 3,
+                        'diagnósticos presuntivos');
+select pg_temp.ninguno((select count(*) from odontograma, pg_temp.c where clinica_id = c.id and denticion is null),
+                       'odontogramas sin dentición');
+
+
+-- Etapa 7: plantillas de consentimiento de ejemplo, enlazadas al catálogo
+select pg_temp.al_menos((select count(*) from plantilla_consentimiento, pg_temp.c
+                         where clinica_id = c.id and es_ejemplo and tipo = 'procedimiento'), 6, 'plantillas de consentimiento');
+select pg_temp.al_menos((select count(*) from plantilla_consentimiento, pg_temp.c
+                         where clinica_id = c.id and tipo = 'uso_imagen'), 1, 'plantilla de uso de imagen');
+select pg_temp.al_menos((select count(*) from procedimiento, pg_temp.c
+                         where clinica_id = c.id and requiere_consentimiento and consentimiento_plantilla_id is not null), 8,
+                        'procedimientos con su plantilla de consentimiento');
+
+-- Etapa 10: laboratorios y un trabajo atrasado
+select pg_temp.al_menos((select count(*) from laboratorio, pg_temp.c where clinica_id = c.id and activo), 2, 'laboratorios');
+select pg_temp.al_menos((select count(*) from orden_laboratorio, pg_temp.c where clinica_id = c.id and estado = 'en_laboratorio'
+                         and fecha_entrega_prevista < (now() at time zone 'America/Lima')::date), 1, 'trabajo de laboratorio atrasado');
+
+-- Etapa 12: historia clínica coherente para la demo
+select pg_temp.al_menos((select count(distinct item_plan_id) from endodoncia_conducto, pg_temp.c where clinica_id = c.id), 5,
+                        'endodoncias con sus conductos');
+select pg_temp.al_menos((select count(*) from endodoncia_conducto e join item_plan i on i.id = e.item_plan_id
+                           join item_plan cor on cor.plan_id = i.plan_id and cor.procedimiento ilike 'Corona%', pg_temp.c
+                         where e.clinica_id = c.id), 3, 'endodoncias seguidas de coronas');
+select pg_temp.al_menos((select count(distinct item_plan_id) from ortodoncia_control, pg_temp.c where clinica_id = c.id), 5,
+                        'ortodoncias con controles');
+select pg_temp.al_menos((select min(n) from (select count(*) n from ortodoncia_control, pg_temp.c where clinica_id = c.id
+                                             group by item_plan_id) x), 4, 'controles mensuales por ortodoncia');
+select pg_temp.al_menos((select count(*) from implante_fase f, pg_temp.c where f.clinica_id = c.id and f.fase = 'protesica'
+                           and f.anulado_at is null), 1, 'implante en fase protésica');
+select pg_temp.al_menos((select count(*) from seguimiento s join cirugia_registro r on r.item_plan_id = s.item_plan_id, pg_temp.c
+                         where s.clinica_id = c.id and s.tipo = 'retiro_puntos' and s.resultado = 'pendiente'), 1,
+                        'cirugía con retiro de puntos pendiente');
+select pg_temp.al_menos((select count(distinct paciente_id) from odontopediatria_registro, pg_temp.c
+                         where clinica_id = c.id and apoderado_presente), 3, 'niños con apoderado presente');
+select pg_temp.al_menos((select count(*) from (select paciente_id from periodontograma, pg_temp.c
+                         where clinica_id = c.id and firmado_at is not null group by paciente_id having count(*) >= 2) x), 1,
+                        'periodontogramas para comparar');
+
 select 'seed: todas las verificaciones pasaron' as resultado;

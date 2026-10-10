@@ -12,6 +12,8 @@ export const metadata: Metadata = { title: "Plantillas de mensajes – Dental De
 export default async function Plantillas() {
   const sesion = await obtenerSesion();
   if (!sesion) redirect("/");
+  // Las plantillas las editan administración y recepción (RLS, migración 0902).
+  if (sesion.rol !== "admin" && sesion.rol !== "recepcion") redirect("/");
 
   const supabase = await createClient();
   const { data, error } = await supabase

@@ -1,7 +1,9 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { esRutaPublica } from "@/lib/auth/rutas";
-import { COOKIE_ACTIVIDAD, COOKIE_LIMITE, estadoInactividad, minutosValidos } from "@/lib/sesion-segura/inactividad";
+import {
+  COOKIE_ACTIVIDAD, COOKIE_LIMITE, DURACION_COOKIE_S, estadoInactividad, minutosValidos,
+} from "@/lib/sesion-segura/inactividad";
 
 // Refresca la sesión de Supabase en cada request, propaga las cookies y
 // manda al login a quien no tiene sesión.
@@ -35,19 +37,23 @@ export async function updateSession(request: NextRequest) {
 
   const ruta = request.nextUrl.pathname;
 
-  // Inactividad también al volver a una pestaña cerrada: el navegador actualiza
-  // la cookie de última actividad mientras se usa la app.
+  // Inactividad también al volver a una pestaña o navegador cerrado: la cookie de
+  // última actividad la renuevan el servidor (en cada pedido) y el navegador (al
+  // escribir o tocar), y dura un día. Sesión de Supabase sin esa cookie = sesión
+  // abandonada (navegador cerrado hace más de un día o sesión anterior a este control).
   if (user && process.env.HABILITAR_ETAPA1 === "1") {
     const ultima = Number(request.cookies.get(COOKIE_ACTIVIDAD)?.value ?? 0);
     const minutos = minutosValidos(request.cookies.get(COOKIE_LIMITE)?.value) ?? 15;
-    if (ultima > 0 && estadoInactividad(ultima, Date.now(), minutos).tipo === "expirada") {
+    if (!(ultima > 0) || estadoInactividad(ultima, Date.now(), minutos).tipo === "expirada") {
       await supabase.auth.signOut({ scope: "local" });
       const salida = redirigir(request, response, "/login");
       salida.headers.set("location", new URL("/login?motivo=inactividad", request.url).toString());
       salida.cookies.delete(COOKIE_ACTIVIDAD);
       return salida;
     }
-    response.cookies.set(COOKIE_ACTIVIDAD, String(Date.now()), { path: "/", sameSite: "lax" });
+    response.cookies.set(COOKIE_ACTIVIDAD, String(Math.max(ultima, Date.now())), {
+      path: "/", sameSite: "lax", maxAge: DURACION_COOKIE_S,
+    });
   }
 
   if (!user && !esRutaPublica(ruta)) {

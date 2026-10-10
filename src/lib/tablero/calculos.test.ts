@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  agruparAlternativas,
   calcularTablero,
+  resumenDelMes,
   type CitaFila,
   type CuotaFila,
   type DatosTablero,
@@ -71,7 +73,32 @@ describe("presentado vs. aceptado del mes", () => {
       pacientes: [p], planes: [a, b], items: [item(a.id, 530000), item(b.id, 330000)],
     }), AHORA);
     expect(t.mes.lista).toHaveLength(1);
-    expect(t.mes.lista[0]).toMatchObject({ titulo: "Prótesis fija", estado: "aceptado" });
+    expect(t.mes.lista[0]).toMatchObject({ titulo: "Prótesis fija", estado: "aceptado", centimos: 330000 });
+  });
+
+  it("el resumen del mes cuenta solo lo presentado este mes y cuánto de eso se aceptó", () => {
+    const p = paciente();
+    const q = paciente();
+    const r = paciente();
+    const abierto = plan(p.id);
+    const aceptadoMes = plan(q.id, { estado: "en_curso", aceptado_at: "2026-10-05T15:00:00Z" });
+    // Presentado el mes pasado y aceptado este mes: no entra (no fue presentado este mes)
+    const anterior = plan(r.id, {
+      presentado_at: "2026-09-20T15:00:00Z", aceptado_at: "2026-10-03T15:00:00Z", estado: "aceptado",
+    });
+    const t = calcularTablero(datos({
+      pacientes: [p, q, r], planes: [abierto, aceptadoMes, anterior],
+      items: [item(abierto.id, 60000), item(aceptadoMes.id, 40000), item(anterior.id, 90000)],
+    }), AHORA);
+    expect(resumenDelMes(t.mes.lista)).toEqual({
+      presentados: 2, aceptados: 1, centimosPresentado: 100000, centimosAceptado: 40000, proporcion: 0.4,
+    });
+  });
+
+  it("el resumen de un mes sin presupuestos no tiene proporción", () => {
+    expect(resumenDelMes([])).toEqual({
+      presentados: 0, aceptados: 0, centimosPresentado: 0, centimosAceptado: 0, proporcion: null,
+    });
   });
 
   it("las alternativas A y B cuentan una sola vez, por la de mayor valor", () => {
@@ -208,6 +235,58 @@ describe("controles vencidos", () => {
   });
 });
 
+describe("controles clínicos (Etapa 8)", () => {
+  it("cuentan como controles vencidos, con su motivo", () => {
+    const p = paciente();
+    const t = calcularTablero(datos({
+      pacientes: [p],
+      seguimientos: [{ ...control(p.id, "2026-10-01"), tipo: "retiro_puntos" }],
+    }), AHORA);
+    expect(t.controlesVencidos.lista[0]).toMatchObject({ pacienteId: p.id, motivo: "Retiro de puntos" });
+  });
+
+  it("una cita futura no cubre el retiro de puntos vencido; sí cubre el control común", () => {
+    const p = paciente();
+    const t = calcularTablero(datos({
+      pacientes: [p],
+      citas: [cita(p.id, "2026-10-15T15:00:00Z", "programada")],
+      seguimientos: [control(p.id, "2026-04-01"), { ...control(p.id, "2026-10-05"), tipo: "retiro_puntos" }],
+    }), AHORA);
+    expect(t.controlesVencidos.cantidad).toBe(1);
+    expect(t.controlesVencidos.lista[0]).toMatchObject({ pacienteId: p.id, motivo: "Retiro de puntos", fecha: "2026-10-05" });
+  });
+
+  it("con varios controles vencidos, la fila del paciente es el retiro de puntos aunque haya uno más antiguo", () => {
+    const p = paciente();
+    const t = calcularTablero(datos({
+      pacientes: [p],
+      seguimientos: [{ ...control(p.id, "2026-10-05"), tipo: "retiro_puntos" }, control(p.id, "2026-04-01")],
+    }), AHORA);
+    expect(t.controlesVencidos.lista).toHaveLength(1);
+    expect(t.controlesVencidos.lista[0]).toMatchObject({ motivo: "Retiro de puntos" });
+  });
+
+  it("el retiro de puntos queda cubierto si el paciente fue atendido en o después de su fecha", () => {
+    const p = paciente();
+    const t = calcularTablero(datos({
+      pacientes: [p],
+      citas: [cita(p.id, "2026-10-06T15:00:00Z", "atendida")],
+      seguimientos: [{ ...control(p.id, "2026-10-05"), tipo: "retiro_puntos" }],
+    }), AHORA);
+    expect(t.controlesVencidos.cantidad).toBe(0);
+  });
+
+  it("un control queda cubierto si el paciente fue atendido en o después de su fecha", () => {
+    const [a, b] = [paciente(), paciente()];
+    const t = calcularTablero(datos({
+      pacientes: [a, b],
+      citas: [cita(a.id, "2026-10-03T15:00:00Z", "atendida"), cita(b.id, "2026-09-20T15:00:00Z", "atendida")],
+      seguimientos: [control(a.id, "2026-10-01"), control(b.id, "2026-10-01")],
+    }), AHORA);
+    expect(t.controlesVencidos.lista.map((x) => x.pacienteId)).toEqual([b.id]);
+  });
+});
+
 describe("no-show del mes", () => {
   it("cuenta las inasistencias del mes sobre las citas ya ocurridas", () => {
     const p = paciente();
@@ -251,5 +330,24 @@ describe("total en riesgo", () => {
     expect(t.cuotasVencidas.centimos).toBe(35000);
     // 100000 abierto + 480000 detenido + 15000 de la cuota del plan al día
     expect(t.enRiesgo).toBe(595000);
+  });
+});
+
+describe("Etapa 5: versiones y alternativas", () => {
+  it("con grupo_id, agrupa por grupo aunque se presenten en días distintos", () => {
+    const planes = [
+      { paciente_id: "p", presentado_at: "2026-10-01T15:00:00Z", grupo_id: "g1" },
+      { paciente_id: "p", presentado_at: "2026-10-05T15:00:00Z", grupo_id: "g1" },
+      { paciente_id: "p", presentado_at: "2026-10-05T16:00:00Z", grupo_id: "g2" },
+    ];
+    expect(agruparAlternativas(planes).map((g) => g.length).sort()).toEqual([1, 2]);
+  });
+
+  it("sin grupo_id (antes de la Etapa 5), por paciente y día", () => {
+    const planes = [
+      { paciente_id: "p", presentado_at: "2026-10-01T15:00:00Z" },
+      { paciente_id: "p", presentado_at: "2026-10-01T18:00:00Z" },
+    ];
+    expect(agruparAlternativas(planes)).toHaveLength(1);
   });
 });

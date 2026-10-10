@@ -15,7 +15,7 @@ export default async function PaginaLogin({
       <div className="w-full max-w-sm rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
         <h1 className="text-2xl font-semibold">Dental Demo</h1>
         <p className="mb-6 mt-1 text-sm text-gray-600">
-          Mira cuánta plata tienes en riesgo y a quién llamar hoy.
+          Historia clínica, tratamientos y seguimiento de tus pacientes.
         </p>
         {motivo === "inactividad" && (
           <p role="status" className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
