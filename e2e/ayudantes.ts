@@ -71,3 +71,5 @@ export const conEtapa8 = conEtapa7 && process.env.HABILITAR_ETAPA8 === "1";
 export const conEtapa9 = conEtapa8 && process.env.HABILITAR_ETAPA9 === "1";
 /** Laboratorio (CI con HABILITAR_ETAPA10=1). */
 export const conEtapa10 = conEtapa9 && process.env.HABILITAR_ETAPA10 === "1";
+/** Exportar la historia clínica (CI con HABILITAR_ETAPA11=1). */
+export const conEtapa11 = conEtapa10 && process.env.HABILITAR_ETAPA11 === "1";

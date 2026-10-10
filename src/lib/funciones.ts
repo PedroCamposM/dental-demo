@@ -75,4 +75,15 @@ export const modulos = {
     && process.env.HABILITAR_ETAPA7 === "1" && process.env.HABILITAR_ETAPA8 === "1"
     && process.env.HABILITAR_ETAPA9 === "1"
     && process.env.HABILITAR_ETAPA10 === "1",
+  /**
+   * Etapa 11: exportar la historia clínica completa (con motivo, en la auditoría).
+   * Requiere las migraciones 0922 en adelante (y las etapas 1 a 10).
+   */
+  etapa11: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA2 === "1"
+    && process.env.HABILITAR_ETAPA3 === "1" && process.env.HABILITAR_ETAPA4 === "1"
+    && process.env.HABILITAR_ETAPA5 === "1" && process.env.HABILITAR_ETAPA6 === "1"
+    && process.env.HABILITAR_ETAPA7 === "1" && process.env.HABILITAR_ETAPA8 === "1"
+    && process.env.HABILITAR_ETAPA9 === "1"
+    && process.env.HABILITAR_ETAPA10 === "1"
+    && process.env.HABILITAR_ETAPA11 === "1",
 };

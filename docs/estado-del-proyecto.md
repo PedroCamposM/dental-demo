@@ -478,6 +478,19 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   previo): 0921 aplicada; `seed_etapa10.sql` cargado por la API. Comprobado: 2
   laboratorios, 3 órdenes, 1 atrasada. Falta `HABILITAR_ETAPA10=1` en Vercel.
 
+## v2 — Etapa 11 (exportar la historia clínica): en cierre
+
+- **0922** `exportacion_historia`: cada exportación con quién, cuándo y motivo, por
+  `registrar_exportacion()` (solo el cirujano dentista), que también la escribe en la
+  auditoría (acción «exportar»). No se edita ni se borra; la fusión la mueve.
+- Pantallas (`HABILITAR_ETAPA11`): «Exportar historia clínica» en la ficha; pide el motivo
+  y abre el documento A4 (imprimir o guardar como PDF desde el navegador, como recetas y
+  consentimientos): filiación, historia y versiones, odontogramas con su dibujo,
+  diagnósticos con adendas, planes, evoluciones firmadas con adendas, consentimientos y
+  recetas; lo anulado se muestra marcado. El documento solo se abre desde una exportación
+  propia de las últimas 2 horas (no se puede saltar el motivo).
+- Checklist: `docs/checklist-etapa11.md`.
+
 ## Remoto al 2026-10-10
 
 - Pedro autorizó («Hazlo»). «Aplicar migraciones» run 38013481738 (respaldo cifrado
