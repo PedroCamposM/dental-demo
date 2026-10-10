@@ -125,7 +125,8 @@ test("admin fusiona un registro duplicado y el duplicado queda anulado, no borra
 test("recepción no ve la opción de fusionar", async ({ page }) => {
   await entrar(page, "recepcion@clinica-demo.example");
   await page.goto("/pacientes");
-  await page.getByRole("link").filter({ hasText: /, / }).first().click();
+  // No uno de la prueba de fusión (corre en paralelo y anula su duplicado).
+  await page.getByRole("link").filter({ hasText: /, / }).filter({ hasNotText: "Fusion" }).first().click();
   await expect(page.getByRole("link", { name: "Editar filiación" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Fusionar duplicado" })).toHaveCount(0);
 });
