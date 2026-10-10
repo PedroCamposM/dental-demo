@@ -478,7 +478,7 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   previo): 0921 aplicada; `seed_etapa10.sql` cargado por la API. Comprobado: 2
   laboratorios, 3 órdenes, 1 atrasada. Falta `HABILITAR_ETAPA10=1` en Vercel.
 
-## v2 — Etapa 11 (exportar la historia clínica): en cierre
+## v2 — Etapa 11 (exportar la historia clínica): aplicada en el remoto
 
 - **0922** `exportacion_historia`: cada exportación con quién, cuándo y motivo, por
   `registrar_exportacion()` (solo el cirujano dentista), que también la escribe en la
@@ -490,6 +490,12 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   recetas; lo anulado se muestra marcado. El documento solo se abre desde una exportación
   propia de las últimas 2 horas (no se puede saltar el motivo).
 - Checklist: `docs/checklist-etapa11.md`.
+- En CI apareció una carrera en un e2e antiguo (recepción abría el duplicado que la prueba
+  de fusión anulaba en paralelo); corregida.
+- Remoto: CI verde (run 38081184700) y «Aplicar migraciones» run 38081664279 (respaldo
+  previo): 0922 aplicada; tabla con RLS y función presentes. Falta `HABILITAR_ETAPA11=1`
+  en Vercel. **Pendiente:** revisión independiente de las etapas 10 y 11 (límite semanal
+  del agente revisor, se restablece el 13-oct).
 
 ## Remoto al 2026-10-10
 
