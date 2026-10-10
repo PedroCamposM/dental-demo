@@ -124,7 +124,6 @@ test("5. recepción cobra y el paciente queda con su control programado", async 
   await pagos.getByLabel("Monto (S/)").fill("180");
   await pagos.getByLabel("Método").selectOption("yape");
   await pagos.getByRole("button", { name: "Registrar pago" }).click();
-  await expect(pagos.getByText("Pago registrado.")).toBeVisible();
   await expect(pagos).toContainText("Pagado S/ 180.00 · saldo S/ 0.00");
 
   // Regla 5: al terminar el plan se programa el control

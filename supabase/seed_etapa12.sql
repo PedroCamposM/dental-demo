@@ -129,9 +129,11 @@ begin
   -- 4. Ortodoncias: diagnóstico y controles mensuales en los primeros 6 tratamientos en curso.
   if not exists (select 1 from public.ortodoncia_control where clinica_id = c) then
     alter table public.evolucion_item disable trigger validar;
+    -- Orden estable (por paciente, no por uuid): los mismos casos en local, CI y remoto.
     for r in select i.id, p.paciente_id from public.item_plan i join public.plan_tratamiento p on p.id = i.plan_id
+               join public.paciente pa on pa.id = p.paciente_id
               where i.clinica_id = c and i.procedimiento ilike 'Ortodoncia fija%' and i.estado = 'aceptado' and p.estado = 'en_curso'
-              order by i.id limit 6 loop
+              order by pa.apellidos, pa.nombres, pa.fecha_nacimiento, i.pieza nulls first limit 6 loop
       v_caso_nota := null;
       for k in reverse 5..1 loop
         v_dia := v_hoy - 30 * k + (pg_temp.h(r.id::text) % 5);
@@ -182,12 +184,11 @@ begin
   -- 6. Periodontogramas: dos por paciente (hace 6 meses y hace 1) en dos pacientes, con mejoría.
   if not exists (select 1 from public.periodontograma where clinica_id = c) then
     perform set_config('dental.proceso', 'on', true);
-    for r in select distinct on (p.paciente_id) p.paciente_id
-               from public.item_plan i join public.plan_tratamiento p on p.id = i.plan_id
-               join public.paciente pa on pa.id = p.paciente_id
-              where i.clinica_id = c and i.procedimiento ilike 'Profilaxis%' and i.estado = 'realizado'
-                and pa.fecha_nacimiento < v_hoy - interval '30 years' and pa.anulado_at is null
-              order by p.paciente_id limit 2 loop
+    for r in select pa.id as paciente_id from public.paciente pa
+              where pa.clinica_id = c and pa.anulado_at is null and pa.fecha_nacimiento < v_hoy - interval '30 years'
+                and exists (select 1 from public.item_plan i join public.plan_tratamiento p on p.id = i.plan_id
+                             where p.paciente_id = pa.id and i.procedimiento ilike 'Profilaxis%' and i.estado = 'realizado')
+              order by pa.apellidos, pa.nombres, pa.fecha_nacimiento limit 2 loop
       foreach k in array array[180, 30] loop
         insert into public.periodontograma (clinica_id, paciente_id, odontologo_id, registrado_por, fecha, observaciones,
                                             mantenimiento_meses)

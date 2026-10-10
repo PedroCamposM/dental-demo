@@ -44,12 +44,12 @@ Paciente nuevo, registrado por la recepción.
 |---|---|---|
 | Paciente anticoagulado | Banner de alertas | Jimena Horna Cerna (warfarina) |
 | Endodoncias seguidas de coronas | Plan y Especialidades → Endodoncia (conductos) | Tratamientos en curso del Tablero clínico |
-| Ortodoncia con controles mensuales | Especialidades → Ortodoncia: «Controles (5)» | Mateo Otiniano Paredes |
+| Ortodoncia con controles mensuales | Especialidades → Ortodoncia: «Controles (5)» | Camila Cruz Ruiz |
 | Implante en fase protésica | Especialidades → Implantes | Diana Lescano Torres |
 | Niño con apoderado | Filiación → Apoderado; Especialidades → Odontopediatría (conducta Frankl) | Víctor Ramírez Burgos |
 | Cirugía con retiro de puntos pendiente | Tablero clínico → Controles vencidos: «Retiro de puntos» | Ricardo Benites Neyra |
-| Trabajo de laboratorio atrasado | Tablero clínico → Trabajos de laboratorio; menú Laboratorio | Ana Castillo Neyra (corona de zirconio) |
-| Periodontograma con comparación | Periodontograma → Comparar fechas | Lucía Lescano Silva |
+| Trabajo de laboratorio atrasado | Tablero clínico → Trabajos de laboratorio; menú Laboratorio | La corona de zirconio marcada «Atrasado» |
+| Periodontograma con comparación | Periodontograma → Comparar fechas | Mariela Alvarado Rodríguez |
 
 **Tablero clínico**: tratamientos en curso, evoluciones sin firmar, consentimientos pendientes, controles vencidos, tratamientos detenidos y laboratorio por llegar. Cada fila lleva al paciente.
 

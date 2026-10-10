@@ -31,7 +31,6 @@ test("tablero clínico: controles vencidos (retiro de puntos) y laboratorio atra
   await expect(page.getByRole("region", { name: "Controles vencidos" })).toContainText("Retiro de puntos");
   await expect(page.getByRole("region", { name: "Controles vencidos" })).toContainText("Benites Neyra");
   const lab = page.getByRole("region", { name: "Trabajos de laboratorio por llegar" });
-  await expect(lab).toContainText("Castillo Neyra");
   await expect(lab).toContainText("Atrasado");
   for (const titulo of ["Tratamientos en curso", "Tratamientos detenidos", "Evoluciones sin firmar", "Consentimientos pendientes"]) {
     await expect(page.getByRole("region", { name: titulo })).toBeVisible();
@@ -47,7 +46,7 @@ test("especialidades: implante en fase protésica y ortodoncia con controles men
   await page.goto(`/pacientes/${implante}/especialidades`);
   await expect(page.getByRole("region", { name: "Implantes" })).toContainText("Fase protésica");
 
-  const orto = await abrirPaciente(page, "Otiniano Paredes", "Mateo");
+  const orto = await abrirPaciente(page, "Cruz Ruiz", "Camila");
   await page.goto(`/pacientes/${orto}/especialidades`);
   await expect(page.getByRole("region", { name: "Ortodoncia" })).toContainText("Controles (5)");
 });
@@ -62,7 +61,7 @@ test("niño con apoderado y registro de odontopediatría", async ({ page }) => {
 
 test("periodontograma: comparación entre dos fechas", async ({ page }) => {
   await entrar(page, "mendoza@clinica-demo.example");
-  const perio = await abrirPaciente(page, "Lescano Silva", "Lucía");
+  const perio = await abrirPaciente(page, "Alvarado Rodríguez", "Mariela");
   await page.goto(`/pacientes/${perio}/periodontograma`);
   const comparar = page.getByRole("region", { name: "Comparar fechas" });
   await comparar.getByRole("button", { name: "Comparar" }).click();
@@ -72,10 +71,10 @@ test("periodontograma: comparación entre dos fechas", async ({ page }) => {
 test("gestión: la recepción ve el tablero de gestión pero no las notas clínicas", async ({ page }) => {
   await entrar(page, "recepcion@clinica-demo.example");
   await page.goto("/gestion");
-  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Tablero de gestión", level: 1 })).toBeVisible();
   await expect(page.getByRole("link", { name: "Tablero clínico" })).toHaveCount(0);
-  const id = await abrirPaciente(page, "Zavaleta Cerna", "Diana");
+  await abrirPaciente(page, "Zavaleta Cerna", "Diana");
+  await expect(page.getByRole("link", { name: "Plan de tratamiento" })).toBeVisible();
   await expect(page.getByRole("link", { name: "Evolución", exact: true })).toHaveCount(0);
-  await page.goto(`/pacientes/${id}/plan`);
-  await expect(page.getByRole("region", { name: "Pagos", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "Historia clínica" })).toHaveCount(0);
 });

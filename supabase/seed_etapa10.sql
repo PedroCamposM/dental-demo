@@ -12,8 +12,9 @@ on conflict do nothing;
 
 -- Coronas de zirconio aún no realizadas: una atrasada, una por llegar y una por enviar.
 with coronas as (
-  select i.id, row_number() over (order by i.id) as n
+  select i.id, row_number() over (order by pa.apellidos, pa.nombres, pa.fecha_nacimiento, i.pieza) as n
     from public.item_plan i join public.plan_tratamiento p on p.id = i.plan_id
+    join public.paciente pa on pa.id = p.paciente_id
    where i.clinica_id = 'c0000000-0000-4000-8000-000000000001' and i.procedimiento ilike 'Corona de zirconio%'
      and i.estado in ('aceptado', 'programado') and p.estado in ('aceptado', 'en_curso', 'detenido')
      -- Solo la primera vez: si la clínica ya tiene órdenes, no se agregan más.
