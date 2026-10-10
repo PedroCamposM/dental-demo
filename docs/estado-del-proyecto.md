@@ -392,7 +392,7 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
 - Checklist: `docs/checklist-etapa7.md`. Falta en `/docs`: formatos reales de la clínica
   piloto (consentimientos) para reemplazar las plantillas de ejemplo.
 
-## v2 — Etapa 8 (seguimiento clínico, Tablero clínico y caja): en cierre
+## v2 — Etapa 8 (seguimiento clínico, Tablero clínico y caja): aplicada en el remoto
 
 - **0917** `seguimiento_clinico`: tipos de control clínicos (posoperatorio, retiro de
   puntos, ortodoncia, mantenimiento periodontal, anual; «laboratorio atrasado» lo genera
@@ -421,6 +421,9 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
 - En CI apareció un error real: las secciones del Tablero clínico usaban ids con espacios
   en `aria-labelledby` (quedaban sin nombre accesible); corregido.
 - Checklist: `docs/checklist-etapa8.md`.
+- Remoto: CI verde (run 38016285641) y «Aplicar migraciones» run 38016680712 (respaldo
+  previo): 0917–0918 aplicadas. Comprobado: 11 tipos de seguimiento, sin INSERT directo en
+  `pago`, 4 funciones nuevas, 19 planes detenidos. Falta `HABILITAR_ETAPA8=1` en Vercel.
 
 ## Remoto al 2026-10-10
 
