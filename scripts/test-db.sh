@@ -58,8 +58,8 @@ for f in supabase/migrations/*.sql; do
 done
 # Seeds de las etapas anteriores a la última migración (los de la última van después).
 SEEDS_PREVIOS="supabase/seed.sql supabase/seed_etapa1.sql supabase/seed_etapa2.sql supabase/seed_etapa3.sql
-               supabase/seed_etapa4.sql supabase/seed_etapa5.sql"
-SEEDS_ULTIMA="supabase/seed_etapa7.sql"
+               supabase/seed_etapa4.sql supabase/seed_etapa5.sql supabase/seed_etapa7.sql"
+SEEDS_ULTIMA=""
 # shellcheck disable=SC2086
 cat $SEEDS_PREVIOS | psqld -o /dev/null
 psqld -o /dev/null -1 -f "$ULTIMA"
