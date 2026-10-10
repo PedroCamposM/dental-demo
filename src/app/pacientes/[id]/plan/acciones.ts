@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { modulos } from "@/lib/funciones";
-import { validarItem, type CampoItem, type ProcedimientoCatalogo } from "@/lib/plan/plan";
+import { validarItems, type CampoItem, type DiagnosticoVigente, type ProcedimientoCatalogo } from "@/lib/plan/plan";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion, type Sesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
@@ -118,7 +118,8 @@ export async function agregarItem(previo: EstadoItemForm, form: FormData): Promi
     supabase.from("procedimiento").select("id, codigo, nombre, precio_base_centimos, duracion_minutos").eq("activo", true)
       .returns<ProcedimientoCatalogo[]>(),
     supabase.from("plan_fase").select("numero").eq("plan_id", planId).returns<{ numero: number }[]>(),
-    supabase.from("diagnostico").select("id").eq("paciente_id", pacienteId).is("anulado_at", null).returns<{ id: string }[]>(),
+    supabase.from("diagnostico").select("id, pieza, cie10").eq("paciente_id", pacienteId).is("anulado_at", null)
+      .returns<DiagnosticoVigente[]>(),
     supabase.from("item_plan").select("id, orden").eq("plan_id", planId).returns<{ id: string; orden: number }[]>(),
   ]);
   if (catalogo.error || fases.error || items.error) {
@@ -126,30 +127,36 @@ export async function agregarItem(previo: EstadoItemForm, form: FormData): Promi
     return fallo({ general: "No se pudo cargar el catálogo. Inténtalo de nuevo." });
   }
   const numerosFase = (fases.data ?? []).map((f) => f.numero);
-  const r = validarItem(
+  const r = validarItems(
     { texto: (c) => valores.textos[c] ?? "", lista: (c) => (c === "superficies" ? valores.superficies : valores.requiere) },
     {
       catalogo: catalogo.data ?? [], fases: numerosFase.length > 0 ? numerosFase : [1],
-      diagnosticos: (diagnosticos.data ?? []).map((d) => d.id), items: (items.data ?? []).map((i) => i.id),
+      diagnosticos: diagnosticos.data ?? [], items: (items.data ?? []).map((i) => i.id),
     },
   );
   if (!r.ok) return fallo(r.errores);
-  const { requiere, ...datos } = r.datos;
-  const { data: item, error } = await supabase.from("item_plan").insert({
-    ...datos, clinica_id: p.sesion.clinicaId, plan_id: planId, odontologo_id: p.sesion.usuarioId,
-    orden: Math.max(0, ...(items.data ?? []).map((i) => i.orden)) + 1,
-  }).select("id").single<{ id: string }>();
-  if (error || !item) return fallo({ general: error ? mensaje(error, "plan.item", "agregar el ítem") : "No se pudo agregar el ítem." });
+  const requiere = r.datos[0]?.requiere ?? [];
+  const orden = Math.max(0, ...(items.data ?? []).map((i) => i.orden));
+  // Un solo envío: o se agregan todas las piezas o ninguna.
+  const { data: nuevos, error } = await supabase.from("item_plan").insert(r.datos.map(({ requiere: _r, ...datos }, n) => {
+    void _r;
+    return { ...datos, clinica_id: p.sesion.clinicaId, plan_id: planId, odontologo_id: p.sesion.usuarioId, orden: orden + n + 1 };
+  })).select("id").returns<{ id: string }[]>();
+  if (error || !nuevos?.length) return fallo({ general: error ? mensaje(error, "plan.item", "agregar el ítem") : "No se pudo agregar el ítem." });
   if (requiere.length > 0) {
-    const { error: errorDep } = await supabase.from("item_dependencia")
-      .insert(requiere.map((req) => ({ clinica_id: p.sesion.clinicaId, item_id: item.id, requiere_id: req })));
+    const { error: errorDep } = await supabase.from("item_dependencia").insert(nuevos.flatMap((item) =>
+      requiere.map((req) => ({ clinica_id: p.sesion.clinicaId, item_id: item.id, requiere_id: req }))));
     if (errorDep) {
       revalidatePath(`/pacientes/${pacienteId}/plan`);
       return fallo({ general: `Se agregó el ítem, pero no su orden: ${mensaje(errorDep, "plan.dependencia", "guardar el orden")}` });
     }
   }
   revalidatePath(`/pacientes/${pacienteId}/plan`);
-  return { errores: {}, mensaje: `Agregado: ${datos.procedimiento}.`, intento, exitos: previo.exitos + 1, valores: { textos: { fase: valores.textos.fase ?? "1" }, superficies: [], requiere: [] } };
+  const nombre = r.datos[0]?.procedimiento ?? "";
+  const texto = r.datos.length > 1
+    ? `Agregados ${r.datos.length} ítems: ${nombre} en las piezas ${r.datos.map((d) => d.pieza).join(", ")}.`
+    : `Agregado: ${nombre}.`;
+  return { errores: {}, mensaje: texto, intento, exitos: previo.exitos + 1, valores: { textos: { fase: valores.textos.fase ?? "1" }, superficies: [], requiere: [] } };
 }
 
 export async function cancelarItem(previo: EstadoSimple, form: FormData): Promise<EstadoSimple> {

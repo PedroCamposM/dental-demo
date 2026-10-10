@@ -129,11 +129,14 @@ function CamposItem({ pacienteId, planId, opciones, estado, accion, guardando }:
           {error("duracion_minutos")}
         </div>
       </div>
-      <div className="grid gap-4 sm:grid-cols-[8rem_1fr]">
+      <div className="grid gap-4 sm:grid-cols-[14rem_1fr]">
         <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-          <label htmlFor="i-pieza">Pieza (FDI)</label>
-          <input id="i-pieza" name="pieza" inputMode="numeric" maxLength={2} defaultValue={t("pieza")} aria-invalid={!!e.pieza}
-            className={ENTRADA} />
+          <label htmlFor="i-pieza">Piezas (FDI)</label>
+          <input id="i-pieza" name="pieza" inputMode="numeric" maxLength={120} defaultValue={t("pieza")} aria-invalid={!!e.pieza}
+            aria-describedby="i-pieza-ayuda" className={ENTRADA} />
+          <span id="i-pieza-ayuda" className="text-xs font-normal text-gray-500">
+            Una o varias (p. ej. 16, 26, 36): se crea un ítem por pieza.
+          </span>
           {error("pieza")}
         </div>
         <fieldset className="flex flex-col gap-2 text-sm font-medium text-gray-700">
@@ -162,6 +165,7 @@ function CamposItem({ pacienteId, planId, opciones, estado, accion, guardando }:
             <option value="">Sin diagnóstico (p. ej. preventivo)</option>
             {opciones.diagnosticos.map((d) => <option key={d.id} value={d.id}>{d.texto}</option>)}
           </select>
+          <span className="text-xs font-normal text-gray-500">Con varias piezas, cada una toma su diagnóstico con el mismo CIE-10.</span>
           {error("diagnostico_id")}
         </div>
       </div>

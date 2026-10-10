@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { totales, validarItem, type ProcedimientoCatalogo } from "./plan";
+import { diagnosticoDePieza, totales, validarItem, validarItems, type ProcedimientoCatalogo } from "./plan";
 
 const CATALOGO: ProcedimientoCatalogo[] = [
   { id: "11111111-1111-4111-8111-111111111111", codigo: "END-02", nombre: "Endodoncia multirradicular",
@@ -46,5 +46,33 @@ describe("totales", () => {
       { estado: "aceptado", precio_centimos: 90000, cobrado_centimos: 30000 },
       { estado: "cancelado", precio_centimos: 50000, cobrado_centimos: 0 },
     ])).toEqual({ total: 165000, realizado: 75000, pagado: 105000, pendientes: 1 });
+  });
+});
+
+describe("varias piezas a la vez (Etapa 13)", () => {
+  const D16 = "55555555-5555-4555-8555-555555555555";
+  const D26 = "66666666-6666-4666-8666-666666666666";
+  const DX = [
+    { id: D, pieza: 36, cie10: "K02.1" }, { id: D16, pieza: 16, cie10: "K02.1" }, { id: D26, pieza: 26, cie10: "K04.0" },
+  ];
+  const ctx = { ...contexto, diagnosticos: DX };
+
+  it("un ítem por pieza, con el precio del catálogo en cada uno", () => {
+    const r = validarItems(entrada({ procedimiento_id: CATALOGO[0]!.id, pieza: "36, 16 26", fase: "1" }), ctx);
+    expect(r.ok && r.datos.map((d) => [d.pieza, d.precio_centimos])).toEqual([[36, 75000], [16, 75000], [26, 75000]]);
+  });
+
+  it("el diagnóstico elegido se lleva a cada pieza con el mismo CIE-10; si no hay, queda sin diagnóstico", () => {
+    const r = validarItems(entrada({ procedimiento_id: CATALOGO[0]!.id, pieza: "36, 16, 26", fase: "1", diagnostico_id: D }), ctx);
+    expect(r.ok && r.datos.map((d) => d.diagnostico_id)).toEqual([D, D16, null]);
+    expect(diagnosticoDePieza(null, DX, 16)).toBeNull();
+    expect(diagnosticoDePieza(D, DX, null)).toBe(D);
+  });
+
+  it("dice qué pieza está mal y valida las superficies en cada una", () => {
+    const mal = validarItems(entrada({ procedimiento_id: CATALOGO[0]!.id, pieza: "16 99", fase: "1" }), ctx);
+    expect(mal).toMatchObject({ ok: false, errores: { pieza: "Pieza 99: pieza FDI de dos dígitos: 11–48 o 51–85." } });
+    const sup = validarItems(entrada({ procedimiento_id: CATALOGO[0]!.id, pieza: "16 11", fase: "1" }, { superficies: ["oclusal"] }), ctx);
+    expect(sup).toMatchObject({ ok: false, errores: { superficies: "La pieza 11 no tiene superficie oclusal." } });
   });
 });
