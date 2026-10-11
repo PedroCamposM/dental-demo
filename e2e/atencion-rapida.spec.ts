@@ -4,7 +4,7 @@ import { conEtapa14, conSupabaseLocal, dniAlAzar, entrar, registrarYEsperarFicha
 // Etapa 14: atención rápida de un paciente ocasional, en una sola pantalla.
 test.skip(!conSupabaseLocal || !conEtapa14, "Crea datos: solo contra Supabase local con la Etapa 14 encendida");
 
-test("la odontóloga atiende a un paciente ocasional en un solo paso y la recepción cobra", async ({ page }) => {
+test("la odontóloga atiende a un paciente ocasional en un solo paso", async ({ page }) => {
   await entrar(page, "mendoza@clinica-demo.example");
   await page.goto("/pacientes/nuevo");
   await page.getByLabel("Número de documento").fill(dniAlAzar());
@@ -33,7 +33,7 @@ test("la odontóloga atiende a un paciente ocasional en un solo paso y la recepc
   await page.getByRole("radio", { name: "No", exact: true }).first().check();
   await page.getByLabel("Examen (lo encontrado)").fill("Caries oclusal en 36, sin compromiso pulpar.");
   await page.getByLabel("Diagnóstico CIE-10").fill("K02.1");
-  await page.getByLabel("Procedimiento 1").selectOption({ label: "OPE-01 · Restauración con resina compuesta" });
+  await page.getByLabel("Procedimiento 1", { exact: true }).selectOption({ label: "OPE-01 · Restauración con resina compuesta" });
   await page.getByLabel("Piezas del procedimiento 1").fill("36");
   await page.getByLabel("Descripción de lo realizado").fill("Remoción de caries y restauración oclusal con resina en 36.");
   await page.getByRole("button", { name: "Firmar atención" }).click();
