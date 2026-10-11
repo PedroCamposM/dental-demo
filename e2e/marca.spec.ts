@@ -1,8 +1,11 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { conEtapa15, conSupabaseLocal, entrar } from "./ayudantes";
 
 // Etapa 15: personalización de la clínica (color, logo y membrete).
 test.skip(!conSupabaseLocal || !conEtapa15, "Cambia la clínica de demo: solo contra Supabase local con la Etapa 15 encendida");
+
+/** Color con que se pintan los botones (la variable teal-700 que usa Tailwind). */
+const colorApp = (page: Page) => page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--color-teal-700").trim());
 
 // PNG de 1×1 píxel
 const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==", "base64");
@@ -26,7 +29,7 @@ test("el administrador pone el color, el logo y el membrete de la clínica", asy
 
   // La app usa el color y el logo
   await page.goto("/pacientes");
-  await expect(page.locator("header style")).toHaveText(/--color-teal-700:#1d4ed8/);
+  await expect.poll(() => colorApp(page)).toBe("#1d4ed8");
   await expect(page.getByRole("banner").getByRole("img", { name: /^Logo de / })).toBeVisible();
 
   // Se deja la demo como estaba
@@ -38,7 +41,7 @@ test("el administrador pone el color, el logo y el membrete de la clínica", asy
   await marca.getByRole("button", { name: "Guardar marca" }).click();
   await expect(marca.getByText(/Guardado/)).toBeVisible();
   await page.goto("/pacientes");
-  await expect(page.locator("header style")).toHaveCount(0);
+  await expect.poll(() => colorApp(page)).not.toBe("#1d4ed8");
 });
 
 test("el odontólogo no ve la configuración de la marca", async ({ page }) => {
