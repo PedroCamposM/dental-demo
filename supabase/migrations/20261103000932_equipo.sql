@@ -86,3 +86,4 @@ begin
 end $$;
 revoke all on function public.cambiar_estado_usuario(uuid, boolean) from public, anon;
 grant execute on function public.cambiar_estado_usuario(uuid, boolean) to authenticated;
+
