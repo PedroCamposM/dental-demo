@@ -10,7 +10,7 @@ import { registrarError } from "@/lib/registro";
 import { obtenerSesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
 import { diasAtraso } from "@/lib/clinico/laboratorio";
-import { NOMBRE_CONTROL, TIPOS_CONTROL, cubiertoPorCitaFutura, type TipoControl } from "@/lib/tablero/calculos";
+import { controlCubierto, NOMBRE_CONTROL, TIPOS_CONTROL, type TipoControl } from "@/lib/tablero/calculos";
 
 export const metadata: Metadata = { title: "Tablero clínico – Dental Demo" };
 
@@ -41,7 +41,7 @@ export default async function TableroClinico() {
       .eq("estado", "pendiente").is("anulado_at", null).order("creado_at").limit(50)
       .returns<{ id: string; titulo: string; creado_at: string; paciente: Paciente }[]>(),
     supabase.from("seguimiento").select("id, tipo, fecha_programada, nota, paciente(id, nombres, apellidos)")
-      .in("tipo", TIPOS_CONTROL).in("resultado", ["pendiente", "mensaje_enviado", "no_contesta", "contactado"])
+      .in("tipo", TIPOS_CONTROL).in("resultado", ["pendiente", "mensaje_enviado", "no_contesta", "contactado"]).is("realizado_at", null)
       .lt("fecha_programada", hoy).order("fecha_programada").limit(100)
       .returns<{ id: string; tipo: TipoControl; fecha_programada: string; nota: string | null; paciente: Paciente }[]>(),
     supabase.from("plan_tratamiento").select("id, titulo, paciente(id, nombres, apellidos), item_plan(estado)")
@@ -101,10 +101,8 @@ export default async function TableroClinico() {
     : { data: [], error: null };
   if (citasControl.error) registrarError("tablero_clinico.citas", citasControl.error);
   const ahora = Date.now();
-  // Una cita futura no cubre el retiro de puntos (tiene plazo clínico): solo la atención en o después de su fecha.
-  const resuelto = (pacienteId: string | undefined, fecha: string, tipo: TipoControl) => (citasControl.data ?? []).some((c) =>
-    c.paciente_id === pacienteId && (c.estado === "atendida" ? fechaLima(c.inicio) >= fecha
-      : cubiertoPorCitaFutura(tipo) && Date.parse(c.inicio) >= ahora));
+  const resuelto = (pacienteId: string | undefined, fecha: string, tipo: TipoControl) =>
+    !!pacienteId && controlCubierto({ paciente_id: pacienteId, fecha_programada: fecha, tipo }, citasControl.data ?? [], ahora);
   // Controles vencidos: el más antiguo de cada paciente y tipo
   const controlPorPaciente = new Map<string, NonNullable<typeof controles.data>[number]>();
   for (const c of controles.data ?? []) {

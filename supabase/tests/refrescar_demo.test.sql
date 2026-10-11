@@ -27,23 +27,24 @@ values ('e9e9e9e9-0000-0000-0000-000000000000', (now() at time zone 'America/Lim
 create temp table antes as select count(*) as n from public.auditoria;
 select privado.refrescar_fechas_demo('e9e9e9e9-0000-0000-0000-000000000000');
 select pruebas.igual((select count(*) from public.nota_evolucion where id = 'e9e9e9e9-0000-0000-0000-000000000091'
-                        and fecha = timestamptz '2026-01-25 15:00-05' and firmada_at = timestamptz '2026-01-25 15:00-05'), 1,
-                     'la evolución firmada se corre 10 días');
+                        and fecha = timestamptz '2026-01-22 15:00-05' and firmada_at = timestamptz '2026-01-22 15:00-05'), 1,
+                     'la evolución firmada se corre una semana completa (de 10 días pasados, 7: mismo día de la semana)');
 select pruebas.igual((select count(*) from public.paciente where id = 'e9e9e9e9-0000-0000-0000-0000000000f1'
-                        and fecha_nacimiento = '1996-03-11'), 1, 'la edad se conserva');
+                        and fecha_nacimiento = '1996-03-08'), 1, 'la edad se conserva');
 select pruebas.igual((select count(*) from public.cierre_caja where clinica_id = 'e9e9e9e9-0000-0000-0000-000000000000'
-                        and fecha in ('2026-01-24', '2026-01-25')), 2, 'cierres consecutivos sin chocar');
+                        and fecha in ('2026-01-21', '2026-01-22')), 2, 'cierres consecutivos sin chocar');
 select pruebas.igual((select count(*) from public.paciente where id = 'f9f9f9f9-0000-0000-0000-0000000000f1'
                         and fecha_nacimiento = '1990-03-01'), 1, 'otra clínica intacta');
 select pruebas.igual((select count(*) from privado.clinica_demo where clinica_id = 'e9e9e9e9-0000-0000-0000-000000000000'
-                        and referencia = (now() at time zone 'America/Lima')::date), 1, 'referencia al día');
+                        and referencia = (now() at time zone 'America/Lima')::date - 3), 1,
+                     'la referencia avanza lo corrido; los 3 días que sobran se corren cuando completen una semana');
 select pruebas.igual((select count(*) from public.auditoria) - (select n from antes), 0, 'la auditoría no se toca');
 -- Las reglas siguen activas después
 select pruebas.debe_fallar($$update public.nota_evolucion set texto = 'editada' where id = 'e9e9e9e9-0000-0000-0000-000000000091'$$,
                            'firmada no se edita');
--- El mismo día, no hace nada
+-- Con menos de una semana pendiente, no hace nada
 select pruebas.igual((select (privado.refrescar_fechas_demo('e9e9e9e9-0000-0000-0000-000000000000') ->> 'dias')::bigint), 0,
-                     'idempotente en el día');
+                     'menos de una semana: no corre nada');
 -- La app no la puede llamar
 set role authenticated;
 select pruebas.debe_fallar($$select privado.refrescar_fechas_demo('e9e9e9e9-0000-0000-0000-000000000000')$$, 'permission denied');

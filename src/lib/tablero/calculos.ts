@@ -166,6 +166,21 @@ export type Tablero = {
 const ESTADOS_ACTIVOS: EstadoPlan[] = ["aceptado", "en_curso", "detenido"];
 const ITEMS_PENDIENTES: EstadoItem[] = ["aceptado", "programado"];
 const CITA_AGENDADA: EstadoCita[] = ["programada", "confirmada", "en_sala"];
+
+/**
+ * Un control con fecha pasada ya está cubierto si el paciente fue atendido en esa fecha o
+ * después, o si ya tiene una cita agendada (salvo los controles con plazo, como el retiro de
+ * puntos). La misma regla en la ficha, el Tablero clínico y el Tablero de gestión.
+ */
+export function controlCubierto(
+  control: { paciente_id: string; fecha_programada: string; tipo: string },
+  citas: readonly { paciente_id: string; inicio: string; estado: string }[],
+  ahora: number,
+): boolean {
+  return citas.some((c) => c.paciente_id === control.paciente_id && (c.estado === "atendida"
+    ? fechaLima(c.inicio) >= control.fecha_programada
+    : cubiertoPorCitaFutura(control.tipo) && (CITA_AGENDADA as string[]).includes(c.estado) && Date.parse(c.inicio) >= ahora));
+}
 const DIA_MS = 86_400_000;
 
 // ---------------------------------------------------------------------------
@@ -317,23 +332,13 @@ function cuotasVencidas(datos: DatosTablero, hoy: string, contacto: (id: string)
 function controlesVencidos(
   datos: DatosTablero, ahora: Date, hoy: string, contacto: (id: string) => Contacto,
 ): Indicador<ControlVencido> {
-  const conCitaFutura = new Set(
-    datos.citas.filter((c) => CITA_AGENDADA.includes(c.estado) && Date.parse(c.inicio) >= ahora.getTime())
-      .map((c) => c.paciente_id),
-  );
-  // Última atención por paciente: un control queda cubierto si lo atendieron en o después de su fecha.
-  const ultimaAtencion = new Map<string, string>();
-  for (const c of datos.citas) {
-    if (c.estado !== "atendida") continue;
-    const dia = fechaLima(c.inicio);
-    if ((ultimaAtencion.get(c.paciente_id) ?? "") < dia) ultimaAtencion.set(c.paciente_id, dia);
-  }
+  const citasPorPaciente = new Map<string, CitaFila[]>();
+  for (const c of datos.citas) citasPorPaciente.set(c.paciente_id, [...(citasPorPaciente.get(c.paciente_id) ?? []), c]);
   const porPaciente = new Map<string, ControlVencido>();
   const previoTienePlazo = new Map<string, boolean>();
   for (const s of datos.seguimientos) {
     if (!esControl(s.tipo) || s.fecha_programada >= hoy || s.resultado === "agendo_cita") continue;
-    if (conCitaFutura.has(s.paciente_id) && cubiertoPorCitaFutura(s.tipo)) continue;
-    if ((ultimaAtencion.get(s.paciente_id) ?? "") >= s.fecha_programada) continue;
+    if (controlCubierto(s, citasPorPaciente.get(s.paciente_id) ?? [], ahora.getTime())) continue;
     // Un paciente, una fila: el control con plazo (retiro de puntos) primero; si no, el más antiguo.
     const previo = porPaciente.get(s.paciente_id);
     const conPlazo = !cubiertoPorCitaFutura(s.tipo);

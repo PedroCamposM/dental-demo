@@ -3,7 +3,8 @@
 # «envejezca» (citas de hoy, atrasos, controles por venir). No toca clínicas reales,
 # la auditoría ni las exportaciones. Se lanza a mano: Actions → "Refrescar fechas de la
 # demo" → Run workflow → escribir REFRESCAR.
-# Requiere el secreto SUPABASE_ACCESS_TOKEN.
+# Requiere los secretos SUPABASE_ACCESS_TOKEN, SUPABASE_DB_PASSWORD y BACKUP_PASSPHRASE.
+# Corre semanas completas (0926): las citas conservan su día de la semana.
 name: Refrescar fechas de la demo
 
 on:
@@ -22,8 +23,40 @@ jobs:
     if: inputs.confirmar == 'REFRESCAR'
     runs-on: ubuntu-24.04
     env:
+      PROJECT_REF: elotisuupmqmcedjgxiz
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+      BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
     steps:
+      - name: Verificar secretos
+        run: |
+          for v in SUPABASE_ACCESS_TOKEN SUPABASE_DB_PASSWORD BACKUP_PASSPHRASE; do
+            [ -n "${!v}" ] || { echo "Falta el secreto $v en GitHub (Settings → Secrets → Actions)"; exit 1; }
+          done
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Vincular el proyecto
+        run: npx supabase link --project-ref "$PROJECT_REF" -p "$SUPABASE_DB_PASSWORD"
+      # Como toda escritura en la base remota (CLAUDE.md): respaldo cifrado antes.
+      - name: Respaldo de los datos
+        run: |
+          mkdir -p respaldo
+          npx supabase db dump --linked -p "$SUPABASE_DB_PASSWORD" --data-only --schema public -f respaldo/datos.sql
+          test -s respaldo/datos.sql
+          tar -czf respaldo.tar.gz respaldo
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+              --symmetric --cipher-algo AES256 -o respaldo.tar.gz.gpg respaldo.tar.gz
+          rm -rf respaldo respaldo.tar.gz
+      - name: Guardar el respaldo cifrado (fuera del repo, 30 días)
+        uses: actions/upload-artifact@v4
+        with:
+          name: respaldo-refresco-${{ github.run_id }}
+          path: respaldo.tar.gz.gpg
+          retention-days: 30
+          if-no-files-found: error
       - name: Refrescar
         run: scripts/consulta-remota.sh supabase/mantenimiento/refrescar_demo.sql

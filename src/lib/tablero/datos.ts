@@ -71,7 +71,9 @@ export const cargarTablero = cache(async (): Promise<TableroCargado> => {
     todas<SeguimientoFila>((a, b) => supabase.from("seguimiento")
       .select("id, paciente_id, plan_id, tipo, fecha_programada, resultado")
       // Con la Etapa 8, también los controles clínicos (los tipos nuevos existen desde la 0917).
-      .in("tipo", modulos.etapa8 ? TIPOS_CONTROL : ["control"]).lt("fecha_programada", hoy).order("id").range(a, b)),
+      // Sin los envíos de WhatsApp (se registran como seguimiento ya realizado, no son controles).
+      .in("tipo", modulos.etapa8 ? TIPOS_CONTROL : ["control"]).lt("fecha_programada", hoy).is("realizado_at", null)
+      .order("id").range(a, b)),
     todas<Plantilla & { tipo: TipoSeguimiento }>((a, b) => supabase.from("plantilla_mensaje")
       .select("id, tipo, cuerpo").eq("activa", true).order("created_at").range(a, b)),
     todas<{ tipo: TipoSeguimiento; paciente_id: string; realizado_at: string }>((a, b) => supabase.from("seguimiento")

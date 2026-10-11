@@ -564,6 +564,26 @@ gratuita por clínica, suscripción).
   anterior, emitir un certificado de descanso falla con el mensaje «El certificado de
   descanso indica el tratamiento realizado»: se resuelve al fusionar el PR de esta etapa.
 
+## Revisión independiente de las etapas 10 a 12 (11-oct)
+
+Sin huecos de RLS, grants ni aislamiento entre clínicas en laboratorio, exportación y
+refresco. Corregido:
+- Los envíos de WhatsApp (se guardan como seguimiento ya realizado) ya no aparecen como
+  «controles» en la ficha ni en los tableros.
+- «Controles programados» de la ficha usa la misma regla que los tableros
+  (`controlCubierto`: atendido después o con cita agendada, salvo el retiro de puntos) y
+  muestra primero los vencidos sin cubrir y luego los próximos.
+- **0926**: el refresco de fechas corre semanas completas (las citas conservan su día de la
+  semana; antes podían quedar en días sin atención) y usa `lock_timeout` de 5 s. El flujo
+  «Refrescar fechas de la demo» ahora hace un respaldo cifrado antes. La prueba SQL del
+  refresco se actualizó a propósito (de 10 días pasados corre 7).
+Queda anotado, sin cambio de código:
+- La referencia del refresco en el remoto es el día en que se aplicó la 0923 (10-oct), no
+  el de la carga de los seeds; la demo vuelve al estado de ese día.
+- La auditoría de una exportación usa la tabla «historia_clinica», que solo ve el cirujano
+  dentista: un admin sin COP no la ve. Si el admin debe auditar exportaciones, hace falta
+  una vista para él (pendiente de decidir con Pedro).
+
 ## Remoto al 2026-10-10
 
 - Pedro autorizó («Hazlo»). «Aplicar migraciones» run 38013481738 (respaldo cifrado
