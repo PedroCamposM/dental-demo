@@ -106,7 +106,8 @@ begin
     yape = nullif(btrim(datos ->> 'yape'), ''), plin = nullif(btrim(datos ->> 'plin'), ''),
     banco = nullif(btrim(datos ->> 'banco'), ''), cuenta = nullif(btrim(datos ->> 'cuenta'), ''),
     cci = nullif(btrim(datos ->> 'cci'), ''), titular = nullif(btrim(datos ->> 'titular'), ''),
-    instrucciones = nullif(btrim(datos ->> 'instrucciones'), '');
+    instrucciones = nullif(btrim(datos ->> 'instrucciones'), '')
+  where id;  -- fila única; Supabase rechaza un UPDATE sin WHERE desde la API
 end $$;
 revoke all on function public.guardar_cobro(jsonb) from public, anon;
 grant execute on function public.guardar_cobro(jsonb) to authenticated;

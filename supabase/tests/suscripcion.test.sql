@@ -116,6 +116,6 @@ select pruebas.igual((select count(*) from public.clinicas_plataforma() where no
 reset role;
 -- Deja la plataforma como estaba: el CI corre después Playwright sobre esta misma base.
 update privado.tarifa set mensual_centimos = 9900, anual_centimos = 99000 where codigo = 'consultorio';
-update privado.cobro set yape = null, plin = null, banco = null, cuenta = null, cci = null, titular = null, instrucciones = null;
+update privado.cobro set yape = null, plin = null, banco = null, cuenta = null, cci = null, titular = null, instrucciones = null where id;
 select pruebas.como(null);
 \echo 'suscripcion: todas las aserciones pasaron'
