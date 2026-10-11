@@ -119,4 +119,9 @@ export const modulos = {
    */
   etapa18: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA16 === "1"
     && process.env.HABILITAR_ETAPA17 === "1" && process.env.HABILITAR_ETAPA18 === "1",
+  /**
+   * Etapa 19: equipo de la clínica (invitar, desactivar) y recuperar la contraseña.
+   * Requiere la migración 0932 (y la Etapa 1).
+   */
+  etapa19: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA19 === "1",
 };

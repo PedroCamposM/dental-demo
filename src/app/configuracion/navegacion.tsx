@@ -1,23 +1,24 @@
 import Link from "next/link";
 import { modulos } from "@/lib/funciones";
 
-type Pestana = "general" | "procedimientos" | "horarios" | "consentimientos" | "laboratorios" | "plan";
+type Pestana = "general" | "procedimientos" | "horarios" | "consentimientos" | "laboratorios" | "equipo" | "plan";
 
 const PESTANAS: {
-  clave: Pestana; href: string; texto: string; etapa2?: boolean; etapa7?: boolean; etapa10?: boolean; etapa17?: boolean;
+  clave: Pestana; href: string; texto: string; etapa2?: boolean; etapa7?: boolean; etapa10?: boolean; etapa17?: boolean; etapa19?: boolean;
 }[] = [
   { clave: "general", href: "/configuracion", texto: "General" },
   { clave: "procedimientos", href: "/configuracion/procedimientos", texto: "Procedimientos y aranceles", etapa2: true },
   { clave: "horarios", href: "/configuracion/horarios", texto: "Sillones y horarios", etapa2: true },
   { clave: "consentimientos", href: "/configuracion/consentimientos", texto: "Consentimientos", etapa7: true },
   { clave: "laboratorios", href: "/configuracion/laboratorios", texto: "Laboratorios", etapa10: true },
+  { clave: "equipo", href: "/configuracion/equipo", texto: "Equipo", etapa19: true },
   { clave: "plan", href: "/configuracion/plan", texto: "Plan y pagos", etapa17: true },
 ];
 
 /** Submenú de Configuración (solo administrador). */
 export function NavegacionConfiguracion({ actual }: { actual: Pestana }) {
   const visibles = PESTANAS.filter((p) => (!p.etapa2 || modulos.etapa2) && (!p.etapa7 || modulos.etapa7) && (!p.etapa10 || modulos.etapa10)
-    && (!p.etapa17 || modulos.etapa17));
+    && (!p.etapa17 || modulos.etapa17) && (!p.etapa19 || modulos.etapa19));
   if (visibles.length < 2) return null;
   return (
     <nav aria-label="Configuración" className="mt-4 flex flex-wrap gap-1 border-b border-gray-200">

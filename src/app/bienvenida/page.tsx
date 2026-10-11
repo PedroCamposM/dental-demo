@@ -23,7 +23,7 @@ export default async function Bienvenida() {
           Revisa los datos. Tendrás 30 días de prueba como administrador, con el catálogo de procedimientos,
           plantillas de ejemplo (revísalas antes de usarlas) y 3 pacientes de ejemplo que puedes anular.
         </p>
-        <FormularioBienvenida valores={{ clinica: texto("clinica"), nombre: texto("nombre"), cop: texto("cop") }} />
+        <FormularioBienvenida valores={{ clinica: texto("clinica"), nombre: texto("nombre"), cop: texto("cop"), celular: texto("celular") }} />
         <form action={cerrarSesion} className="mt-6 text-center">
           <button type="submit" className="text-sm text-gray-600 hover:underline">Cerrar sesión</button>
         </form>

@@ -4,12 +4,19 @@ import { modulos } from "@/lib/funciones";
 import { registrarError } from "@/lib/registro";
 import { createClient } from "@/lib/supabase/server";
 
+// URLs firmadas ya pedidas, por ruta (la ruta incluye la clínica: solo la pide quien la ve por RLS).
+// Se reutilizan mientras les quede más de 10 minutos, en lugar de firmar en cada página.
+const firmadas = new Map<string, { url: string; vence: number }>();
+
 /** URL firmada (1 hora) del logo de la clínica; null si no tiene o falla (se muestra sin logo). */
 export const urlLogo = cache(async (ruta: string | null): Promise<string | null> => {
   if (!modulos.etapa15 || !ruta) return null;
+  const guardada = firmadas.get(ruta);
+  if (guardada && guardada.vence - Date.now() > 10 * 60_000) return guardada.url;
   const supabase = await createClient();
   const { data, error } = await supabase.storage.from("marca").createSignedUrl(ruta, 3600);
   if (error) registrarError("marca.logo", error, { ruta });
+  if (data?.signedUrl) firmadas.set(ruta, { url: data.signedUrl, vence: Date.now() + 3600_000 });
   return data?.signedUrl ?? null;
 });
 

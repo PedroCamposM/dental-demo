@@ -729,6 +729,52 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
   conversión solo con pruebas terminadas; clave del cron comparada en tiempo constante;
   funciones auxiliares de `privado` sin EXECUTE para los roles de la app.
 
+- 11-oct: PR #8 fusionado con CI verde (108 pruebas de Playwright); «Aplicar migraciones» run
+  38155320927 (respaldo previo): 0931 aplicada y verificada (7 funciones, 4 índices, 2 tablas;
+  0 correos pendientes hoy). Falta `HABILITAR_ETAPA18=1` en Vercel. Vercel marcó
+  `SUPABASE_SERVICE_ROLE_KEY` como «Needs Attention» (no está como Sensitive): se recomendó a
+  Pedro crearla como Sensitive con una clave secreta nueva de Supabase.
+
+## v2 — Etapa 19 (equipo de la clínica y mejoras)
+
+- Pedro aprobó (11-oct) «las mejoras pendientes y lo demás». Lo del superadmin (activación,
+  avisos, descuentos, reporte de ingresos, suspender, bitácora) pasa a ser la Etapa 20.
+- **0932** (aditiva, solo funciones): `equipo_clinica`, `incorporar_usuario` (solo si la
+  invitación la hizo su clínica: `invitado_clinica` en los metadatos) y `cambiar_estado_usuario`
+  (no a uno mismo; nada se borra). La invitación la crea el servidor con la service role
+  (`inviteUserByEmail`); si la incorporación falla, se quita la cuenta invitada.
+- Contraseñas: `/cuenta/clave` (crear o cambiar) y `/recuperar` (olvidé mi contraseña; no revela
+  si el correo existe). `/auth/confirmar` acepta invite y recovery con `token_hash`, así el
+  enlace funciona aunque se abra en otro equipo. Plantillas en `supabase/templates/` (en
+  producción se ponen por la API de Supabase).
+- Registro: pide celular (9 dígitos) y lo guarda en `clinica.telefono`. «Plan y pagos»: la
+  opción anual muestra el ahorro real del plan. Mensaje de solo lectura en todas las acciones
+  (`siSoloLectura`). La URL firmada del logo se reutiliza mientras le quede más de 10 minutos.
+- Queda para decidir con Pedro: dos atenciones rápidas (o dos planes terminados) del mismo
+  paciente crean dos controles de 6 meses; la prueba `seguimiento.test.sql` exige hoy uno por
+  plan, así que cambiarlo es una regla clínica. Un admin sin COP sigue sin ver la auditoría de
+  exportaciones.
+- Dependencias: las vulnerabilidades de `npm audit` están en herramientas de desarrollo
+  (vitest, eslint) y en el postcss que trae Next 15 (al compilar). Todas piden actualizar de
+  versión mayor (Next 16, Vitest 4); queda como tarea aparte. npm 10.9.4 falló al instalar
+  vitest 4 en la sesión (error `edgesOut`).
+- Clave legacy `service_role` de Supabase: no se desactiva aún (desactivar las claves legacy
+  apaga también la pública antigua); antes hay que confirmar que en Vercel
+  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` empieza con `sb_publishable_`.
+- Bandera `HABILITAR_ETAPA19`. Pruebas: `supabase/tests/equipo.test.sql`, Vitest
+  (`src/lib/equipo.test.ts`, prueba y rutas), `e2e/equipo.spec.ts` (lee los correos de Mailpit
+  del Supabase local). Checklist: `docs/checklist-etapa19.md`.
+- Revisión independiente (11-oct). Corregido: `/cuenta/clave` no funciona con la pantalla
+  bloqueada y pide la contraseña actual salvo durante 15 minutos tras un enlace del correo
+  (cookie httpOnly); los enlaces con token pasan por `/auth/continuar` con botón «Continuar»
+  (los antivirus del correo no gastan el token); antes de invitar se consulta `estado_correo`
+  (solo service role): no se invita ni se borra una cuenta existente, y solo se deshace una
+  cuenta recién creada; la marca de invitación va en `app_metadata` (el usuario no la edita);
+  una clínica vencida sí puede desactivar a alguien (excepción acotada en el disparador de solo
+  lectura); `/recuperar` responde igual ante el límite de envíos (no revela si hay cuenta);
+  mensaje de «al menos un administrador activo». Queda anotado: activar
+  `secure_password_change` en Supabase (la app ya exige la contraseña actual).
+
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 
 Sin huecos de RLS, grants ni aislamiento entre clínicas en laboratorio, exportación y
@@ -771,7 +817,7 @@ Queda anotado, sin cambio de código:
 
 ## Próximas etapas (CLAUDE.md)
 
-Etapas 0 a 17 terminadas (v2 en producción desde el 10-oct). 18 gestión de clientes en curso.
+Etapas 0 a 18 terminadas (v2 en producción desde el 10-oct). 19 equipo y mejoras en curso; 20 herramientas del superadmin.
 Falta en `/docs`: formatos de la clínica piloto (historia y consentimientos),
 necesarios antes de la Etapa 7. La Etapa 4 incluye además lo de las fichas
 odonto-estomatológicas de la NTS 139 (índice CPOD/ceod, IHO-S, riesgo estomatológico

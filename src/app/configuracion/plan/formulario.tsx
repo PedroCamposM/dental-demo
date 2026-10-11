@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { formatearSoles } from "@/lib/dinero";
-import { MAX_CONSTANCIA_BYTES, NOMBRE_METODO, type CampoReporte, type Tarifa } from "@/lib/suscripcion";
+import { ahorroAnual, MAX_CONSTANCIA_BYTES, NOMBRE_METODO, type CampoReporte, type Tarifa } from "@/lib/suscripcion";
 import { reportarPago, type EstadoReporte } from "./acciones";
 
 const ENTRADA =
@@ -13,6 +13,7 @@ export function FormularioReporte({ tarifas, sugerida, hoy }: { tarifas: Tarifa[
     errores: {}, valores: {}, mensaje: null, exitos: 0,
   });
   const [archivoGrande, setArchivoGrande] = useState(false);
+  const [elegida, setElegida] = useState(sugerida);
   const v = estado.valores;
   const e = estado.errores;
   const error = (c: CampoReporte | "constancia") => e[c] ? <span className="text-xs font-normal text-red-700">{e[c]}</span> : null;
@@ -20,7 +21,8 @@ export function FormularioReporte({ tarifas, sugerida, hoy }: { tarifas: Tarifa[
     <form key={estado.exitos} action={accion} className="grid gap-4 sm:grid-cols-2" noValidate>
       <label className="flex flex-col gap-1 text-sm font-medium">
         Plan
-        <select name="tarifa" defaultValue={v.tarifa || sugerida} aria-invalid={!!e.tarifa} className={ENTRADA}>
+        <select name="tarifa" defaultValue={v.tarifa || sugerida} aria-invalid={!!e.tarifa} className={ENTRADA}
+          onChange={(ev) => setElegida(ev.currentTarget.value)}>
           {tarifas.map((t) => <option key={t.codigo} value={t.codigo}>{t.nombre}</option>)}
         </select>
         {error("tarifa")}
@@ -31,7 +33,11 @@ export function FormularioReporte({ tarifas, sugerida, hoy }: { tarifas: Tarifa[
           {(["mensual", "anual"] as const).map((p) => (
             <label key={p} className="flex items-center gap-2 font-normal">
               <input type="radio" name="periodo" value={p} defaultChecked={(v.periodo || "mensual") === p} />
-              {p === "mensual" ? "Mensual" : "Anual (2 meses gratis)"}
+              {p === "mensual" ? "Mensual" : (() => {
+                const t = tarifas.find((x) => x.codigo === (elegida || v.tarifa));
+                const ahorro = t ? ahorroAnual(t) : 0;
+                return ahorro > 0 ? `Anual (ahorras ${formatearSoles(ahorro)})` : "Anual";
+              })()}
             </label>
           ))}
         </div>

@@ -17,6 +17,7 @@ export async function registrarCuenta(page: Page, correo: string, clave: string,
   await page.getByLabel("Nombre de la clínica o consultorio").fill(clinica);
   await page.getByLabel("Tu nombre").fill("Dra. Prueba Nueva");
   await page.getByLabel(/N\.º de colegiatura/).fill(cop);
+  await page.getByLabel("Celular (WhatsApp)").fill("987654321");
   await page.getByLabel("Correo").fill(correo);
   await page.getByLabel("Contraseña").fill(clave);
   await page.getByRole("checkbox").check();
@@ -30,4 +31,24 @@ export async function ingresar(page: Page, correo: string, clave: string) {
   await page.getByLabel("Contraseña").fill(clave);
   await page.getByRole("button", { name: "Ingresar" }).click();
   await expect(page).not.toHaveURL(/\/login/);
+}
+
+const MAIL_URL = process.env.MAIL_URL ?? "http://127.0.0.1:54324";
+
+/** Último enlace de un correo enviado por el Supabase local (Mailpit) a `para` que contenga `texto` en el asunto. */
+export async function enlaceDelCorreo(para: string, asunto: RegExp): Promise<string> {
+  for (let intento = 0; intento < 20; intento++) {
+    const r = await fetch(`${MAIL_URL}/api/v1/search?query=${encodeURIComponent(`to:"${para}"`)}`);
+    if (r.ok) {
+      const { messages } = (await r.json()) as { messages: { ID: string; Subject: string }[] };
+      const m = messages.find((x) => asunto.test(x.Subject));
+      if (m) {
+        const detalle = (await (await fetch(`${MAIL_URL}/api/v1/message/${m.ID}`)).json()) as { HTML: string };
+        const href = /href="([^"]+)"/.exec(detalle.HTML)?.[1];
+        if (href) return href.replace(/&amp;/g, "&");
+      }
+    }
+    await new Promise((res) => setTimeout(res, 500));
+  }
+  throw new Error(`No llegó el correo «${asunto}» a ${para}`);
 }

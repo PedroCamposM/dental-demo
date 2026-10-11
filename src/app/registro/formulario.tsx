@@ -37,6 +37,7 @@ export function FormularioRegistro() {
       {campo("clinica", "Nombre de la clínica o consultorio", { maxLength: 120, autoComplete: "organization" })}
       {campo("nombre", "Tu nombre", { maxLength: 120, autoComplete: "name" })}
       {campo("cop", "N.º de colegiatura (COP), si eres cirujano dentista", { inputMode: "numeric", maxLength: 6 })}
+      {campo("celular", "Celular (WhatsApp)", { type: "tel", inputMode: "tel", autoComplete: "tel", maxLength: 15, placeholder: "987 654 321" })}
       {campo("email", "Correo", { type: "email", autoComplete: "username", maxLength: 200 })}
       {campo("password", "Contraseña", { type: "password", autoComplete: "new-password", maxLength: 72 })}
       <div className="flex flex-col gap-1 text-sm">

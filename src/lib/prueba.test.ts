@@ -25,14 +25,15 @@ describe("estadoPlan", () => {
 });
 
 describe("validarRegistro", () => {
-  const base = { email: "Dra.Perez@Correo.pe ", password: "clave1234", clinica: "Consultorio Pérez", nombre: "Dra. Ana Pérez", cop: "12345", acepta: "1" };
+  const base = { email: "Dra.Perez@Correo.pe ", password: "clave1234", clinica: "Consultorio Pérez", nombre: "Dra. Ana Pérez", cop: "12345", celular: "987 654 321", acepta: "1" };
   const t = (v: Record<string, string>) => (c: string) => v[c] ?? "";
   it("acepta un registro completo y normaliza el correo", () => {
-    expect(validarRegistro(t(base))).toMatchObject({ ok: true, datos: { email: "dra.perez@correo.pe", cop: "12345" } });
+    expect(validarRegistro(t(base))).toMatchObject({ ok: true, datos: { email: "dra.perez@correo.pe", cop: "12345", celular: "987654321" } });
+    expect(validarRegistro(t({ ...base, celular: "+51 987654321" }))).toMatchObject({ ok: true, datos: { celular: "987654321" } });
   });
   it("exige términos, contraseña con letras y números y COP numérico", () => {
-    const r = validarRegistro(t({ ...base, password: "solotexto", cop: "A1", acepta: "" }));
-    expect(r.ok === false && Object.keys(r.errores).sort()).toEqual(["acepta", "cop", "password"]);
+    const r = validarRegistro(t({ ...base, password: "solotexto", cop: "A1", celular: "044123456", acepta: "" }));
+    expect(r.ok === false && Object.keys(r.errores).sort()).toEqual(["acepta", "celular", "cop", "password"]);
   });
 });
 
@@ -41,5 +42,15 @@ describe("esSoloLectura", () => {
     expect(esSoloLectura({ code: "P0001", message: "El plan de la clínica venció: está en solo lectura. Puedes ver…" })).toBe(true);
     expect(esSoloLectura({ code: "P0001", message: "El paciente está anulado" })).toBe(false);
     expect(esSoloLectura(null)).toBe(false);
+  });
+});
+
+describe("siSoloLectura", async () => {
+  const { siSoloLectura } = await import("./prueba");
+  it("muestra el mensaje de la base solo si es de solo lectura", () => {
+    expect(siSoloLectura({ code: "P0001", message: "La prueba gratuita de la clínica terminó: está en solo lectura" }, "Otro"))
+      .toBe("La prueba gratuita de la clínica terminó: está en solo lectura.");
+    expect(siSoloLectura({ code: "23505", message: "duplicado" }, "Otro")).toBe("Otro");
+    expect(siSoloLectura(null, "Otro")).toBe("Otro");
   });
 });

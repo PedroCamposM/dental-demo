@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { validarProcedimiento, type CampoProcedimiento, type EntradaProcedimiento } from "@/lib/catalogo/validacion";
 import { modulos } from "@/lib/funciones";
+import { siSoloLectura } from "@/lib/prueba";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
@@ -48,7 +49,7 @@ export async function guardarProcedimiento(_previo: EstadoProcedimiento, form: F
   }
   if (error || !data) {
     registrarError("catalogo.guardar", error ?? "sin fila", { id });
-    return fallo("No se pudo guardar el procedimiento. Inténtalo de nuevo.");
+    return fallo(siSoloLectura(error, "No se pudo guardar el procedimiento. Inténtalo de nuevo."));
   }
   revalidatePath("/configuracion/procedimientos");
   redirect(`/configuracion/procedimientos?guardado=${encodeURIComponent(r.datos.codigo)}`);

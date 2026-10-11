@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { ESTADOS_ACTIVOS } from "@/lib/agenda/citas";
 import { validarBloqueo, validarSemana, type CampoBloqueo, type EntradaBloqueo } from "@/lib/agenda/horario";
 import { modulos } from "@/lib/funciones";
+import { esSoloLectura } from "@/lib/prueba";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
@@ -21,6 +22,8 @@ async function adminActual() {
 
 /** Mensaje de la base que se puede mostrar tal cual (validaciones propias, en español). */
 function mensajeBase(error: { code?: string; message: string }, porDefecto: string): string {
+  // Clínica vencida: el mensaje de la base explica qué pasa y cómo seguir.
+  if (esSoloLectura(error)) return `${error.message}.`;
   return error.code === "P0001" ? `${error.message}.`.replace(/\.\.$/, ".") : porDefecto;
 }
 

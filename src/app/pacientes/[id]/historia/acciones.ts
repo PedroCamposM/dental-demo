@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { validarCuestionario, type CampoCuestionario } from "@/lib/historia/cuestionario";
 import { modulos } from "@/lib/funciones";
+import { siSoloLectura } from "@/lib/prueba";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
@@ -52,7 +53,7 @@ export async function guardarCuestionario(_previo: EstadoCuestionario, form: For
       return fallo("Este paciente está anulado o fusionado: registra la historia en el registro vigente.");
     }
     registrarError("historia.guardar", error, { paciente: pacienteId });
-    return fallo("No se pudo guardar la historia. Inténtalo de nuevo.");
+    return fallo(siSoloLectura(error, "No se pudo guardar la historia. Inténtalo de nuevo."));
   }
   revalidatePath(`/pacientes/${pacienteId}`, "layout");
   redirect(`/pacientes/${pacienteId}/historia?guardada=1`);
