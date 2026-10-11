@@ -151,7 +151,7 @@ begin
   if v.id is null then
     raise exception 'Clínica no encontrada';
   end if;
-  if v.plan = 'demo' and not v_super then
+  if v.plan = 'demo' then
     raise exception 'El nombre de la clínica de demostración no se cambia';
   end if;
   if v.nombre = v_nombre then
@@ -212,7 +212,9 @@ begin
   end if;
   if coalesce(porcentaje, 0) = 0 then
     delete from privado.descuento_clinica where clinica_id = id_clinica;
-    perform privado.anotar_plataforma('quitar_descuento', id_clinica, jsonb_build_object('motivo', btrim(motivo)));
+    if found then
+      perform privado.anotar_plataforma('quitar_descuento', id_clinica, jsonb_build_object('motivo', btrim(motivo)));
+    end if;
     return;
   end if;
   if porcentaje not between 1 and 90 then

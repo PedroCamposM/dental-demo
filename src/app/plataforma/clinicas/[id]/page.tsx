@@ -106,9 +106,9 @@ export default async function FichaClinica({ params }: { params: Promise<{ id: s
         <section aria-labelledby="t-cuenta" className={seccion}>
           <h2 id="t-cuenta" className="mb-3 text-lg font-semibold">Cuenta</h2>
           <div className="flex flex-col gap-4">
-            <RenombrarClinica clinicaId={fila.id} nombre={fila.nombre} />
-            {fila.plan !== "demo" && (
+            {fila.plan === "demo" ? <p className="text-sm text-gray-600">La clínica de demostración conserva su nombre.</p> : (
               <>
+                <RenombrarClinica clinicaId={fila.id} nombre={fila.nombre} />
                 <div className="border-t border-gray-100 pt-3">
                   <p className="mb-1 text-sm font-medium">Descuento</p>
                   <p className="mb-2 text-xs text-gray-600">
@@ -118,7 +118,8 @@ export default async function FichaClinica({ params }: { params: Promise<{ id: s
                       : "Sin descuento. "}
                     Se aplica cuando la clínica reporta su próximo pago (lo ve en «Plan y pagos»). 0 lo quita.
                   </p>
-                  <EditarDescuento clinicaId={fila.id} porcentaje={f.descuento?.porcentaje ?? null} hasta={f.descuento?.hasta ?? null} />
+                  <EditarDescuento clinicaId={fila.id} porcentaje={f.descuento?.vigente ? f.descuento.porcentaje : null}
+                    hasta={f.descuento?.vigente ? f.descuento.hasta : null} />
                 </div>
                 <div className="border-t border-gray-100 pt-3">
                   <p className="mb-1 text-sm font-medium">Aviso solo para esta clínica</p>

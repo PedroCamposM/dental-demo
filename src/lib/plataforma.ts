@@ -53,7 +53,7 @@ export function detalleBitacora(accion: string, d: Detalle): string {
 }
 
 export type Ingreso = {
-  confirmado_el: string; clinica: string; tarifa: string; periodo: "mensual" | "anual"; monto_centimos: number;
+  confirmado_el: string; clinica_id?: string; clinica: string; tarifa: string; periodo: "mensual" | "anual"; monto_centimos: number;
   descuento_pct: number | null; metodo: string; operacion: string; pagado_el: string; plan_hasta: string | null;
 };
 

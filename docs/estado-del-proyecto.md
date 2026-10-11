@@ -820,6 +820,18 @@ Aprobada por Pedro el 11-oct («Apruebo la etapa»). Migraciones aditivas:
   (`permission denied`). La solo lectura de la fila de la clínica se prueba con el RUC y con
   `cambiar_nombre_clinica`.
 - Checklist: `docs/checklist-etapa20.md`.
+- Revisión independiente (11-oct): sin huecos de RLS ni de permisos. Corregido:
+  - El e2e de turnos validaba el texto equivocado.
+  - El rol nulo da un mensaje claro en los turnos.
+  - La lista del panel marca «solo lectura» a una suspendida.
+  - El nombre de la demo no se cambia, tampoco por el superadministrador (el formulario no aparece).
+  - Quitar un descuento inexistente ya no se anota en la bitácora.
+  - Ya no se precarga un descuento vencido.
+  - La prueba SQL deja la base compartida como estaba.
+
+  Queda anotado: un turno que no se cierra antes de la medianoche sigue sumando los pagos del
+  día siguiente. Se ve como «Turno abierto» en la caja de cualquier día y el cierre de ese
+  día lo exige cerrar antes.
 
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 

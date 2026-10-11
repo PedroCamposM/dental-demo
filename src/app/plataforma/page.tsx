@@ -231,7 +231,7 @@ export default async function Plataforma({ searchParams }: { searchParams: Promi
       )}
       <ul className="mt-3 flex flex-col gap-3">
         {visibles.map((c) => {
-          const est = estadoPlan(c, hoy);
+          const est = estadoPlan({ ...c, suspendida: Boolean(c.suspendida_at) }, hoy);
           const s = salud(c.ultima_actividad ?? null, c.actividad_30 ?? 0, c.actividad_previa_30 ?? 0, ahora);
           const hasta = c.plan === "prueba" ? c.prueba_hasta : c.plan === "activo" ? c.activo_hasta : null;
           return (

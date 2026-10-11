@@ -70,7 +70,7 @@ export default async function Ingresos({ searchParams }: { searchParams: Promise
               </tr></thead>
               <tbody>
                 {filas.map((f) => (
-                  <tr key={`${f.operacion}-${f.confirmado_el}-${f.clinica}`} className="border-t border-gray-100">
+                  <tr key={`${f.clinica_id}-${f.metodo}-${f.operacion}`} className="border-t border-gray-100">
                     <td className="py-1 pr-3">{f.confirmado_el}</td><td className="py-1 pr-3">{f.clinica}</td>
                     <td className="py-1 pr-3">{f.tarifa} {NOMBRE_PERIODO[f.periodo].toLowerCase()}</td>
                     <td className="py-1 pr-3">{formatearSoles(f.monto_centimos)}{f.descuento_pct ? ` (−${f.descuento_pct} %)` : ""}</td>

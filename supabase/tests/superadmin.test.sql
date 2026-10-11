@@ -46,6 +46,10 @@ select pruebas.como('cb000000-0000-0000-0000-0000000000aa');
 select pruebas.debe_fallar($$select public.cambiar_nombre_clinica('cbcbcbcb-0000-0000-0000-000000000000', 'Sin motivo')$$, 'motivo');
 select public.cambiar_nombre_clinica('cbcbcbcb-0000-0000-0000-000000000000', 'Clínica Súper', 'La clínica pidió el acento');
 select pruebas.debe_fallar($$select public.cambiar_nombre_clinica('ebebebeb-0000-0000-0000-000000000000', 'Demo')$$, 'motivo');
+select pruebas.debe_fallar($$select public.cambiar_nombre_clinica('ebebebeb-0000-0000-0000-000000000000', 'Demo', 'Probar')$$,
+                           'demostración');
+-- Quitar un descuento que no existe no deja nada en la bitácora
+select public.guardar_descuento('dbdbdbdb-0000-0000-0000-000000000000', 0, null, 'Nada que quitar');
 -- Descuento del 20 %: se aplica solo al reportar el pago
 select pruebas.debe_fallar($$select public.guardar_descuento('cbcbcbcb-0000-0000-0000-000000000000', 95, null, 'Mucho')$$, '90');
 select pruebas.debe_fallar($$select public.guardar_descuento('cbcbcbcb-0000-0000-0000-000000000000', 20, current_date - 1, 'Pasado')$$,
@@ -109,7 +113,15 @@ values ('dbdbdbdb-0000-0000-0000-000000000000', 'Ya', 'Entra', '1980-01-01', '51
 reset role;
 select pruebas.igual((select count(*) from public.auditoria where tabla = 'clinica' and despues ? 'nombre'
                         and registro_id = 'cbcbcbcb-0000-0000-0000-000000000000'), 2, 'los cambios de nombre en la auditoría');
+select pruebas.igual((select count(*) from privado.bitacora_plataforma where accion = 'quitar_descuento'), 0,
+                     'quitar sin descuento no se anota');
 -- Deja la plataforma como estaba: el CI corre después Playwright sobre esta misma base.
 update privado.aviso_plataforma set retirado_at = now() where retirado_at is null;
+update public.pago_suscripcion set estado = 'rechazado', motivo_rechazo = 'Limpieza de la prueba SQL', revisado_at = now()
+ where operacion = 'SUP-2';
+delete from privado.descuento_clinica where clinica_id = 'cbcbcbcb-0000-0000-0000-000000000000';
+update public.clinica set plan = 'prueba', prueba_hasta = (now() at time zone 'America/Lima')::date
+ where id = 'ebebebeb-0000-0000-0000-000000000000';
+delete from privado.superadmin where usuario_id = 'cb000000-0000-0000-0000-0000000000aa';
 select pruebas.como(null);
 \echo 'superadmin: todas las aserciones pasaron'

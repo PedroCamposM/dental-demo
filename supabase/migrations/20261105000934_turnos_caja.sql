@@ -82,7 +82,7 @@ declare
   v_hoy date := (now() at time zone 'America/Lima')::date;
   v_id uuid;
 begin
-  if privado.rol_actual() not in ('admin', 'recepcion') then
+  if coalesce(privado.rol_actual()::text, '') not in ('admin', 'recepcion') then
     raise exception 'Los turnos de caja los abren administración o recepción';
   end if;
   if fondo is null or fondo < 0 or fondo > 10000000 then
@@ -114,7 +114,7 @@ declare
   v_resumen jsonb;
   v_esperado bigint;
 begin
-  if privado.rol_actual() not in ('admin', 'recepcion') then
+  if coalesce(privado.rol_actual()::text, '') not in ('admin', 'recepcion') then
     raise exception 'Los turnos de caja los cierran administración o recepción';
   end if;
   if efectivo_contado is null or efectivo_contado < 0 or efectivo_contado > 100000000 then
@@ -144,7 +144,7 @@ create function public.turno_abierto()
 returns table (id uuid, fecha date, fondo_centimos bigint, abierto_por uuid, abierto_at timestamptz, resumen jsonb)
 language plpgsql stable security definer set search_path = '' as $$
 begin
-  if privado.rol_actual() not in ('admin', 'recepcion') then
+  if coalesce(privado.rol_actual()::text, '') not in ('admin', 'recepcion') then
     raise exception 'La caja la ven administración y recepción';
   end if;
   return query
@@ -186,7 +186,7 @@ declare
   v_esperado bigint;
   v_id uuid;
 begin
-  if privado.rol_actual() not in ('admin', 'recepcion') then
+  if coalesce(privado.rol_actual()::text, '') not in ('admin', 'recepcion') then
     raise exception 'La caja la cierran administración o recepción';
   end if;
   if dia is null or dia > (now() at time zone 'America/Lima')::date then
