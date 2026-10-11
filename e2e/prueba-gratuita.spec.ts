@@ -6,6 +6,8 @@ import { conEtapa16, conSupabaseLocal } from "./ayudantes";
 // (solo lectura) → el superadministrador activa el plan.
 test.skip(!conSupabaseLocal || !conEtapa16, "Crea cuentas y clínicas: solo contra Supabase local con la Etapa 16 encendida");
 test.describe.configure({ mode: "serial" });
+const hayPsql = (() => { try { execFileSync("psql", ["--version"]); return true; } catch { return false; } })();
+test.skip(!hayPsql, "Necesita psql para simular el vencimiento y agregar al superadministrador");
 
 const DB_URL = process.env.DB_URL ?? "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
 /** SQL directo a la base local: lo que en producción hace el superadmin a mano (o el paso del tiempo). */

@@ -7,6 +7,7 @@ import { modulos } from "@/lib/funciones";
 import {
   CAMPOS_NTS139, validarPaciente, type EntradaPaciente, type Errores, type CampoPaciente, type PacienteValidado,
 } from "@/lib/pacientes/validacion";
+import { esSoloLectura } from "@/lib/prueba";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
@@ -86,6 +87,7 @@ export async function guardarPaciente(_previo: EstadoFormulario, form: FormData)
     if (error?.code === "P0001" && error.message.includes("anulado")) {
       return { ...vacio, general: "Este paciente está anulado o fusionado: su registro ya no se edita." };
     }
+    if (esSoloLectura(error)) return { ...vacio, general: `${error?.message}.` };
     if (error?.code === "P0001" && error.message.includes("apoderado")) {
       return { ...vacio, errores: { apoderado_nombre: "Es menor de edad: completa los datos del apoderado." } };
     }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estadoPlan, validarRegistro } from "./prueba";
+import { esSoloLectura, estadoPlan, validarRegistro } from "./prueba";
 
 describe("estadoPlan", () => {
   const hoy = "2026-10-11";
@@ -33,5 +33,13 @@ describe("validarRegistro", () => {
   it("exige términos, contraseña con letras y números y COP numérico", () => {
     const r = validarRegistro(t({ ...base, password: "solotexto", cop: "A1", acepta: "" }));
     expect(r.ok === false && Object.keys(r.errores).sort()).toEqual(["acepta", "cop", "password"]);
+  });
+});
+
+describe("esSoloLectura", () => {
+  it("reconoce el error de clínica vencida de la base", () => {
+    expect(esSoloLectura({ code: "P0001", message: "El plan de la clínica venció: está en solo lectura. Puedes ver…" })).toBe(true);
+    expect(esSoloLectura({ code: "P0001", message: "El paciente está anulado" })).toBe(false);
+    expect(esSoloLectura(null)).toBe(false);
   });
 });

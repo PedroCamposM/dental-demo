@@ -9,7 +9,7 @@ import { createClient } from "@/lib/supabase/server";
 export type EstadoBienvenida = { errores: Partial<Record<"clinica" | "nombre" | "cop" | "general", string>>; valores: Record<string, string> };
 
 // Mensajes de la base que se pueden mostrar tal cual (validaciones en español).
-const MENSAJES_BASE = /^(El nombre de la clínica|Tu nombre|El número de colegiatura)/;
+const MENSAJES_BASE = /^(El nombre de la clínica|Tu nombre|El número de colegiatura|El superadministrador)/;
 
 export async function crearMiClinica(_previo: EstadoBienvenida, form: FormData): Promise<EstadoBienvenida> {
   if (!modulos.etapa16) return { errores: { general: "El registro aún no está abierto." }, valores: {} };
@@ -23,7 +23,7 @@ export async function crearMiClinica(_previo: EstadoBienvenida, form: FormData):
   });
   if (error) {
     // Doble envío: la clínica ya se creó con el primero.
-    if (error.message.startsWith("Tu usuario ya pertenece")) redirect("/");
+    if (error.message.startsWith("Tu usuario ya pertenece") || error.code === "23505") redirect("/");
     if (error.code === "P0001" && MENSAJES_BASE.test(error.message)) return { errores: { general: `${error.message}.` }, valores };
     registrarError("bienvenida.crear_clinica_prueba", error);
     return { errores: { general: "No pudimos crear tu clínica. Vuelve a intentarlo en unos minutos." }, valores };

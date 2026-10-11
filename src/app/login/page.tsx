@@ -26,7 +26,8 @@ export default async function PaginaLogin({
         )}
         {motivo === "enlace" && (
           <p role="status" className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
-            El enlace de confirmación no es válido o ya venció. Ingresa con tu correo y contraseña o regístrate otra vez.
+            No pudimos abrir tu sesión con ese enlace (ya se usó, venció o lo abriste en otro equipo). Si tu correo ya
+            quedó confirmado, ingresa con tu correo y contraseña; si no, regístrate otra vez.
           </p>
         )}
         <FormularioLogin next={destinoSeguro(next)} />

@@ -67,3 +67,8 @@ export function validarClinica(t: (c: string) => string):
   if (cop && !/^\d{1,6}$/.test(cop)) e.cop = "El número de colegiatura (COP) tiene de 1 a 6 dígitos.";
   return Object.keys(e).length > 0 ? { ok: false, errores: e } : { ok: true, datos: { clinica, nombre, cop: cop || null } };
 }
+
+/** Error de la base por clínica vencida (solo lectura): se muestra tal cual y no se registra como falla. */
+export function esSoloLectura(error: { code?: string; message?: string } | null | undefined): boolean {
+  return error?.code === "P0001" && (error.message ?? "").includes("está en solo lectura");
+}

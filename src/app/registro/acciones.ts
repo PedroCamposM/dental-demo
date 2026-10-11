@@ -24,8 +24,10 @@ export async function registrarse(_previo: EstadoRegistro, form: FormData): Prom
   const r = validarRegistro(t);
   if (!r.ok) return { errores: r.errores, valores, enviadoA: null };
 
+  // URL pública configurada; si no hay, la del pedido (Supabase solo acepta las URL autorizadas).
   const h = await headers();
-  const origen = h.get("origin") ?? `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
+  const origen = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, "")
+    ?? h.get("origin") ?? `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
   const supabase = await createClient();
   const { data, error } = await supabase.auth.signUp({
     email: r.datos.email,

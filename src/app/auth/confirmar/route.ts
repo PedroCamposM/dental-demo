@@ -10,7 +10,8 @@ export async function GET(request: NextRequest) {
   const url = request.nextUrl;
   const code = url.searchParams.get("code");
   const tokenHash = url.searchParams.get("token_hash");
-  const tipo = url.searchParams.get("type") as EmailOtpType | null;
+  const tipoPedido = url.searchParams.get("type");
+  const tipo: EmailOtpType | null = tipoPedido === "signup" || tipoPedido === "email" ? tipoPedido : null;
   const supabase = await createClient();
   const { error } = code
     ? await supabase.auth.exchangeCodeForSession(code)

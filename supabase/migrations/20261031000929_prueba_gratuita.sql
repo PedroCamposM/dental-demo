@@ -24,6 +24,8 @@ create table privado.superadmin (
   usuario_id uuid primary key references auth.users (id),
   agregado_at timestamptz not null default now()
 );
+alter table privado.superadmin enable row level security;
+revoke all on privado.superadmin from public, anon, authenticated;
 
 create function privado.es_superadmin() returns boolean
 language sql stable security definer set search_path = '' as $$
@@ -42,6 +44,18 @@ language sql stable security definer set search_path = '' as $$
       from public.clinica c where c.id = id_clinica), true)
 $$;
 
+-- Mensaje de solo lectura según el plan (P0001: las pantallas que muestran los mensajes de la base lo muestran tal cual).
+create function privado.error_solo_lectura(id_clinica uuid) returns void
+language plpgsql stable security definer set search_path = '' as $$
+begin
+  if (select plan from public.clinica where id = id_clinica) = 'prueba' then
+    raise exception using
+      message = 'La prueba gratuita de la clínica terminó: está en solo lectura. Puedes ver y exportar las historias; para registrar, activa el plan';
+  end if;
+  raise exception using
+    message = 'El plan de la clínica venció: está en solo lectura. Puedes ver y exportar las historias; para registrar, renueva el plan';
+end $$;
+
 -- Solo lectura al vencer: cualquier escritura desde la app (rol authenticated, también dentro
 -- de las funciones SECURITY DEFINER que llama la app) se rechaza. Los procesos internos
 -- (service role, migraciones, refresco de la demo) no pasan por aquí.
@@ -50,10 +64,43 @@ language plpgsql set search_path = '' as $$
 begin
   if current_setting('role', true) = 'authenticated'
      and not privado.clinica_escribible(case when tg_op = 'DELETE' then old.clinica_id else new.clinica_id end) then
-    raise exception 'La prueba gratuita de la clínica terminó: está en solo lectura. Puedes ver y exportar las historias; para registrar, activa el plan.';
+    perform privado.error_solo_lectura(case when tg_op = 'DELETE' then old.clinica_id else new.clinica_id end);
   end if;
   return case when tg_op = 'DELETE' then old else new end;
 end $$;
+
+-- La fila de la clínica (nombre, marca, inactividad) tampoco se edita vencida; el superadmin
+-- sí la cambia (extender_plan).
+create function privado.solo_lectura_clinica() returns trigger
+language plpgsql set search_path = '' as $$
+begin
+  if current_setting('role', true) = 'authenticated' and not privado.es_superadmin()
+     and not privado.clinica_escribible(old.id) then
+    perform privado.error_solo_lectura(old.id);
+  end if;
+  return new;
+end $$;
+create trigger a_solo_lectura before update on public.clinica
+  for each row execute function privado.solo_lectura_clinica();
+
+-- Archivos: vencida, no se suben imágenes ni se cambia el logo (se siguen viendo).
+alter policy clinico_insert on storage.objects
+  with check (bucket_id = 'clinico'
+              and (storage.foldername(name))[1] = (select privado.clinica_actual())::text
+              and (select privado.ve_clinico())
+              and (select privado.clinica_escribible(privado.clinica_actual()))
+              and exists (select 1 from public.paciente p
+                           where p.id::text = (storage.foldername(name))[2]
+                             and p.clinica_id = (select privado.clinica_actual()) and p.anulado_at is null));
+alter policy marca_insert on storage.objects
+  with check (bucket_id = 'marca' and (storage.foldername(name))[1] = (select privado.clinica_actual())::text
+              and (select privado.rol_actual()) = 'admin' and (select privado.clinica_escribible(privado.clinica_actual())));
+alter policy marca_update on storage.objects
+  using (bucket_id = 'marca' and (storage.foldername(name))[1] = (select privado.clinica_actual())::text
+         and (select privado.rol_actual()) = 'admin' and (select privado.clinica_escribible(privado.clinica_actual())));
+alter policy marca_delete on storage.objects
+  using (bucket_id = 'marca' and (storage.foldername(name))[1] = (select privado.clinica_actual())::text
+         and (select privado.rol_actual()) = 'admin' and (select privado.clinica_escribible(privado.clinica_actual())));
 
 do $$
 declare t record;
@@ -95,6 +142,9 @@ begin
   if exists (select 1 from public.usuario where id = v_yo) then
     raise exception 'Tu usuario ya pertenece a una clínica';
   end if;
+  if privado.es_superadmin() then
+    raise exception 'El superadministrador no crea clínicas de prueba';
+  end if;
   if char_length(btrim(coalesce(nombre_clinica, ''))) not between 3 and 120 then
     raise exception 'El nombre de la clínica va de 3 a 120 caracteres';
   end if;
@@ -106,7 +156,8 @@ begin
   end if;
 
   insert into public.clinica (nombre, plan, prueba_hasta)
-  values (btrim(nombre_clinica), 'prueba', (now() at time zone 'America/Lima')::date + 30)
+  -- 30 días contando hoy: escribe hasta prueba_hasta inclusive.
+  values (btrim(nombre_clinica), 'prueba', (now() at time zone 'America/Lima')::date + 29)
   returning id into v_clinica;
   insert into public.usuario (id, clinica_id, nombre, rol, cop)
   values (v_yo, v_clinica, btrim(nombre_usuario), 'admin', nullif(btrim(coalesce(cop, '')), ''));
@@ -126,10 +177,13 @@ begin
   insert into public.plantilla_mensaje (clinica_id, tipo, nombre, cuerpo)
   select v_clinica, tipo, nombre, cuerpo from public.plantilla_mensaje where clinica_id = v_demo and activa;
 
-  -- Un sillón y el horario del administrador (lunes a sábado, 9:00 a 19:00), editables.
+  -- Un sillón y, si es cirujano dentista (con COP), su horario de lunes a sábado de 9:00 a 19:00
+  -- (editables). Sin COP no atiende: no lleva horario.
   insert into public.sillon (clinica_id, nombre) values (v_clinica, 'Sillón 1') returning id into v_sillon;
-  insert into public.horario_profesional (clinica_id, profesional_id, sillon_id, dia_semana, hora_inicio, hora_fin)
-  select v_clinica, v_yo, v_sillon, d, '09:00', '19:00' from generate_series(1, 6) d;
+  if nullif(btrim(coalesce(cop, '')), '') is not null then
+    insert into public.horario_profesional (clinica_id, profesional_id, sillon_id, dia_semana, hora_inicio, hora_fin)
+    select v_clinica, v_yo, v_sillon, d, '09:00', '19:00' from generate_series(1, 6) d;
+  end if;
 
   -- Pacientes de ejemplo: ficticios y así rotulados (sin documento, para no usar un DNI real).
   insert into public.paciente (clinica_id, nombres, apellidos, fecha_nacimiento, sexo, telefono, consentimiento_datos_at)

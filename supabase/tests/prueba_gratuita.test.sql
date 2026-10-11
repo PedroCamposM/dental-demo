@@ -5,6 +5,7 @@
 select pruebas.como(null);
 insert into auth.users (id) values
   ('e6000000-0000-0000-0000-00000000000a'),   -- se registra a la prueba
+  ('e6000000-0000-0000-0000-00000000000b'),   -- se registra sin COP (administrador que no atiende)
   ('e6000000-0000-0000-0000-0000000000aa'),   -- superadministrador (sin clínica)
   ('f6000000-0000-0000-0000-00000000000a');   -- admin de otra clínica
 insert into public.clinica (id, nombre) values ('f6f6f6f6-0000-0000-0000-000000000000', 'Otra clínica');
@@ -20,7 +21,8 @@ select pruebas.debe_fallar($$select public.crear_clinica_prueba('X', 'Dra. Prueb
 select pruebas.debe_fallar($$select public.crear_clinica_prueba('Consultorio Prueba', 'Dra. Prueba', 'abc')$$, 'COP');
 insert into nueva select public.crear_clinica_prueba('Consultorio Prueba', 'Dra. Prueba', '9822');
 select pruebas.igual((select count(*) from public.clinica c, nueva n where c.id = n.id and c.plan = 'prueba'
-                        and c.prueba_hasta = (now() at time zone 'America/Lima')::date + 30), 1, 'prueba de 30 días');
+                        and c.prueba_hasta = (now() at time zone 'America/Lima')::date + 29), 1,
+                     'prueba de 30 días contando hoy');
 select pruebas.igual((select count(*) from public.usuario where id = auth.uid() and rol = 'admin' and cop = '9822'), 1,
                      'queda como administrador de su clínica');
 select pruebas.igual((select count(*) from public.paciente where nombres like '%(ejemplo)'), 3, 'tres pacientes de ejemplo');
@@ -28,6 +30,12 @@ select pruebas.igual((select count(*) from public.horario_profesional), 6, 'hora
 select pruebas.igual((select count(*) from public.paciente where clinica_id = 'f6f6f6f6-0000-0000-0000-000000000000'), 0,
                      'no ve otra clínica');
 select pruebas.debe_fallar($$select public.crear_clinica_prueba('Otra más', 'Dra. Prueba', null)$$, 'ya pertenece');
+-- Sin COP también crea su clínica (sillón, sin horario: no atiende)
+select pruebas.como('e6000000-0000-0000-0000-00000000000b');
+select public.crear_clinica_prueba('Clínica Sin COP', 'Admin Gestión', null);
+select pruebas.igual((select count(*) from public.sillon), 1, 'sin COP: con sillón');
+select pruebas.igual((select count(*) from public.horario_profesional), 0, 'sin COP: sin horario');
+select pruebas.como('e6000000-0000-0000-0000-00000000000a');
 -- Con la prueba vigente registra normalmente
 insert into public.paciente (clinica_id, nombres, apellidos, fecha_nacimiento, telefono, consentimiento_datos_at)
 select id, 'Real', 'Uno', '1980-01-01', '51911111111', now() from nueva;
@@ -46,6 +54,10 @@ select pruebas.debe_fallar($$insert into public.paciente (clinica_id, nombres, a
   select id, 'Nuevo', 'Paciente', '1981-01-01', '51911111112', now() from nueva$$, 'solo lectura');
 select pruebas.debe_fallar($$update public.paciente set telefono = '51911111113' where nombres = 'Real'$$, 'solo lectura');
 select pruebas.debe_fallar($$select public.crear_clinica_prueba('Otra', 'Dra. Prueba', null)$$, 'ya pertenece');
+-- Tampoco cambia la ficha de la clínica ni sube logos
+select pruebas.debe_fallar($$update public.clinica set nombre = 'Cambiada' where id = (select id from nueva)$$, 'solo lectura');
+select pruebas.debe_fallar($$insert into storage.objects (bucket_id, name) select 'marca', id::text || '/logo.png' from nueva$$,
+                           'row-level security');
 -- Otra clínica (activa) no se ve afectada
 select pruebas.como('f6000000-0000-0000-0000-00000000000a');
 insert into public.paciente (clinica_id, nombres, apellidos, fecha_nacimiento, telefono, consentimiento_datos_at)
@@ -58,6 +70,7 @@ set role authenticated;
 select pruebas.como('e6000000-0000-0000-0000-0000000000aa');
 select pruebas.igual((select count(*) from public.clinicas_plataforma() where nombre = 'Consultorio Prueba' and pacientes = 4), 1,
                      'el superadmin ve las clínicas');
+select pruebas.debe_fallar($$select public.crear_clinica_prueba('Del super', 'Super', null)$$, 'superadministrador');
 select pruebas.debe_fallar($$select public.extender_plan((select id from nueva), 'activo', current_date + 30, '')$$, 'motivo');
 select pruebas.debe_fallar($$select public.extender_plan((select id from nueva), 'activo', (now() at time zone 'America/Lima')::date - 1, 'Pago')$$, 'fecha de fin');
 select public.extender_plan((select id from nueva), 'activo', (now() at time zone 'America/Lima')::date + 365, 'Pago anual por transferencia');

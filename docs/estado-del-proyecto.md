@@ -644,6 +644,16 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
   Supabase Auth, `site_url` = la URL de Vercel y `…/auth/confirmar` en las URL de redirección;
   SMTP propio (lo configura Pedro; sin claves por el chat); agregar el correo del
   superadmin; encender la bandera.
+- Revisión independiente (11-oct). Corregido: sin COP no se podía crear la clínica (el
+  horario exige COP; ahora sin COP no lleva horario); la prueba daba 31 días (ahora hoy + 29,
+  30 días contando hoy); vencida se podía editar la ficha de la clínica y subir imágenes o
+  el logo (disparador en `clinica` y políticas de Storage); mensaje distinto si venció la
+  prueba o el plan pagado, y no se registra como falla del sistema; el superadmin no crea
+  clínicas; doble envío en /bienvenida; tipo del enlace de confirmación acotado; URL del
+  correo desde `NEXT_PUBLIC_SITE_URL`; `privado.superadmin` con RLS. Queda anotado: el
+  registro público debe seguir apagado en Supabase hasta el lanzamiento (la función de alta
+  existe desde que se aplica la 0929); no hay pantalla para invitar personal (la prueba es
+  de un usuario); en varias pantallas el error de solo lectura sigue siendo genérico.
 
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 
