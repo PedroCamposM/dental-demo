@@ -102,4 +102,9 @@ export const modulos = {
    * Requiere la migración 0928 (y la Etapa 1).
    */
   etapa15: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA15 === "1",
+  /**
+   * Etapa 16: prueba gratuita por clínica (registro, solo lectura al vencer, superadmin).
+   * Requiere la migración 0929 (y la Etapa 1).
+   */
+  etapa16: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA16 === "1",
 };

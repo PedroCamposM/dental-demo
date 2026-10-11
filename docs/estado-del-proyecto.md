@@ -621,6 +621,30 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
   desactivado, site_url en localhost y sin SMTP propio (2 correos/hora). Plan propuesto,
   pendiente de aprobación.
 
+## v2 — Etapa 16 (prueba gratuita por clínica)
+
+- Pedro aprobó el plan («Sí», 11-oct).
+- **0929** (aditiva): `clinica.plan` (demo, prueba o activo; las existentes quedan «activo» y
+  la de demostración «demo»), `prueba_hasta` y `activo_hasta`. Al vencer, un disparador en
+  cada tabla con `clinica_id` (menos auditoría y registro de exportaciones) impide registrar,
+  editar o anular: se sigue viendo y exportando todo, nada se borra.
+  `crear_clinica_prueba` crea la clínica (30 días) con quien se registró como admin, copia
+  de la demo el catálogo y las plantillas (de ejemplo), un sillón, horario lunes a sábado y
+  3 pacientes «(ejemplo)». Superadministrador en `privado.superadmin` (se agrega a mano por
+  SQL); `clinicas_plataforma` y `extender_plan` (con motivo, en la auditoría de la clínica).
+- Pantallas: `/registro` (pública; con sesión vuelve al inicio), `/auth/confirmar` (enlace
+  del correo), `/bienvenida` (crear la clínica con los datos del registro), `/terminos`
+  (borrador para revisar con un abogado), `/plataforma` (superadmin; 404 para los demás).
+  Aviso en el encabezado: días de prueba que quedan, o solo lectura al vencer. Enlace
+  «Prueba gratis 30 días» en el login.
+- Bandera `HABILITAR_ETAPA16`. Pruebas: `supabase/tests/prueba_gratuita.test.sql`, Vitest
+  (`src/lib/prueba.test.ts`, rutas y mensajes), `e2e/prueba-gratuita.spec.ts`. Checklist:
+  `docs/checklist-etapa16.md`.
+- Para abrirlo en producción (con el OK de Pedro): aplicar 0929; activar el registro en
+  Supabase Auth, `site_url` = la URL de Vercel y `…/auth/confirmar` en las URL de redirección;
+  SMTP propio (lo configura Pedro; sin claves por el chat); agregar el correo del
+  superadmin; encender la bandera.
+
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 
 Sin huecos de RLS, grants ni aislamiento entre clínicas en laboratorio, exportación y
@@ -663,7 +687,7 @@ Queda anotado, sin cambio de código:
 
 ## Próximas etapas (CLAUDE.md)
 
-Etapas 0 a 12 terminadas (v2 en producción desde el 10-oct). Siguen: 13 registro ágil · 14 atención rápida · 15 personalización · 16 prueba gratuita por clínica · 17 suscripción.
+Etapas 0 a 15 terminadas (v2 en producción desde el 10-oct). 16 prueba gratuita por clínica en curso. Sigue: 17 suscripción.
 Falta en `/docs`: formatos de la clínica piloto (historia y consentimientos),
 necesarios antes de la Etapa 7. La Etapa 4 incluye además lo de las fichas
 odonto-estomatológicas de la NTS 139 (índice CPOD/ceod, IHO-S, riesgo estomatológico

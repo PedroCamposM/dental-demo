@@ -1,6 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
-import { esRutaPublica } from "@/lib/auth/rutas";
+import { esRutaDeIngreso, esRutaPublica } from "@/lib/auth/rutas";
 import {
   COOKIE_ACTIVIDAD, COOKIE_LIMITE, DURACION_COOKIE_S, estadoInactividad, minutosValidos,
 } from "@/lib/sesion-segura/inactividad";
@@ -59,7 +59,7 @@ export async function updateSession(request: NextRequest) {
   if (!user && !esRutaPublica(ruta)) {
     return redirigir(request, response, "/login", ruta + request.nextUrl.search);
   }
-  if (user && esRutaPublica(ruta)) {
+  if (user && esRutaDeIngreso(ruta)) {
     return redirigir(request, response, "/");
   }
   return response;

@@ -36,7 +36,7 @@ export function estadoPlan(p: DatosPlan, hoy: string): EstadoPlan {
 }
 
 export type CampoRegistro = "email" | "password" | "clinica" | "nombre" | "cop" | "acepta";
-export type DatosRegistro = { email: string; password: string; clinica: string; nombre: string; cop: string | null };
+export type DatosRegistro = { email: string; password: string } & DatosClinica;
 
 /** Valida el formulario de registro a la prueba (el servidor y la base vuelven a validar). */
 export function validarRegistro(t: (c: string) => string):
@@ -47,12 +47,23 @@ export function validarRegistro(t: (c: string) => string):
   const password = t("password");
   if (password.length < 8 || password.length > 72) e.password = "La contraseña tiene de 8 a 72 caracteres.";
   else if (!/[A-Za-z]/.test(password) || !/\d/.test(password)) e.password = "Usa letras y números.";
+  const clinica = validarClinica(t);
+  if (!clinica.ok) Object.assign(e, clinica.errores);
+  if (t("acepta") !== "1") e.acepta = "Acepta los términos y la política de privacidad para continuar.";
+  return !clinica.ok || Object.keys(e).length > 0 ? { ok: false, errores: e } : { ok: true, datos: { email, password, ...clinica.datos } };
+}
+
+export type DatosClinica = { clinica: string; nombre: string; cop: string | null };
+
+/** Datos para crear la clínica (al registrarse y en /bienvenida; la base vuelve a validarlos). */
+export function validarClinica(t: (c: string) => string):
+  { ok: true; datos: DatosClinica } | { ok: false; errores: Partial<Record<"clinica" | "nombre" | "cop", string>> } {
+  const e: Partial<Record<"clinica" | "nombre" | "cop", string>> = {};
   const clinica = t("clinica").trim();
   if (clinica.length < 3 || clinica.length > 120) e.clinica = "El nombre de la clínica va de 3 a 120 caracteres.";
   const nombre = t("nombre").trim();
   if (nombre.length < 3 || nombre.length > 120) e.nombre = "Tu nombre va de 3 a 120 caracteres.";
   const cop = t("cop").trim();
   if (cop && !/^\d{1,6}$/.test(cop)) e.cop = "El número de colegiatura (COP) tiene de 1 a 6 dígitos.";
-  if (t("acepta") !== "1") e.acepta = "Acepta los términos y la política de privacidad para continuar.";
-  return Object.keys(e).length > 0 ? { ok: false, errores: e } : { ok: true, datos: { email, password, clinica, nombre, cop: cop || null } };
+  return Object.keys(e).length > 0 ? { ok: false, errores: e } : { ok: true, datos: { clinica, nombre, cop: cop || null } };
 }
