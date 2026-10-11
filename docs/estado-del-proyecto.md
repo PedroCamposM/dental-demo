@@ -775,6 +775,12 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
   mensaje de «al menos un administrador activo». Queda anotado: activar
   `secure_password_change` en Supabase (la app ya exige la contraseña actual).
 
+- 11-oct: PR #9 fusionado con CI verde (110 pruebas de Playwright); «Aplicar migraciones» run
+  38161254959 (respaldo previo): 0932 aplicada y verificada. Con el OK de Pedro, plantillas de
+  Supabase Auth en español con enlace `{{ .SiteURL }}/auth/confirmar?token_hash=…&type=…`
+  (invitación, recuperación y confirmación del registro: botón «Continuar», sirve en otro
+  equipo). Falta `HABILITAR_ETAPA19=1` en Vercel y, opcional, «Secure password change».
+
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 
 Sin huecos de RLS, grants ni aislamiento entre clínicas en laboratorio, exportación y
@@ -817,7 +823,7 @@ Queda anotado, sin cambio de código:
 
 ## Próximas etapas (CLAUDE.md)
 
-Etapas 0 a 18 terminadas (v2 en producción desde el 10-oct). 19 equipo y mejoras en curso; 20 herramientas del superadmin.
+Etapas 0 a 19 terminadas (v2 en producción desde el 10-oct). Siguen: actualización de dependencias (Next 16, Vitest 4) y Etapa 20 (herramientas del superadmin).
 Falta en `/docs`: formatos de la clínica piloto (historia y consentimientos),
 necesarios antes de la Etapa 7. La Etapa 4 incluye además lo de las fichas
 odonto-estomatológicas de la NTS 139 (índice CPOD/ceod, IHO-S, riesgo estomatológico
