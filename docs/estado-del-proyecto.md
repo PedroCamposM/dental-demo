@@ -582,6 +582,9 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
 - Bandera nueva `HABILITAR_ETAPA14` (requiere la 0925 en la base).
 - Pruebas: `supabase/tests/atencion_rapida.test.sql`, Vitest de la validación,
   `e2e/atencion-rapida.spec.ts`. Checklist: `docs/checklist-etapa14.md`.
+- 11-oct: PR #2 (etapas 13 y 14 y correcciones de las revisiones) fusionado con CI verde;
+  «Aplicar migraciones» run 38100527939 (respaldo previo): 0925 y 0926 aplicadas y
+  verificadas. Producción desplegada. Falta encender `HABILITAR_ETAPA14=1` en Vercel.
 
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 
