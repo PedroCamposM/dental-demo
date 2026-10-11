@@ -584,7 +584,17 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
   `e2e/atencion-rapida.spec.ts`. Checklist: `docs/checklist-etapa14.md`.
 - 11-oct: PR #2 (etapas 13 y 14 y correcciones de las revisiones) fusionado con CI verde;
   «Aplicar migraciones» run 38100527939 (respaldo previo): 0925 y 0926 aplicadas y
-  verificadas. Producción desplegada. Falta encender `HABILITAR_ETAPA14=1` en Vercel.
+  verificadas. Producción desplegada.
+- Revisión independiente de la Etapa 14 (11-oct): **un problema alto** corregido antes de
+  encender la bandera: la versión nueva del cuestionario quedaba sin las enfermedades
+  sistémicas de la anterior y se perdía la alerta. **0927** (create or replace de la
+  función): conserva enfermedades y observaciones; embarazo obligatorio para quien puede
+  gestar (validado también en la base con sexo y edad); semanas y lactancia se preguntan y
+  ya no se copian; el diagnóstico es origen solo de los ítems de su pieza. En el formulario:
+  semanas y lactancia; mensaje que pide el subcódigo CIE-10 y códigos más largos ya no se
+  recortan. Prueba SQL con historia previa y paciente que puede gestar; e2e más robusto.
+  Queda anotado (bajo): dos atenciones rápidas seguidas generan dos controles de 6 meses.
+- **No encender `HABILITAR_ETAPA14` hasta aplicar la 0927 en el remoto.**
 
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 

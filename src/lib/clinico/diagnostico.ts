@@ -81,7 +81,8 @@ export function superficiesImposibles(pieza: number, superficies: Superficie[]):
 
 /** «K02.1 — Caries de la dentina» o «k021» → «K02.1». null si no tiene forma de código. */
 export function leerCodigoCie10(texto: string): string | null {
-  const m = /^\s*([A-Za-z])\s*(\d{2})\.?(\d)?/.exec(texto);
+  // «K02.12» no se recorta a K02.1 sin aviso: después del código no puede seguir otro dígito.
+  const m = /^\s*([A-Za-z])\s*(\d{2})\.?(\d)?(?!\d)/.exec(texto);
   if (!m) return null;
   return `${m[1]!.toUpperCase()}${m[2]}${m[3] ? `.${m[3]}` : ""}`;
 }

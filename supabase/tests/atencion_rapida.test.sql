@@ -13,8 +13,8 @@ insert into public.usuario (id, clinica_id, nombre, rol, cop) values
   ('c4000000-0000-0000-0000-00000000000e', 'c4c4c4c4-0000-0000-0000-000000000000', 'Asistente R', 'asistente', null),
   ('c4000000-0000-0000-0000-00000000000d', 'c4c4c4c4-0000-0000-0000-000000000000', 'Recepción R', 'recepcion', null),
   ('d4000000-0000-0000-0000-00000000000b', 'd4d4d4d4-0000-0000-0000-000000000000', 'Dentista O', 'odontologo', '9802');
-insert into public.paciente (id, clinica_id, dni, nombres, apellidos, fecha_nacimiento) values
-  ('c4c4c4c4-0000-0000-0000-0000000000f1', 'c4c4c4c4-0000-0000-0000-000000000000', '69900001', 'Raúl', 'Ocasional', '1985-05-05');
+insert into public.paciente (id, clinica_id, dni, nombres, apellidos, fecha_nacimiento, sexo) values
+  ('c4c4c4c4-0000-0000-0000-0000000000f1', 'c4c4c4c4-0000-0000-0000-000000000000', '69900001', 'Raúl', 'Ocasional', '1985-05-05', 'masculino');
 insert into public.procedimiento (id, clinica_id, codigo, nombre, especialidad, precio_base_centimos, duracion_minutos,
                                   requiere_consentimiento, control_dias) values
   ('c4c4c4c4-0000-0000-0000-0000000000a1', 'c4c4c4c4-0000-0000-0000-000000000000', 'OPE-01', 'Restauración con resina',
@@ -86,6 +86,35 @@ select pruebas.igual((select count(*) from public.nota_evolucion), 1, 'la asiste
 select pruebas.como('c4000000-0000-0000-0000-00000000000d');
 select pruebas.igual((select count(*) from public.nota_evolucion), 0, 'recepción no ve la evolución');
 select pruebas.igual((select count(*) from public.plan_tratamiento), 1, 'recepción ve el plan (para cobrar)');
+reset role;
+
+-- Correcciones de la revisión (0927): paciente con historia previa y que puede gestar
+select pruebas.como(null);
+insert into public.paciente (id, clinica_id, dni, nombres, apellidos, fecha_nacimiento, sexo) values
+  ('c4c4c4c4-0000-0000-0000-0000000000f2', 'c4c4c4c4-0000-0000-0000-000000000000', '69900002', 'Lucía', 'Previa', '1995-02-02', 'femenino');
+insert into public.cuestionario_salud (clinica_id, paciente_id, registrado_por, motivo_consulta, enfermedades, embarazo,
+                                       semanas_gestacion, lactancia, observaciones) values
+  ('c4c4c4c4-0000-0000-0000-000000000000', 'c4c4c4c4-0000-0000-0000-0000000000f2', 'c4000000-0000-0000-0000-00000000000b',
+   'Control', array['hipertension', 'coagulacion'], 'si', 12, true, 'Refiere ansiedad dental');
+set role authenticated;
+select pruebas.como('c4000000-0000-0000-0000-00000000000b');
+select pruebas.debe_fallar($$select public.registrar_atencion_rapida('c4c4c4c4-0000-0000-0000-0000000000f2',
+  (select jsonb_set(j, '{historia,embarazo}', '"no_aplica"') from datos_ar))$$, 'embarazada');
+select public.registrar_atencion_rapida('c4c4c4c4-0000-0000-0000-0000000000f2',
+  (select jsonb_set(jsonb_set(j, '{historia,embarazo}', '"no"'), '{items}',
+     '[{"procedimiento_id": "c4c4c4c4-0000-0000-0000-0000000000a1", "pieza": "46"},
+       {"procedimiento_id": "c4c4c4c4-0000-0000-0000-0000000000a1", "pieza": "16"}]') from datos_ar));
+select pruebas.igual((select count(*) from public.cuestionario_salud where paciente_id = 'c4c4c4c4-0000-0000-0000-0000000000f2'
+                        and version = 2 and enfermedades = array['hipertension', 'coagulacion']
+                        and observaciones like 'Refiere ansiedad dental%'), 1,
+                     'las enfermedades y observaciones previas se conservan (no se pierde la alerta)');
+select pruebas.igual((select count(*) from public.cuestionario_salud where paciente_id = 'c4c4c4c4-0000-0000-0000-0000000000f2'
+                        and version = 2 and embarazo = 'no' and semanas_gestacion is null and not lactancia), 1,
+                     'embarazo, semanas y lactancia son los de hoy (no se copian)');
+select pruebas.igual((select count(*) from public.item_plan i join public.plan_tratamiento p on p.id = i.plan_id
+                        where p.paciente_id = 'c4c4c4c4-0000-0000-0000-0000000000f2'
+                          and ((i.pieza = 46 and i.diagnostico_id is not null) or (i.pieza = 16 and i.diagnostico_id is null))), 2,
+                     'el diagnóstico de la 46 es origen solo del ítem de la 46');
 reset role;
 select pruebas.como(null);
 \echo 'atencion_rapida: todas las aserciones pasaron'

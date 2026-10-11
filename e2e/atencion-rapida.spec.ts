@@ -30,7 +30,7 @@ test("la odontóloga atiende a un paciente ocasional en un solo paso", async ({ 
   await page.getByLabel("Motivo de consulta").fill("Dolor al frío en molar inferior izquierdo");
   await page.getByLabel("Tiempo de enfermedad").fill("1 semana");
   await page.getByLabel("Alergias (separadas por comas)").fill("Penicilina");
-  await page.getByRole("radio", { name: "No", exact: true }).first().check();
+  await page.getByRole("group", { name: "¿Toma anticoagulantes?" }).getByRole("radio", { name: "No", exact: true }).check();
   await page.getByLabel("Examen (lo encontrado)").fill("Caries oclusal en 36, sin compromiso pulpar.");
   await page.getByLabel("Diagnóstico CIE-10").fill("K02.1");
   await page.getByLabel("Procedimiento 1", { exact: true }).selectOption({ label: "OPE-01 · Restauración con resina compuesta" });
@@ -50,8 +50,8 @@ test("la odontóloga atiende a un paciente ocasional en un solo paso", async ({ 
 
 test("la asistente no ve la atención rápida", async ({ page }) => {
   await entrar(page, "asistente@clinica-demo.example");
-  await page.goto("/pacientes");
-  await page.getByRole("link").filter({ hasText: /, / }).first().click();
+  await page.goto(`/pacientes?q=${encodeURIComponent("Zavaleta Cerna")}`);
+  await page.getByRole("link", { name: /^Zavaleta Cerna, Diana/ }).click();
   await page.waitForURL(/\/pacientes\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("link", { name: "Atención rápida" })).toHaveCount(0);
   await page.goto(`${page.url()}/atencion-rapida`);
