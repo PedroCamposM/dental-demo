@@ -729,6 +729,12 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
   conversión solo con pruebas terminadas; clave del cron comparada en tiempo constante;
   funciones auxiliares de `privado` sin EXECUTE para los roles de la app.
 
+- 11-oct: PR #8 fusionado con CI verde (108 pruebas de Playwright); «Aplicar migraciones» run
+  38155320927 (respaldo previo): 0931 aplicada y verificada (7 funciones, 4 índices, 2 tablas;
+  0 correos pendientes hoy). Falta `HABILITAR_ETAPA18=1` en Vercel. Vercel marcó
+  `SUPABASE_SERVICE_ROLE_KEY` como «Needs Attention» (no está como Sensitive): se recomendó a
+  Pedro crearla como Sensitive con una clave secreta nueva de Supabase.
+
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 
 Sin huecos de RLS, grants ni aislamiento entre clínicas en laboratorio, exportación y
@@ -771,7 +777,7 @@ Queda anotado, sin cambio de código:
 
 ## Próximas etapas (CLAUDE.md)
 
-Etapas 0 a 17 terminadas (v2 en producción desde el 10-oct). 18 gestión de clientes en curso.
+Etapas 0 a 18 terminadas (v2 en producción desde el 10-oct). Etapa 19 propuesta (ver Etapa 18).
 Falta en `/docs`: formatos de la clínica piloto (historia y consentimientos),
 necesarios antes de la Etapa 7. La Etapa 4 incluye además lo de las fichas
 odonto-estomatológicas de la NTS 139 (índice CPOD/ceod, IHO-S, riesgo estomatológico
