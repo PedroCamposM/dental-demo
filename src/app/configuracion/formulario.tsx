@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { contraste } from "@/lib/marca";
+import { CONTRASTE_MINIMO, contraste, MAX_LOGO_BYTES, TIPOS_LOGO } from "@/lib/marca";
 import { guardarInactividad, guardarMarca, type EstadoConfiguracion, type EstadoMarca } from "./acciones";
 
 export function FormularioInactividad({ minutos }: { minutos: number }) {
@@ -33,11 +33,23 @@ export function FormularioMarca({ valores, logo }: {
   valores: { color_marca: string | null; direccion: string | null; telefono: string | null; correo: string | null; pie_documentos: string | null };
   logo: string | null;
 }) {
-  const [estado, accion, guardando] = useActionState<EstadoMarca, FormData>(guardarMarca, { mensaje: null, errores: {}, intento: 0 });
+  const [estado, accion, guardando] = useActionState<EstadoMarca, FormData>(guardarMarca, {
+    mensaje: null, errores: {}, intento: 0, valores: null,
+  });
+  return <CamposMarca key={estado.intento} {...{ estado, accion, guardando, valores, logo }} />;
+}
+
+/** Remontado en cada envío: si hubo error, vuelve con lo que se envió; si se guardó, con lo guardado. */
+function CamposMarca({ estado, accion, guardando, valores: guardados, logo }: {
+  estado: EstadoMarca; accion: (f: FormData) => void; guardando: boolean; logo: string | null;
+  valores: { color_marca: string | null; direccion: string | null; telefono: string | null; correo: string | null; pie_documentos: string | null };
+}) {
+  const valores = estado.valores ?? guardados;
   const [color, setColor] = useState(valores.color_marca ?? "");
+  const [errorArchivo, setErrorArchivo] = useState<string | null>(null);
   const e = estado.errores;
   const valido = /^#[0-9a-fA-F]{6}$/.test(color);
-  const legible = valido && contraste(color.toLowerCase(), "#ffffff") >= 4.5;
+  const legible = valido && contraste(color.toLowerCase(), "#ffffff") >= CONTRASTE_MINIMO;
   const entrada = "w-full rounded-md border border-gray-300 px-3 py-2 text-base font-normal aria-[invalid=true]:border-red-500";
   const campo = (c: "direccion" | "telefono" | "correo", etiqueta: string, max: number) => (
     <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
@@ -47,7 +59,8 @@ export function FormularioMarca({ valores, logo }: {
     </label>
   );
   return (
-    <form key={estado.intento} action={accion} className="flex flex-col gap-5" noValidate>
+    <form action={accion} className="flex flex-col gap-5" noValidate
+      onSubmit={(ev) => { if (errorArchivo) ev.preventDefault(); }}>
       <fieldset className="flex flex-col gap-2 text-sm font-medium text-gray-700">
         <legend>Color de la clínica</legend>
         <div className="flex flex-wrap items-center gap-3">
@@ -68,7 +81,14 @@ export function FormularioMarca({ valores, logo }: {
         <legend>Logo (PNG, JPG o WebP, hasta 512 KB)</legend>
         {/* eslint-disable-next-line @next/next/no-img-element -- URL firmada de corta duración */}
         {logo && <img src={logo} alt="Logo actual" className="h-14 max-w-[12rem] object-contain" />}
-        <input type="file" name="logo" accept="image/png,image/jpeg,image/webp" aria-label="Subir logo" className="text-sm font-normal" />
+        <input type="file" name="logo" accept="image/png,image/jpeg,image/webp" aria-label="Subir logo" className="text-sm font-normal"
+          onChange={(ev) => {
+            // Se revisa antes de enviar: un archivo grande no debe llegar al servidor (lo vuelve a validar igual).
+            const f = ev.target.files?.[0];
+            setErrorArchivo(!f ? null : !(f.type in TIPOS_LOGO) ? "El logo debe ser PNG, JPG o WebP."
+              : f.size > MAX_LOGO_BYTES ? "El logo pesa más de 512 KB: redúcelo." : null);
+          }} />
+        {errorArchivo && <span role="alert" className="text-xs font-normal text-red-700">{errorArchivo}</span>}
         {logo && (
           <label className="flex items-center gap-2 font-normal"><input type="checkbox" name="quitar_logo" value="1" /> Quitar el logo</label>
         )}

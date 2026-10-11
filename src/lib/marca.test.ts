@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { contraste, cssMarca, validarColor, validarMembrete } from "./marca";
+import { contraste, cssMarca, esImagenPermitida, validarColor, validarMembrete } from "./marca";
 
 describe("color de la clínica", () => {
   it("calcula el contraste WCAG", () => {
@@ -24,5 +24,14 @@ describe("membrete", () => {
     expect(validarMembrete(() => "")).toEqual({ ok: true, datos: { direccion: null, telefono: null, correo: null, pie_documentos: null } });
     const r = validarMembrete((c) => (c === "correo" ? "no-es-correo" : ""));
     expect(r.ok === false && r.errores.correo).toBeDefined();
+  });
+});
+
+describe("logo", () => {
+  it("reconoce PNG, JPEG y WebP por su contenido, no por el nombre", () => {
+    expect(esImagenPermitida(new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0]))).toBe(true);
+    expect(esImagenPermitida(new Uint8Array([0xff, 0xd8, 0xff, 0xe0]))).toBe(true);
+    expect(esImagenPermitida(new TextEncoder().encode("RIFF\x00\x00\x00\x00WEBPVP8"))).toBe(true);
+    expect(esImagenPermitida(new TextEncoder().encode("<svg xmlns='http://www.w3.org/2000/svg'>"))).toBe(false);
   });
 });

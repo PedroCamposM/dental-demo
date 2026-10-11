@@ -71,12 +71,12 @@ test("solo el admin configura los minutos de inactividad", async ({ page }) => {
   await page.getByRole("link", { name: "Configuración" }).click();
   const minutos = page.getByLabel(/minutos sin actividad/);
   await minutos.fill("200");
-  await page.getByRole("button", { name: "Guardar" }).click();
+  await page.getByRole("button", { name: "Guardar", exact: true }).click();
   await expect(page.getByText("Elige entre 5 y 120 minutos.")).toBeVisible();
   await minutos.fill("30");
-  await page.getByRole("button", { name: "Guardar" }).click();
+  await page.getByRole("button", { name: "Guardar", exact: true }).click();
   await expect(page.getByText(/tras 30 minutos sin actividad/)).toBeVisible();
   await minutos.fill("15");   // deja la clínica demo como estaba
-  await page.getByRole("button", { name: "Guardar" }).click();
+  await page.getByRole("button", { name: "Guardar", exact: true }).click();
   await expect(page.getByText(/tras 15 minutos sin actividad/)).toBeVisible();
 });

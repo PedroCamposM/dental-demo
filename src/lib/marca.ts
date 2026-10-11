@@ -1,11 +1,12 @@
 // Etapa 15: personalización de la clínica (color, logo y membrete).
 //
 // El color de la clínica reemplaza al verde azulado (teal) de toda la app: los tonos que se
-// usan (50, 100, 200, 600, 700, 800, 900) se derivan del color elegido. Se exige que el
-// texto blanco sobre ese color se lea bien (contraste WCAG AA, 4.5:1), porque es el color
-// de los botones principales.
+// usan (50, 100, 200, 600, 700, 800, 900) se derivan del color elegido. Se exige contraste
+// 5:1 con el blanco (WCAG AA pide 4.5:1): así el texto blanco de los botones se lee bien y
+// el texto de ese color sobre fondos casi blancos (gris 50, teal 50) también pasa 4.5:1.
 
 const HEX = /^#[0-9a-f]{6}$/;
+export const CONTRASTE_MINIMO = 5;
 
 /** Contraste WCAG entre dos colores #rrggbb. */
 export function contraste(a: string, b: string): number {
@@ -25,7 +26,7 @@ export function validarColor(texto: string): { ok: true; color: string | null } 
   const t = texto.trim().toLowerCase();
   if (!t) return { ok: true, color: null };
   if (!HEX.test(t)) return { ok: false, error: "Elige el color (formato #RRGGBB)." };
-  if (contraste(t, "#ffffff") < 4.5) {
+  if (contraste(t, "#ffffff") < CONTRASTE_MINIMO) {
     return { ok: false, error: "Ese color es muy claro: el texto blanco de los botones no se leería bien. Elige uno más oscuro." };
   }
   return { ok: true, color: t };
@@ -62,3 +63,11 @@ export function validarMembrete(t: (c: string) => string):
 /** Tipos de imagen aceptados para el logo (sin SVG: puede llevar código). */
 export const TIPOS_LOGO = { "image/png": "png", "image/jpeg": "jpg", "image/webp": "webp" } as const;
 export const MAX_LOGO_BYTES = 512 * 1024;
+
+/** El contenido es de verdad PNG, JPEG o WebP (no basta el tipo que declara el navegador). */
+export function esImagenPermitida(bytes: Uint8Array): boolean {
+  const empieza = (firma: number[], desde = 0) => firma.every((b, i) => bytes[desde + i] === b);
+  return empieza([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])          // PNG
+    || empieza([0xff, 0xd8, 0xff])                                          // JPEG
+    || (empieza([0x52, 0x49, 0x46, 0x46]) && empieza([0x57, 0x45, 0x42, 0x50], 8)); // RIFF....WEBP
+}

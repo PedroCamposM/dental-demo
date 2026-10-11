@@ -606,6 +606,13 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
   (URL firmada). Membrete y pie compartidos en todos los documentos impresos.
 - Bandera `HABILITAR_ETAPA15`. Pruebas: `supabase/tests/marca.test.sql`, Vitest
   (`src/lib/marca.test.ts`), `e2e/marca.spec.ts`. Checklist: `docs/checklist-etapa15.md`.
+- Revisión independiente (11-oct): sin huecos de RLS ni inyección. Corregido: el e2e de
+  sesión chocaba con el botón nuevo «Guardar marca» (selector exacto); un logo de más de
+  1 MB daba la pantalla de error genérica (se valida en el navegador y el límite de las
+  server actions sube a 2 MB); carrera al reemplazar el logo (solo se escribe si cambia y si
+  nadie lo cambió entretanto; si falla, se borra lo subido); el contenido del logo se revisa
+  por su firma (PNG/JPEG/WebP); contraste mínimo 5:1; el formulario conserva lo escrito si
+  hay error. Queda anotado: la URL firmada del logo se pide en cada página (sin caché).
 
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 
