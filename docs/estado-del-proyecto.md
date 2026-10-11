@@ -735,6 +735,36 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
   `SUPABASE_SERVICE_ROLE_KEY` como «Needs Attention» (no está como Sensitive): se recomendó a
   Pedro crearla como Sensitive con una clave secreta nueva de Supabase.
 
+## v2 — Etapa 19 (equipo de la clínica y mejoras)
+
+- Pedro aprobó (11-oct) «las mejoras pendientes y lo demás». Lo del superadmin (activación,
+  avisos, descuentos, reporte de ingresos, suspender, bitácora) pasa a ser la Etapa 20.
+- **0932** (aditiva, solo funciones): `equipo_clinica`, `incorporar_usuario` (solo si la
+  invitación la hizo su clínica: `invitado_clinica` en los metadatos) y `cambiar_estado_usuario`
+  (no a uno mismo; nada se borra). La invitación la crea el servidor con la service role
+  (`inviteUserByEmail`); si la incorporación falla, se quita la cuenta invitada.
+- Contraseñas: `/cuenta/clave` (crear o cambiar) y `/recuperar` (olvidé mi contraseña; no revela
+  si el correo existe). `/auth/confirmar` acepta invite y recovery con `token_hash`, así el
+  enlace funciona aunque se abra en otro equipo. Plantillas en `supabase/templates/` (en
+  producción se ponen por la API de Supabase).
+- Registro: pide celular (9 dígitos) y lo guarda en `clinica.telefono`. «Plan y pagos»: la
+  opción anual muestra el ahorro real del plan. Mensaje de solo lectura en todas las acciones
+  (`siSoloLectura`). La URL firmada del logo se reutiliza mientras le quede más de 10 minutos.
+- Queda para decidir con Pedro: dos atenciones rápidas (o dos planes terminados) del mismo
+  paciente crean dos controles de 6 meses; la prueba `seguimiento.test.sql` exige hoy uno por
+  plan, así que cambiarlo es una regla clínica. Un admin sin COP sigue sin ver la auditoría de
+  exportaciones.
+- Dependencias: las vulnerabilidades de `npm audit` están en herramientas de desarrollo
+  (vitest, eslint) y en el postcss que trae Next 15 (al compilar). Todas piden actualizar de
+  versión mayor (Next 16, Vitest 4); queda como tarea aparte. npm 10.9.4 falló al instalar
+  vitest 4 en la sesión (error `edgesOut`).
+- Clave legacy `service_role` de Supabase: no se desactiva aún (desactivar las claves legacy
+  apaga también la pública antigua); antes hay que confirmar que en Vercel
+  `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` empieza con `sb_publishable_`.
+- Bandera `HABILITAR_ETAPA19`. Pruebas: `supabase/tests/equipo.test.sql`, Vitest
+  (`src/lib/equipo.test.ts`, prueba y rutas), `e2e/equipo.spec.ts` (lee los correos de Mailpit
+  del Supabase local). Checklist: `docs/checklist-etapa19.md`.
+
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 
 Sin huecos de RLS, grants ni aislamiento entre clínicas en laboratorio, exportación y
@@ -777,7 +807,7 @@ Queda anotado, sin cambio de código:
 
 ## Próximas etapas (CLAUDE.md)
 
-Etapas 0 a 18 terminadas (v2 en producción desde el 10-oct). Etapa 19 propuesta (ver Etapa 18).
+Etapas 0 a 18 terminadas (v2 en producción desde el 10-oct). 19 equipo y mejoras en curso; 20 herramientas del superadmin.
 Falta en `/docs`: formatos de la clínica piloto (historia y consentimientos),
 necesarios antes de la Etapa 7. La Etapa 4 incluye además lo de las fichas
 odonto-estomatológicas de la NTS 139 (índice CPOD/ceod, IHO-S, riesgo estomatológico
