@@ -664,6 +664,25 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
   Con su OK: registro público activado, `site_url` y URL de redirección a Vercel, contraseña
   mínima 8. Falta el SMTP propio (lo configura Pedro).
 
+## v2 — Etapa 17 (suscripción con cobro manual)
+
+- Decisiones de Pedro (11-oct): cobro manual primero (Yape, Plin o transferencia), planes por
+  odontólogos activos, mensual y anual, precios según comparación del mercado y costos.
+  Aprobó («Ok»): Consultorio (1–2) S/ 99 o S/ 990 al año, Clínica (3–5) S/ 179 o S/ 1 790,
+  Clínica+ (6 o más) S/ 299 o S/ 2 990. Sin comprobantes SUNAT (fuera de alcance).
+- **0930** (aditiva): tarifas y datos de cobro de la plataforma en `privado` (solo por
+  funciones; los edita el superadmin), `clinica.tarifa`, `pago_suscripcion` (clinica_id, RLS:
+  solo el admin de la clínica la ve; se escribe solo por funciones) y bucket privado
+  `suscripcion` para las constancias (1,5 MB). El monto lo pone la base según la tarifa. La
+  clínica vencida sí puede reportar su pago. Confirmar extiende el plan un mes o un año desde
+  su fin (o desde hoy si venció) y queda en la auditoría; rechazar exige motivo.
+- Pantallas: Configuración → «Plan y pagos» (admin); en `/plataforma`, pagos por confirmar
+  (con la constancia), precios y datos de cobro, y odontólogos activos frente al plan (solo
+  avisa, no bloquea). El aviso de vencido lleva a «Plan y pagos».
+- Bandera `HABILITAR_ETAPA17`. Pruebas: `supabase/tests/suscripcion.test.sql`, Vitest
+  (`src/lib/suscripcion.test.ts`), `e2e/suscripcion.spec.ts`. Checklist:
+  `docs/checklist-etapa17.md`.
+
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 
 Sin huecos de RLS, grants ni aislamiento entre clínicas en laboratorio, exportación y
@@ -706,7 +725,7 @@ Queda anotado, sin cambio de código:
 
 ## Próximas etapas (CLAUDE.md)
 
-Etapas 0 a 15 terminadas (v2 en producción desde el 10-oct). 16 prueba gratuita por clínica en curso. Sigue: 17 suscripción.
+Etapas 0 a 16 terminadas (v2 en producción desde el 10-oct). 17 suscripción con cobro manual en curso.
 Falta en `/docs`: formatos de la clínica piloto (historia y consentimientos),
 necesarios antes de la Etapa 7. La Etapa 4 incluye además lo de las fichas
 odonto-estomatológicas de la NTS 139 (índice CPOD/ceod, IHO-S, riesgo estomatológico

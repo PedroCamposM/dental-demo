@@ -293,7 +293,7 @@ grant execute on function public.clinicas_plataforma() to authenticated;
 -- vencida: es para reactivarla); el superadmin las ve todas.
 -- ---------------------------------------------------------------------------
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('suscripcion', 'suscripcion', false, 5242880, array['image/png', 'image/jpeg', 'image/webp', 'application/pdf'])
+values ('suscripcion', 'suscripcion', false, 1572864, array['image/png', 'image/jpeg', 'image/webp', 'application/pdf'])
 on conflict (id) do nothing;
 
 create policy suscripcion_select on storage.objects for select to authenticated

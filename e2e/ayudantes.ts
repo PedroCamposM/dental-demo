@@ -79,3 +79,5 @@ export const conEtapa14 = conEtapa11 && process.env.HABILITAR_ETAPA14 === "1";
 export const conEtapa15 = conEtapa1 && process.env.HABILITAR_ETAPA15 === "1";
 /** Etapa 16: prueba gratuita por clínica (migración 0929). */
 export const conEtapa16 = conEtapa1 && process.env.HABILITAR_ETAPA16 === "1";
+/** Etapa 17: suscripción con cobro manual (migración 0930). */
+export const conEtapa17 = conEtapa16 && process.env.HABILITAR_ETAPA17 === "1";
