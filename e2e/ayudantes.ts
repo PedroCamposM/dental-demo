@@ -81,3 +81,5 @@ export const conEtapa15 = conEtapa1 && process.env.HABILITAR_ETAPA15 === "1";
 export const conEtapa16 = conEtapa1 && process.env.HABILITAR_ETAPA16 === "1";
 /** Etapa 17: suscripción con cobro manual (migración 0930). */
 export const conEtapa17 = conEtapa16 && process.env.HABILITAR_ETAPA17 === "1";
+/** Etapa 18: gestión de clientes (migración 0931). */
+export const conEtapa18 = conEtapa17 && process.env.HABILITAR_ETAPA18 === "1";

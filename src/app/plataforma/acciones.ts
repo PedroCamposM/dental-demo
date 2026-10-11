@@ -1,8 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { modulos } from "@/lib/funciones";
 import { registrarError } from "@/lib/registro";
+import { enviarCorreo, urlApp } from "@/lib/correo-servidor";
+import { armarCorreo } from "@/lib/correos";
 import { leerPrecio } from "@/lib/suscripcion";
 import { createClient } from "@/lib/supabase/server";
 
@@ -28,6 +31,7 @@ export async function extenderPlan(previo: EstadoPlanForm, form: FormData): Prom
     return { ...previo, error: "No se pudo guardar. Vuelve a intentarlo.", mensaje: null };
   }
   revalidatePath("/plataforma");
+  revalidatePath(`/plataforma/clinicas/${id}`);
   return { error: null, mensaje: "Plan actualizado.", exitos: previo.exitos + 1 };
 }
 
@@ -51,10 +55,22 @@ export async function revisarPago(previo: EstadoSimple, form: FormData): Promise
   if (!aprobar && (motivo.length < 3 || motivo.length > 300)) {
     return { ...previo, error: "Para rechazar, escribe el motivo (de 3 a 300 caracteres).", mensaje: null };
   }
-  const { data, error } = await (await createClient()).rpc("revisar_pago_suscripcion", {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("revisar_pago_suscripcion", {
     id_pago: id, aprobar, motivo: aprobar ? null : motivo,
   });
   if (error) return { ...previo, error: errorBase(error, "plataforma.revisar_pago"), mensaje: null };
+  // Etapa 18: avisa al administrador de la clínica, después de responder (el pago ya quedó revisado).
+  if (modulos.etapa18) {
+    const { data: contacto } = await supabase.rpc("contacto_pago", { id_pago: id });
+    const c = ((contacto ?? []) as { nombre: string; correo: string; clinica: string }[])[0];
+    if (c?.correo) {
+      const m = armarCorreo(aprobar ? "pago_confirmado" : "pago_rechazado", {
+        nombre: c.nombre, clinica: c.clinica, url: urlApp(), fecha: aprobar ? String(data) : undefined, motivo,
+      });
+      after(() => enviarCorreo(c.correo, m, "pago_revisado"));
+    }
+  }
   revalidatePath("/plataforma");
   return { error: null, mensaje: aprobar ? `Confirmado: plan activo hasta ${String(data)}.` : "Pago rechazado.", exitos: previo.exitos + 1 };
 }
@@ -84,4 +100,20 @@ export async function guardarCobro(previo: EstadoSimple, form: FormData): Promis
   if (error) return { ...previo, error: errorBase(error, "plataforma.cobro"), mensaje: null };
   revalidatePath("/plataforma");
   return { error: null, mensaje: "Datos de cobro guardados.", exitos: previo.exitos + 1 };
+}
+
+/** Nota interna sobre una clínica (solo la ve el superadministrador). */
+export async function agregarNota(previo: EstadoSimple, form: FormData): Promise<EstadoSimple> {
+  if (!modulos.etapa18) return { ...previo, error: "Módulo apagado.", mensaje: null };
+  const id = String(form.get("clinica_id") ?? "");
+  const texto = String(form.get("texto") ?? "").trim();
+  if (!/^[0-9a-f-]{36}$/.test(id)) return { ...previo, error: "Clínica inválida.", mensaje: null };
+  if (texto.length < 2 || texto.length > 1000) return { ...previo, error: "La nota va de 2 a 1000 caracteres.", mensaje: null };
+  const { error } = await (await createClient()).rpc("agregar_nota_clinica", { id_clinica: id, texto });
+  if (error) {
+    registrarError("plataforma.nota", error);
+    return { ...previo, error: "No se pudo guardar la nota. Vuelve a intentarlo.", mensaje: null };
+  }
+  revalidatePath(`/plataforma/clinicas/${id}`);
+  return { error: null, mensaje: "Nota guardada.", exitos: previo.exitos + 1 };
 }

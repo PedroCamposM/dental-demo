@@ -691,6 +691,43 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
   Queda para decidir con Pedro: una clínica «activo» sin fecha de fin (las anteriores a la
   Etapa 16, como la piloto) pasa a tener fecha al confirmarse su primer pago (se avisa en la
   pantalla y al confirmar). El plan elegido no se exige según los odontólogos: solo se avisa.
+- 11-oct: Pedro decidió que las clínicas «activo» sin fecha de fin (como la piloto) pasen a
+  tener fecha al confirmarse su primer pago (sin cambios de código). PR #7 fusionado con CI
+  verde (106 pruebas de Playwright); «Aplicar migraciones» run 38151195313 (respaldo
+  previo): 0930 aplicada y verificada (3 tarifas, bucket `suscripcion` privado, funciones).
+- SMTP propio configurado por Pedro (Gmail, contacto.hud@gmail.com). Con su OK: correo de
+  confirmación en español y límite de 60 correos por hora. Falta: registrar
+  agencia.hud@gmail.com y agregarla como superadmin; `HABILITAR_ETAPA17=1` en Vercel; datos de
+  cobro en `/plataforma`.
+- 11-oct: agencia.hud@gmail.com se registró y confirmó su correo (el SMTP funciona) y quedó como
+  superadmin en `privado.superadmin` (sin clínica). Pedro encendió `HABILITAR_ETAPA17=1`.
+  Falta solo que Pedro ponga los datos de cobro en `/plataforma`.
+
+## v2 — Etapa 18 (gestión de clientes)
+
+- Pedro aprobó (11-oct) tras revisar referencias de paneles SaaS: resumen, ficha, semáforo,
+  correos automáticos, cobranza y búsqueda. Etapa 19 propuesta: avance de activación, avisos en
+  la app, descuentos, reporte de ingresos, suspender y bitácora del superadmin.
+- **0931** (aditiva): notas internas y registro de correos en `privado` (clinica_id, RLS, sin
+  grants); funciones solo del superadmin (`resumen_plataforma`, `ficha_clinica`,
+  `agregar_nota_clinica`, `contacto_clinica`; `clinicas_plataforma` suma actividad, último pago
+  y contacto) y solo de la service role (`correos_pendientes`, `marcar_correo`). La ficha trae
+  solo conteos: nunca datos de pacientes.
+- Correos por el SMTP de Gmail (nodemailer 10.0.10). Al momento: bienvenida y pago revisado.
+  Diario (Vercel Cron 14:00 UTC = 9:00 Lima, `/api/cron/correos` con `CRON_SECRET`): vence en 7
+  días, venció y 10 días sin uso, una sola vez cada uno. Sin las variables no se envía nada.
+- Bandera `HABILITAR_ETAPA18`. Pruebas: `supabase/tests/gestion_clientes.test.sql`, Vitest
+  (`src/lib/gestion.test.ts`, `src/lib/correos.test.ts`), `e2e/gestion-clientes.spec.ts`.
+  Checklist: `docs/checklist-etapa18.md`.
+- Revisión independiente (11-oct): sin hallazgos graves. Corregido: cada correo diario se
+  reserva antes de enviarlo (dos ejecuciones no lo duplican) y se libera si falla; tope de 40
+  por ejecución, tiempos cortos de SMTP y `maxDuration` 60 s; bienvenida y pago revisado se
+  envían después de responder (`after`), sin demorar al usuario; índices por clínica y fecha;
+  la ficha pide solo su clínica; los pacientes «(ejemplo)» no cuentan como uso; «sin uso» solo
+  para rachas de 10 a 30 días; sin «vence pronto» si ya hay un pago por confirmar; «por
+  contactar» deja de mostrar vencidas de más de 30 días; ingreso mensual redondeado y
+  conversión solo con pruebas terminadas; clave del cron comparada en tiempo constante;
+  funciones auxiliares de `privado` sin EXECUTE para los roles de la app.
 
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 
@@ -734,7 +771,7 @@ Queda anotado, sin cambio de código:
 
 ## Próximas etapas (CLAUDE.md)
 
-Etapas 0 a 16 terminadas (v2 en producción desde el 10-oct). 17 suscripción con cobro manual en curso.
+Etapas 0 a 17 terminadas (v2 en producción desde el 10-oct). 18 gestión de clientes en curso.
 Falta en `/docs`: formatos de la clínica piloto (historia y consentimientos),
 necesarios antes de la Etapa 7. La Etapa 4 incluye además lo de las fichas
 odonto-estomatológicas de la NTS 139 (índice CPOD/ceod, IHO-S, riesgo estomatológico
