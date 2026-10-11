@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { METODOS_PAGO } from "@/lib/caja";
-import { anularPago, cerrarCaja, registrarAjuste, registrarPago, type EstadoCaja } from "./acciones";
+import { abrirTurno, anularPago, cerrarCaja, cerrarTurno, registrarAjuste, registrarPago, type EstadoCaja } from "./acciones";
 
 const ENTRADA =
   "w-full rounded-md border border-gray-300 px-3 py-2 text-base font-normal focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600/30";
@@ -145,5 +145,49 @@ function CamposAjuste() {
         <input name="motivo" maxLength={300} value={motivo} onChange={(e) => setMotivo(e.target.value)} className={ENTRADA} />
       </label>
     </div>
+  );
+}
+
+/** Etapa 20: abrir un turno con su fondo inicial (sencillo para dar vuelto). */
+export function AbrirTurno() {
+  const [estado, accion, enviando] = useActionState<EstadoCaja, FormData>(abrirTurno, INICIAL);
+  return (
+    <form action={accion} aria-label="Abrir turno" className="flex flex-col gap-3" noValidate>
+      <label className="flex max-w-xs flex-col gap-1 text-sm font-medium text-gray-700">
+        Fondo inicial en efectivo (S/)
+        <input name="fondo" inputMode="decimal" defaultValue="0" className={ENTRADA} />
+      </label>
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="submit" disabled={enviando} className={BOTON}>{enviando ? "Abriendo…" : "Abrir turno"}</button>
+        <Mensajes estado={estado} />
+      </div>
+    </form>
+  );
+}
+
+/** Etapa 20: cerrar el turno abierto contando el efectivo de la gaveta (fondo + cobros en efectivo). */
+export function CerrarTurno({ esperado }: { esperado: string }) {
+  const [estado, accion, enviando] = useActionState<EstadoCaja, FormData>(cerrarTurno, INICIAL);
+  const [efectivo, setEfectivo] = useState("");
+  const [obs, setObs] = useState("");
+  return (
+    <form action={accion} aria-label="Cerrar turno" className="flex flex-col gap-3" noValidate
+      onSubmit={(e) => { if (!window.confirm("Un turno cerrado no se reabre. ¿Cerrar el turno?")) e.preventDefault(); }}>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+          Efectivo contado en la gaveta (S/)
+          <input name="efectivo_contado" inputMode="decimal" value={efectivo} onChange={(e) => setEfectivo(e.target.value)}
+            placeholder={`Esperado: ${esperado}`} className={ENTRADA} />
+        </label>
+        <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+          Observaciones (opcional)
+          <input name="observaciones" maxLength={500} value={obs} onChange={(e) => setObs(e.target.value)} className={ENTRADA} />
+        </label>
+      </div>
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="submit" disabled={enviando} className={BOTON}>{enviando ? "Cerrando…" : "Cerrar turno"}</button>
+        <Mensajes estado={estado} />
+      </div>
+    </form>
   );
 }
