@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CORREO_CONTACTO } from "@/lib/prueba";
 
 export const metadata: Metadata = { title: "Términos y privacidad – Dental Demo" };
 
@@ -34,7 +35,8 @@ export default function Terminos() {
         </section>
         <section>
           <h2 className="text-lg font-semibold">5. Contacto</h2>
-          <p>Para consultas, solicitudes sobre datos personales o la activación del plan, escríbenos desde el correo registrado.</p>
+          <p>Para consultas, solicitudes sobre datos personales o la activación del plan, escríbenos a{" "}
+            <a href={`mailto:${CORREO_CONTACTO}`} className="font-medium text-teal-700 hover:underline">{CORREO_CONTACTO}</a>.</p>
         </section>
       </div>
       <p className="mt-8"><Link href="/" className="font-medium text-teal-700 hover:underline">Volver</Link></p>

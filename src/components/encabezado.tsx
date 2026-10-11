@@ -7,7 +7,7 @@ import { fechaLima } from "@/lib/fechas";
 import { cssMarca } from "@/lib/marca";
 import { urlLogo } from "@/lib/marca-servidor";
 import { veGestion } from "@/lib/permisos";
-import { estadoPlan } from "@/lib/prueba";
+import { CORREO_CONTACTO, estadoPlan } from "@/lib/prueba";
 import { NOMBRE_ROL, type Rol, type Sesion } from "@/lib/sesion";
 import { COOKIE_BLOQUEO } from "@/lib/sesion-segura/inactividad";
 
@@ -86,7 +86,8 @@ export async function Encabezado({ sesion, seccion }: { sesion: Sesion; seccion?
       {plan?.aviso && (
         <p role={plan.soloLectura ? "alert" : "status"}
           className={`px-4 py-2 text-center text-sm ${plan.soloLectura ? "bg-red-50 text-red-800" : "bg-amber-50 text-amber-900"}`}>
-          {plan.aviso}{sesion.rol === "admin" && " Para activar el plan, escríbenos desde el correo de tu cuenta."}
+          {plan.aviso}{sesion.rol === "admin" && <> Para activar el plan, escríbenos a{" "}
+            <a href={`mailto:${CORREO_CONTACTO}`} className="font-medium underline">{CORREO_CONTACTO}</a>.</>}
         </p>
       )}
     </header>
