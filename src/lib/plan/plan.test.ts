@@ -69,6 +69,18 @@ describe("varias piezas a la vez (Etapa 13)", () => {
     expect(diagnosticoDePieza(D, DX, null)).toBe(D);
   });
 
+  it("con una sola pieza aplica la misma regla: el diagnóstico de otra pieza no se arrastra", () => {
+    const otra = validarItems(entrada({ procedimiento_id: CATALOGO[0]!.id, pieza: "16", fase: "1", diagnostico_id: D }), ctx);
+    expect(otra.ok && otra.datos[0]?.diagnostico_id).toBe(D16);
+    const sin = validarItems(entrada({ procedimiento_id: CATALOGO[0]!.id, pieza: "26", fase: "1", diagnostico_id: D }), ctx);
+    expect(sin.ok && sin.datos[0]?.diagnostico_id).toBeNull();
+  });
+
+  it("una coma final o una pieza repetida no dan error", () => {
+    const r = validarItems(entrada({ procedimiento_id: CATALOGO[0]!.id, pieza: "16, 16,", fase: "1" }), ctx);
+    expect(r.ok && r.datos.map((d) => d.pieza)).toEqual([16]);
+  });
+
   it("dice qué pieza está mal y valida las superficies en cada una", () => {
     const mal = validarItems(entrada({ procedimiento_id: CATALOGO[0]!.id, pieza: "16 99", fase: "1" }), ctx);
     expect(mal).toMatchObject({ ok: false, errores: { pieza: "Pieza 99: pieza FDI de dos dígitos: 11–48 o 51–85." } });

@@ -117,7 +117,6 @@ function CuerpoEditor({ estado, accion, guardando, codigo, setCodigo, pacienteId
   const seleccion = c?.ambito === "arcada" ? [] : dosPiezas ? [...numeros(piezas).slice(0, 1), ...numeros(hasta).slice(0, 1)] : numeros(piezas);
 
   function elegir(p: number) {
-    if (c?.ambito === "arcada") return;
     if (dosPiezas) {
       const [a] = numeros(piezas);
       const [b] = numeros(hasta);
@@ -140,7 +139,7 @@ function CuerpoEditor({ estado, accion, guardando, codigo, setCodigo, pacienteId
         {antes}
         <div className="mt-4 overflow-x-auto">
           <div className="min-w-[44rem]">
-            <Odontograma hallazgos={hallazgos} seleccionadas={seleccion} alElegir={elegir} titulo={titulo} />
+            <Odontograma hallazgos={hallazgos} seleccionadas={seleccion} alElegir={c?.ambito === "arcada" ? undefined : elegir} titulo={titulo} />
           </div>
         </div>
         {despues}

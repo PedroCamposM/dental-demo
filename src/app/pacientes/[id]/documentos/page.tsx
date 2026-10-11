@@ -48,16 +48,19 @@ export default async function Documentos({ params }: { params: Promise<{ id: str
     supabase.from("usuario").select("id, nombre").returns<{ id: string; nombre: string }[]>(),
   ]);
   // Tratamiento realizado sugerido por fecha (constancias): lo trabajado en evoluciones firmadas.
-  const { data: firmadas, error: errorFirmadas } = await supabase.from("nota_evolucion")
+  // Solo para quien emite (el cirujano dentista).
+  const puedeEmitir = sesion.esDentista && !paciente.anulado_at;
+  const { data: firmadas, error: errorFirmadas } = !puedeEmitir ? { data: [], error: null } : await supabase.from("nota_evolucion")
     .select("fecha, evolucion_item(item_id, trabajado)").eq("paciente_id", id).is("anulado_at", null).not("firmada_at", "is", null)
     .order("fecha", { ascending: false }).limit(40)
     .returns<{ fecha: string; evolucion_item: { item_id: string; trabajado: boolean }[] }[]>();
   if (errorFirmadas) registrarError("documentos.tratamientos", errorFirmadas, { paciente: id });
   const idsTrabajados = [...new Set((firmadas ?? []).flatMap((n) => n.evolucion_item.filter((x) => x.trabajado).map((x) => x.item_id)))];
-  const { data: trabajos } = idsTrabajados.length > 0
+  const { data: trabajos, error: errorTrabajos } = idsTrabajados.length > 0
     ? await supabase.from("item_plan").select("id, procedimiento, pieza").in("id", idsTrabajados)
         .returns<{ id: string; procedimiento: string; pieza: number | null }[]>()
-    : { data: [] as { id: string; procedimiento: string; pieza: number | null }[] };
+    : { data: [] as { id: string; procedimiento: string; pieza: number | null }[], error: null };
+  if (errorTrabajos) registrarError("documentos.tratamientos", errorTrabajos, { paciente: id });
   const porItem = new Map((trabajos ?? []).map((t) => [t.id, t]));
   const tratamientos: Record<string, string> = {};
   for (const fecha of [...new Set((firmadas ?? []).map((n) => fechaLima(n.fecha)))]) {
@@ -75,7 +78,6 @@ export default async function Documentos({ params }: { params: Promise<{ id: str
   const sesiones = (notas.data ?? []).map((n) => ({
     id: n.id, texto: `${formatearFecha(fechaLima(n.fecha))} · ${n.texto.slice(0, 60) || "Evolución en borrador"}`,
   }));
-  const puedeEmitir = sesion.esDentista && !paciente.anulado_at;
   const hoy = fechaLima(new Date());
 
   return (

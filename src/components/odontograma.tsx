@@ -275,7 +275,7 @@ export function Odontograma({ hallazgos, seleccionadas = [], alElegir, titulo }:
         // Botón de alternancia: marcar varias piezas sin recargar la página.
         return (
           <g key={p} role="button" tabIndex={0} aria-pressed={seleccionadas.includes(p)} aria-label={`Pieza ${p}`}
-            className="cursor-pointer outline-none [&:focus-visible>g>rect:first-of-type]:fill-teal-100"
+            className="cursor-pointer outline-none [&:focus-visible>g>rect:first-of-type]:stroke-teal-800 [&:focus-visible>g>rect:first-of-type]:[stroke-width:2.5] [&:focus-visible>g>rect:first-of-type]:[stroke-dasharray:4_2]"
             onClick={() => alElegir(p)}
             onKeyDown={(ev) => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); alElegir(p); } }}>
             {dibujo}

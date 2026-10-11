@@ -157,7 +157,8 @@ export function validarHallazgos(
     if (c && !variasPermitidas && piezas.length > 1) {
       return { ok: false, errores: { pieza: "Este hallazgo se registra con una sola pieza de inicio." } };
     }
-    const r = validarHallazgo(e, catalogo);
+    // Con una sola pieza se valida ya limpia («16,» o «16, 16» son la 16).
+    const r = validarHallazgo(piezas.length === 1 ? { texto: (k) => (k === "pieza" ? piezas[0] ?? "" : e.texto(k)), lista: e.lista } : e, catalogo);
     if (!r.ok) return r;
     return revisarPiezas([r.datos], denticion);
   }

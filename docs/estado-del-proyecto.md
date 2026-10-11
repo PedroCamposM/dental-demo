@@ -551,6 +551,14 @@ gratuita por clínica, suscripción).
 - Pendiente de confirmar con el odontólogo: si «una parte de la oclusal» pide algo más fino
   que la superficie (la NTS 188 registra por superficie; no se inventa nomenclatura).
 - Checklist: `docs/checklist-etapa13.md`.
+- Revisión independiente (subagente, 11-oct): sin errores bloqueantes ni huecos de RLS.
+  Corregido lo que señaló: diagnóstico de origen con la misma regla para una o varias piezas
+  (y aviso de las piezas que quedan sin diagnóstico); foco de teclado distinto de la
+  selección en el odontograma; piezas no elegibles con hallazgos por arcada; «16,» o
+  «16, 16» ya no dan error; si falla el orden de los ítems, el formulario se limpia (no se
+  duplican al reintentar); el precio indica que es por pieza; el tratamiento del certificado
+  vuelve a seguir la fecha tras un error; errores de consulta registrados y la sugerencia
+  solo se calcula para quien emite.
 - Remoto: CI verde (run 38094381712); «Aplicar migraciones» run 38094718586 (respaldo
   previo): 0924 aplicada (columna y trigger presentes). Mientras producción tenga el código
   anterior, emitir un certificado de descanso falla con el mensaje «El certificado de

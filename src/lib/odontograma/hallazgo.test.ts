@@ -94,6 +94,11 @@ describe("varias piezas a la vez (Etapa 13)", () => {
     expect(r).toMatchObject({ ok: false, errores: { pieza: "Este hallazgo se registra con una sola pieza de inicio." } });
   });
 
+  it("una coma final o una pieza repetida no dan error", () => {
+    const r = validarHallazgos(entrada({ hallazgo_codigo: "caries", pieza: "36, 36," }, { superficies: ["oclusal"], siglas: ["CD"] }), CATALOGO, "permanente");
+    expect(r).toMatchObject({ ok: true, datos: [{ pieza: 36 }] });
+  });
+
   it("una sola pieza funciona como antes", () => {
     const r = validarHallazgos(entrada({ hallazgo_codigo: "diastema", pieza: "11", pieza_hasta: "21" }), CATALOGO, "permanente");
     expect(r).toMatchObject({ ok: true, datos: [{ pieza: 11, pieza_hasta: 21 }] });

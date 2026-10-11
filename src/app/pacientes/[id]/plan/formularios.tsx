@@ -119,7 +119,7 @@ function CamposItem({ pacienteId, planId, opciones, estado, accion, guardando }:
           <label htmlFor="i-precio">Precio (S/)</label>
           <input id="i-precio" name="precio" inputMode="decimal" defaultValue={t("precio")} aria-invalid={!!e.precio}
             placeholder={proc ? formatearSoles(proc.precio_base_centimos).replace("S/ ", "") : "del catálogo"} className={ENTRADA} />
-          <span className="text-xs font-normal text-gray-500">Vacío: precio del catálogo.</span>
+          <span className="text-xs font-normal text-gray-500">Vacío: precio del catálogo. Con varias piezas, es el precio de cada una.</span>
           {error("precio")}
         </div>
         <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">

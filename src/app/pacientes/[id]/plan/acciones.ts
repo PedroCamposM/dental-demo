@@ -148,14 +148,23 @@ export async function agregarItem(previo: EstadoItemForm, form: FormData): Promi
       requiere.map((req) => ({ clinica_id: p.sesion.clinicaId, item_id: item.id, requiere_id: req }))));
     if (errorDep) {
       revalidatePath(`/pacientes/${pacienteId}/plan`);
-      return fallo({ general: `Se agregó el ítem, pero no su orden: ${mensaje(errorDep, "plan.dependencia", "guardar el orden")}` });
+      // Los ítems ya quedaron: el formulario se limpia para no duplicarlos al reintentar.
+      const que = nuevos.length > 1 ? `Se agregaron los ${nuevos.length} ítems` : "Se agregó el ítem";
+      return {
+        errores: { general: `${que}, pero no su orden: ${mensaje(errorDep, "plan.dependencia", "guardar el orden")}` },
+        mensaje: null, intento, exitos: previo.exitos + 1, valores: { textos: { fase: valores.textos.fase ?? "1" }, superficies: [], requiere: [] },
+      };
     }
   }
   revalidatePath(`/pacientes/${pacienteId}/plan`);
   const nombre = r.datos[0]?.procedimiento ?? "";
-  const texto = r.datos.length > 1
+  let texto = r.datos.length > 1
     ? `Agregados ${r.datos.length} ítems: ${nombre} en las piezas ${r.datos.map((d) => d.pieza).join(", ")}.`
     : `Agregado: ${nombre}.`;
+  const sinDx = valores.textos.diagnostico_id ? r.datos.filter((d) => d.diagnostico_id === null) : [];
+  if (sinDx.length > 0) {
+    texto += ` Sin diagnóstico de origen (no hay uno con ese CIE-10 en la pieza): ${sinDx.map((d) => d.pieza ?? "—").join(", ")}.`;
+  }
   return { errores: {}, mensaje: texto, intento, exitos: previo.exitos + 1, valores: { textos: { fase: valores.textos.fase ?? "1" }, superficies: [], requiere: [] } };
 }
 

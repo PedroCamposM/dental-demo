@@ -68,8 +68,11 @@ export function validarItems(
   const piezas = leerListaPiezas(e.texto("pieza"));
   const base = { ...contexto, diagnosticos: contexto.diagnosticos.map((d) => d.id) };
   if (piezas.length <= 1) {
-    const r = validarItem(e, base);
-    return r.ok ? { ok: true, datos: [r.datos] } : r;
+    // Con una sola pieza se valida ya limpia («16,» o «16, 16» son la 16).
+    const r = validarItem({ texto: (k) => (k === "pieza" ? (piezas[0] ?? "") : e.texto(k)), lista: e.lista }, base);
+    return r.ok
+      ? { ok: true, datos: [{ ...r.datos, diagnostico_id: diagnosticoDePieza(r.datos.diagnostico_id, contexto.diagnosticos, r.datos.pieza) }] }
+      : r;
   }
   if (piezas.length > MAX_PIEZAS) return { ok: false, errores: { pieza: `Máximo ${MAX_PIEZAS} piezas a la vez.` } };
   const datos: ItemValidado[] = [];

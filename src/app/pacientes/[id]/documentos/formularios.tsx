@@ -154,7 +154,8 @@ function CuerpoConstancia({ pacienteId, hoy, tratamientos, estado, accion, envia
   const v = estado.valores;
   const e = estado.errores;
   const [tratamiento, setTratamiento] = useState(v.tratamiento ?? tratamientos[v.fecha_atencion || hoy] ?? "");
-  const [editado, setEditado] = useState(v.tratamiento !== undefined);
+  // Editado a mano: lo que volvió del servidor no está vacío y no es la sugerencia de esa fecha.
+  const [editado, setEditado] = useState(!!v.tratamiento?.trim() && v.tratamiento !== tratamientos[v.fecha_atencion || hoy]);
   const campo = (c: string, etiqueta: string, props: React.InputHTMLAttributes<HTMLInputElement> & { inicial?: string }) => {
     const { inicial, ...resto } = props;
     return (
