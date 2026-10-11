@@ -691,6 +691,14 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
   Queda para decidir con Pedro: una clínica «activo» sin fecha de fin (las anteriores a la
   Etapa 16, como la piloto) pasa a tener fecha al confirmarse su primer pago (se avisa en la
   pantalla y al confirmar). El plan elegido no se exige según los odontólogos: solo se avisa.
+- 11-oct: Pedro decidió que las clínicas «activo» sin fecha de fin (como la piloto) pasen a
+  tener fecha al confirmarse su primer pago (sin cambios de código). PR #7 fusionado con CI
+  verde (106 pruebas de Playwright); «Aplicar migraciones» run 38151195313 (respaldo
+  previo): 0930 aplicada y verificada (3 tarifas, bucket `suscripcion` privado, funciones).
+- SMTP propio configurado por Pedro (Gmail, contacto.hud@gmail.com). Con su OK: correo de
+  confirmación en español y límite de 60 correos por hora. Falta: registrar
+  agencia.hud@gmail.com y agregarla como superadmin; `HABILITAR_ETAPA17=1` en Vercel; datos de
+  cobro en `/plataforma`.
 
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 
@@ -734,7 +742,7 @@ Queda anotado, sin cambio de código:
 
 ## Próximas etapas (CLAUDE.md)
 
-Etapas 0 a 16 terminadas (v2 en producción desde el 10-oct). 17 suscripción con cobro manual en curso.
+Etapas 0 a 17 terminadas (v2 en producción desde el 10-oct).
 Falta en `/docs`: formatos de la clínica piloto (historia y consentimientos),
 necesarios antes de la Etapa 7. La Etapa 4 incluye además lo de las fichas
 odonto-estomatológicas de la NTS 139 (índice CPOD/ceod, IHO-S, riesgo estomatológico
