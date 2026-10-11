@@ -31,6 +31,11 @@ export default async function PaginaLogin({
           </p>
         )}
         <FormularioLogin next={destinoSeguro(next)} />
+        {modulos.etapa19 && (
+          <p className="mt-4 text-center text-sm">
+            <Link href="/recuperar" className="text-teal-700 hover:underline">¿Olvidaste tu contraseña?</Link>
+          </p>
+        )}
         {modulos.etapa16 && (
           <p className="mt-6 text-center text-sm text-gray-600">
             ¿Tu clínica aún no lo usa? <Link href="/registro" className="font-medium text-teal-700 hover:underline">Prueba gratis 30 días</Link>

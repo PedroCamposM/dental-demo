@@ -21,6 +21,8 @@ describe("esRutaDeIngreso", () => {
   it("con sesión, login y registro vuelven al inicio; confirmar y términos no", () => {
     expect(esRutaDeIngreso("/login")).toBe(true);
     expect(esRutaDeIngreso("/registro")).toBe(true);
+    expect(esRutaDeIngreso("/recuperar")).toBe(true);
+    expect(esRutaDeIngreso("/cuenta/clave")).toBe(false);
     expect(esRutaDeIngreso("/auth/confirmar")).toBe(false);
     expect(esRutaDeIngreso("/terminos")).toBe(false);
   });
