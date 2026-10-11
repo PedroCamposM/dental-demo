@@ -69,6 +69,7 @@ test("el superadministrador confirma el pago y la clínica vuelve a registrar", 
   await otra.close();
 
   await ingresar(page, ADMIN, CLAVE);
+  await expect(page.getByRole("heading", { name: "Pacientes" })).toBeVisible();
   await expect(page.getByText("La prueba gratuita terminó")).toHaveCount(0);
   await page.goto("/configuracion/plan");
   await expect(page.getByRole("region", { name: "Pagos reportados" }).getByText(/Confirmado \(plan hasta/)).toBeVisible();

@@ -682,6 +682,15 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
 - Bandera `HABILITAR_ETAPA17`. Pruebas: `supabase/tests/suscripcion.test.sql`, Vitest
   (`src/lib/suscripcion.test.ts`), `e2e/suscripcion.spec.ts`. Checklist:
   `docs/checklist-etapa17.md`.
+- Revisión independiente (11-oct): sin hallazgos graves. Corregido: fin de mes (las fechas de
+  fin son inclusivas: un mes desde el 1-mar llega al 31-mar); tope de 30 constancias por
+  clínica y ninguna para la demo; un solo pago por confirmar por clínica (índice único); el
+  número de operación es único por clínica (bancos distintos pueden coincidir); un archivo de
+  más de 1,5 MB se quita en el navegador (antes daba la pantalla de error); tras un error se
+  pide volver a adjuntar la constancia; no se sube la constancia si ya hay un pago pendiente.
+  Queda para decidir con Pedro: una clínica «activo» sin fecha de fin (las anteriores a la
+  Etapa 16, como la piloto) pasa a tener fecha al confirmarse su primer pago (se avisa en la
+  pantalla y al confirmar). El plan elegido no se exige según los odontólogos: solo se avisa.
 
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 

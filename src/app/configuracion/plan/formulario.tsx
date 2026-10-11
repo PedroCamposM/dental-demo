@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { formatearSoles } from "@/lib/dinero";
 import { MAX_CONSTANCIA_BYTES, NOMBRE_METODO, type CampoReporte, type Tarifa } from "@/lib/suscripcion";
 import { reportarPago, type EstadoReporte } from "./acciones";
@@ -12,6 +12,7 @@ export function FormularioReporte({ tarifas, sugerida, hoy }: { tarifas: Tarifa[
   const [estado, accion, enviando] = useActionState<EstadoReporte, FormData>(reportarPago, {
     errores: {}, valores: {}, mensaje: null, exitos: 0,
   });
+  const [archivoGrande, setArchivoGrande] = useState(false);
   const v = estado.valores;
   const e = estado.errores;
   const error = (c: CampoReporte | "constancia") => e[c] ? <span className="text-xs font-normal text-red-700">{e[c]}</span> : null;
@@ -57,12 +58,16 @@ export function FormularioReporte({ tarifas, sugerida, hoy }: { tarifas: Tarifa[
         Constancia (captura o PDF, opcional)
         <input type="file" name="constancia" accept="image/png,image/jpeg,image/webp,application/pdf"
           onChange={(ev) => {
+            // Un archivo grande no llega al servidor (límite de 2 MB): se quita aquí y se avisa.
             const f = ev.currentTarget.files?.[0];
-            ev.currentTarget.setCustomValidity(f && f.size > MAX_CONSTANCIA_BYTES ? "La constancia pesa más de 1,5 MB." : "");
-            ev.currentTarget.reportValidity();
+            const grande = !!f && f.size > MAX_CONSTANCIA_BYTES;
+            if (grande) ev.currentTarget.value = "";
+            setArchivoGrande(grande);
           }}
           className="text-sm font-normal" />
-        {error("constancia")}
+        {archivoGrande
+          ? <span className="text-xs font-normal text-red-700">La constancia pesa más de 1,5 MB: toma una captura más liviana.</span>
+          : error("constancia")}
       </label>
       <p className="text-xs text-gray-500 sm:col-span-2">
         El monto lo calcula el sistema según el plan y el periodo ({tarifas.map((t) =>

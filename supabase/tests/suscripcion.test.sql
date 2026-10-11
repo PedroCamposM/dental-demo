@@ -62,9 +62,6 @@ select pruebas.igual((select count(*) from storage.objects where bucket_id = 'su
 select pruebas.debe_fallar($$select public.revisar_pago_suscripcion((select id from public.pago_suscripcion limit 1), true, null)$$,
                            'superadministrador');
 select pruebas.debe_fallar($$select * from public.pagos_por_confirmar()$$, 'superadministrador');
--- La misma operación no se reporta dos veces
-select pruebas.debe_fallar($$select public.reportar_pago_suscripcion('consultorio', 'mensual', 'yape', ' 123456 ', current_date, null)$$,
-                           'ya fue reportado');
 
 -- El superadministrador ve el pago y la constancia, y lo confirma
 select pruebas.como('c7000000-0000-0000-0000-0000000000aa');
@@ -77,8 +74,9 @@ select public.revisar_pago_suscripcion((select id from pago_id), true, null);
 select pruebas.debe_fallar($$select public.revisar_pago_suscripcion((select id from pago_id), true, null)$$, 'ya fue revisado');
 select pruebas.igual((select count(*) from public.clinicas_plataforma() where nombre = 'Clínica que paga' and plan = 'activo'
                         and tarifa = 'consultorio'
-                        and activo_hasta = ((now() at time zone 'America/Lima')::date - 1 + interval '1 month')::date), 1,
-                     'vencida: el mes cuenta desde hoy');
+                        and activo_hasta = ((now() at time zone 'America/Lima')::date + interval '1 month')::date - 1), 1,
+                     'vencida: el mes cuenta desde hoy (inclusive)');
+select pruebas.debe_fallar($$select public.revisar_pago_suscripcion((select id from pago_id), null, null)$$, 'confirmas o rechazas');
 -- Cambia precios y datos de cobro
 select public.guardar_tarifa('consultorio', 10900, 109000);
 select public.guardar_cobro('{"yape": "999 888 777", "titular": "Titular de ejemplo"}');
@@ -92,13 +90,29 @@ select pruebas.como('c7000000-0000-0000-0000-00000000000a');
 insert into public.paciente (clinica_id, nombres, apellidos, fecha_nacimiento, telefono, consentimiento_datos_at)
 values ('c7c7c7c7-0000-0000-0000-000000000000', 'Ya', 'Entra', '1980-01-01', '51911111111', now());
 select pruebas.igual((select count(*) from public.datos_cobro() where yape = '999 888 777'), 1, 've el Yape para pagar');
+-- La misma operación no se reporta dos veces en la clínica
+select pruebas.debe_fallar($$select public.reportar_pago_suscripcion('consultorio', 'mensual', 'yape', ' 123456 ', current_date, null)$$,
+                           'ya fue reportado');
 select public.reportar_pago_suscripcion('consultorio', 'anual', 'transferencia', 'OP-2026-1', (now() at time zone 'America/Lima')::date, null);
 select pruebas.igual((select monto_centimos from public.pago_suscripcion where estado = 'pendiente'), 109000, 'precio nuevo');
 select pruebas.como('c7000000-0000-0000-0000-0000000000aa');
 select public.revisar_pago_suscripcion((select id from public.pagos_por_confirmar()), true, null);
 select pruebas.igual((select count(*) from public.clinicas_plataforma() where nombre = 'Clínica que paga'
-                        and activo_hasta = ((now() at time zone 'America/Lima')::date - 1 + interval '1 month' + interval '1 year')::date), 1,
+                        and activo_hasta = (((now() at time zone 'America/Lima')::date + interval '1 month')::date + interval '1 year')::date - 1), 1,
                      'vigente: el año se suma al fin actual');
+reset role;
+-- Fin de mes: un plan que termina el 30 de abril se renueva hasta el 31 de mayo
+update public.clinica set activo_hasta = date '2099-04-30' where id = 'c7c7c7c7-0000-0000-0000-000000000000';
+set role authenticated;
+select pruebas.como('c7000000-0000-0000-0000-00000000000a');
+select public.reportar_pago_suscripcion('consultorio', 'mensual', 'plin', 'FINMES-1', (now() at time zone 'America/Lima')::date, null);
+-- Otra clínica puede tener el mismo número de operación (bancos distintos)
+select pruebas.como('d7000000-0000-0000-0000-00000000000a');
+select public.reportar_pago_suscripcion('consultorio', 'mensual', 'plin', 'FINMES-1', (now() at time zone 'America/Lima')::date, null);
+select pruebas.como('c7000000-0000-0000-0000-0000000000aa');
+select public.revisar_pago_suscripcion((select id from public.pagos_por_confirmar() where clinica = 'Clínica que paga'), true, null);
+select pruebas.igual((select count(*) from public.clinicas_plataforma() where nombre = 'Clínica que paga'
+                        and activo_hasta = date '2099-05-31'), 1, 'fin de mes: 30-abr → 31-may');
 reset role;
 select pruebas.como(null);
 \echo 'suscripcion: todas las aserciones pasaron'

@@ -134,9 +134,12 @@ create table public.pago_suscripcion (
   constraint pago_suscripcion_constancia_propia check (constancia_ruta is null or constancia_ruta like clinica_id::text || '/%'),
   constraint pago_suscripcion_rechazo_con_motivo check (estado <> 'rechazado' or char_length(btrim(motivo_rechazo)) >= 3)
 );
--- La misma operación no se reporta dos veces (salvo que se haya rechazado).
-create unique index pago_suscripcion_operacion_unica on public.pago_suscripcion (metodo, lower(btrim(operacion)))
+-- La misma operación no se reporta dos veces en la clínica (salvo rechazada). Por clínica: los
+-- números de bancos distintos pueden coincidir; el superadmin ve los duplicados entre clínicas.
+create unique index pago_suscripcion_operacion_unica on public.pago_suscripcion (clinica_id, metodo, lower(btrim(operacion)))
   where estado <> 'rechazado';
+-- Un solo pago por confirmar a la vez por clínica.
+create unique index pago_suscripcion_un_pendiente on public.pago_suscripcion (clinica_id) where estado = 'pendiente';
 create index pago_suscripcion_clinica on public.pago_suscripcion (clinica_id, reportado_at desc);
 create index pago_suscripcion_pendientes on public.pago_suscripcion (reportado_at) where estado = 'pendiente';
 
@@ -193,12 +196,22 @@ begin
   returning id into v_id;
   return v_id;
 exception when unique_violation then
-  raise exception 'Ese número de operación ya fue reportado';
+  declare v_restriccion text;
+  begin
+    get stacked diagnostics v_restriccion = constraint_name;
+    if v_restriccion = 'pago_suscripcion_un_pendiente' then
+      raise exception 'Ya tienes un pago por confirmar. Espera la confirmación antes de reportar otro';
+    end if;
+    raise exception 'Ese número de operación ya fue reportado';
+  end;
 end $$;
 revoke all on function public.reportar_pago_suscripcion(text, text, text, text, date, text) from public, anon;
 grant execute on function public.reportar_pago_suscripcion(text, text, text, text, date, text) to authenticated;
 
 -- Confirmar extiende el plan un mes o un año desde su fin actual (o desde hoy si ya venció).
+-- Las fechas de fin son inclusivas: se suma el periodo al día siguiente y se resta un día (así un
+-- mes desde el 1 de marzo llega al 31 de marzo, y no se pierde un día en meses de 31).
+-- Una clínica «activo» sin fecha de fin (anterior a la Etapa 16) pasa a tener fecha al confirmar.
 -- Rechazar exige motivo. Ambos quedan en la auditoría de la clínica.
 create function public.revisar_pago_suscripcion(id_pago uuid, aprobar boolean, motivo text) returns date
 language plpgsql security definer set search_path = '' as $$
@@ -211,6 +224,9 @@ declare
 begin
   if not privado.es_superadmin() then
     raise exception 'Solo el superadministrador';
+  end if;
+  if aprobar is null then
+    raise exception 'Indica si confirmas o rechazas el pago';
   end if;
   select * into v_pago from public.pago_suscripcion where id = id_pago for update;
   if v_pago.id is null then
@@ -235,7 +251,7 @@ begin
   v_fin := case v_clinica.plan when 'activo' then v_clinica.activo_hasta when 'prueba' then v_clinica.prueba_hasta end;
   -- Sin fecha de fin (activo sin límite) no hay nada que extender: se cuenta desde hoy.
   v_fin := greatest(coalesce(v_fin, v_hoy - 1), v_hoy - 1);
-  v_hasta := (v_fin + case when v_pago.periodo = 'anual' then interval '1 year' else interval '1 month' end)::date;
+  v_hasta := ((v_fin + 1) + case when v_pago.periodo = 'anual' then interval '1 year' else interval '1 month' end)::date - 1;
   update public.clinica set plan = 'activo', activo_hasta = v_hasta, tarifa = v_pago.tarifa where id = v_clinica.id;
   update public.pago_suscripcion set estado = 'confirmado', plan_hasta = v_hasta,
          revisado_por = auth.uid(), revisado_at = now() where id = id_pago;
@@ -300,7 +316,17 @@ create policy suscripcion_select on storage.objects for select to authenticated
   using (bucket_id = 'suscripcion'
          and (((storage.foldername(name))[1] = (select privado.clinica_actual())::text and (select privado.rol_actual()) = 'admin')
               or (select privado.es_superadmin())));
+-- Exenta de la solo lectura (es para reactivar), pero con tope de archivos por clínica y no
+-- para la clínica de demostración. Función aparte (definer): una política de storage.objects no
+-- puede consultar storage.objects sin recursión.
+create function privado.puede_subir_constancia() returns boolean
+language sql stable security definer set search_path = '' as $$
+  select privado.rol_actual() = 'admin'
+     and coalesce((select plan from public.clinica where id = privado.clinica_actual()), 'demo') <> 'demo'
+     and (select count(*) from storage.objects o
+           where o.bucket_id = 'suscripcion' and (storage.foldername(o.name))[1] = privado.clinica_actual()::text) < 30
+$$;
 create policy suscripcion_insert on storage.objects for insert to authenticated
   with check (bucket_id = 'suscripcion'
               and (storage.foldername(name))[1] = (select privado.clinica_actual())::text
-              and (select privado.rol_actual()) = 'admin');
+              and (select privado.puede_subir_constancia()));

@@ -22,7 +22,13 @@ const MENSAJES_BASE = /^(Ya tienes un pago por confirmar|Ese número de operaci�
 export async function reportarPago(previo: EstadoReporte, form: FormData): Promise<EstadoReporte> {
   const t = (c: string) => String(form.get(c) ?? "");
   const valores = { tarifa: t("tarifa"), periodo: t("periodo"), metodo: t("metodo"), operacion: t("operacion"), pagado_el: t("pagado_el") };
-  const fallo = (errores: EstadoReporte["errores"]): EstadoReporte => ({ ...previo, errores, valores, mensaje: null });
+  const archivo = form.get("constancia");
+  const constancia = archivo instanceof File && archivo.size > 0 ? archivo : null;
+  // El formulario se reinicia tras cada envío: si traía constancia, hay que volver a adjuntarla.
+  const fallo = (errores: EstadoReporte["errores"]): EstadoReporte => ({
+    ...previo, valores, mensaje: null,
+    errores: constancia && !errores.constancia ? { ...errores, constancia: "Vuelve a adjuntar la constancia." } : errores,
+  });
   if (!modulos.etapa17) return fallo({ general: "Módulo apagado." });
   const sesion = await obtenerSesion();
   if (sesion?.rol !== "admin") return fallo({ general: "Solo el administrador reporta pagos." });
@@ -31,8 +37,6 @@ export async function reportarPago(previo: EstadoReporte, form: FormData): Promi
   const { data: tarifas } = await supabase.rpc("tarifas");
   const codigos = ((tarifas ?? []) as { codigo: string }[]).map((x) => x.codigo);
   const r = validarReporte(t, codigos, fechaLima(new Date()));
-  const archivo = form.get("constancia");
-  const constancia = archivo instanceof File && archivo.size > 0 ? archivo : null;
   const errores: EstadoReporte["errores"] = r.ok ? {} : { ...r.errores };
   let tipo: { ext: string; mime: string } | null = null;
   if (constancia) {
@@ -41,6 +45,10 @@ export async function reportarPago(previo: EstadoReporte, form: FormData): Promi
     else if (!tipo) errores.constancia = "La constancia debe ser una imagen (PNG, JPG o WebP) o un PDF.";
   }
   if (!r.ok || Object.keys(errores).length > 0) return fallo(errores);
+
+  // Antes de subir la constancia: si ya hay un pago por confirmar, no se sube nada.
+  const { count } = await supabase.from("pago_suscripcion").select("id", { count: "exact", head: true }).eq("estado", "pendiente");
+  if ((count ?? 0) > 0) return fallo({ general: "Ya tienes un pago por confirmar. Espera la confirmación antes de reportar otro." });
 
   let ruta: string | null = null;
   if (constancia && tipo) {

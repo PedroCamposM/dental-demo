@@ -18,7 +18,7 @@ type Fila = {
   usuarios: number; pacientes: number; administrador: string | null; tarifa?: string | null; odontologos?: number;
 };
 type PagoPendiente = {
-  id: string; clinica: string; tarifa: string; periodo: Periodo; monto_centimos: number; metodo: MetodoSuscripcion;
+  id: string; clinica_id: string; clinica: string; tarifa: string; periodo: Periodo; monto_centimos: number; metodo: MetodoSuscripcion;
   operacion: string; pagado_el: string; constancia_ruta: string | null; odontologos: number;
 };
 
@@ -72,7 +72,10 @@ export default async function Plataforma() {
           {pendientes.length === 0 ? <p className="mt-2 text-sm text-gray-600">No hay pagos por confirmar.</p> : (
             <ul className="mt-3 flex flex-col gap-3">
               {pendientes.map((p) => {
-                const desc = `el pago de ${p.clinica} (${formatearSoles(p.monto_centimos)}, ${NOMBRE_METODO[p.metodo]} ${p.operacion})`;
+                const ficha = filas.find((c) => c.id === p.clinica_id);
+                const sinFin = ficha?.plan === "activo" && !ficha.activo_hasta;
+                const desc = `el pago de ${p.clinica} (${formatearSoles(p.monto_centimos)}, ${NOMBRE_METODO[p.metodo]} ${p.operacion})`
+                  + (sinFin ? ". Hoy no tiene fecha de fin: al confirmar, pasa a tener una" : "");
                 return (
                   <li key={p.id} className="rounded-xl border border-amber-200 bg-amber-50 p-4">
                     <p className="font-medium">{p.clinica}</p>
@@ -80,6 +83,7 @@ export default async function Plataforma() {
                       {nombreTarifa(p.tarifa)} {NOMBRE_PERIODO[p.periodo].toLowerCase()} · {formatearSoles(p.monto_centimos)} ·{" "}
                       {NOMBRE_METODO[p.metodo]} n.º {p.operacion} · pagado el {p.pagado_el} · {p.odontologos} odontólogo(s)
                       {excede(p.tarifa, p.odontologos) && <strong className="text-red-700"> · tiene más odontólogos que su plan</strong>}
+                      {sinFin && <strong> · hoy activa sin fecha de fin</strong>}
                       {enlaces.has(p.id) && <> · <a href={enlaces.get(p.id)} target="_blank" rel="noopener noreferrer"
                         className="font-medium text-teal-700 hover:underline">Ver constancia</a></>}
                     </p>

@@ -65,7 +65,8 @@ export default async function PlanYPagos() {
             <>
               <p className={`mt-2 ${est?.soloLectura ? "font-medium text-red-700" : "text-gray-700"}`}>
                 {plan?.plan === "prueba" && `Prueba gratuita hasta el ${formatearFecha(plan.prueba_hasta ?? hoy)}.`}
-                {plan?.plan === "activo" && (plan.activo_hasta ? `Plan activo hasta el ${formatearFecha(plan.activo_hasta)}.` : "Plan activo.")}
+                {plan?.plan === "activo" && (plan.activo_hasta ? `Plan activo hasta el ${formatearFecha(plan.activo_hasta)}.`
+                  : "Plan activo, sin fecha de fin. Al confirmarse tu primer pago, el plan queda pagado hasta la fecha que cubra.")}
                 {est?.soloLectura && " Está vencido: la clínica está en solo lectura hasta que confirmemos tu pago."}
               </p>
               <p className="mt-1 text-sm text-gray-600">
