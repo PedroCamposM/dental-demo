@@ -73,3 +73,5 @@ export const conEtapa9 = conEtapa8 && process.env.HABILITAR_ETAPA9 === "1";
 export const conEtapa10 = conEtapa9 && process.env.HABILITAR_ETAPA10 === "1";
 /** Exportar la historia clínica (CI con HABILITAR_ETAPA11=1). */
 export const conEtapa11 = conEtapa10 && process.env.HABILITAR_ETAPA11 === "1";
+/** Etapa 14: atención rápida (migración 0925). */
+export const conEtapa14 = conEtapa11 && process.env.HABILITAR_ETAPA14 === "1";

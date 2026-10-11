@@ -115,6 +115,11 @@ export default async function FichaPaciente({ params, searchParams }: {
                   Fusionar duplicado
                 </Link>
               )}
+              {modulos.etapa14 && sesion.esDentista && !p.anulado_at && (
+                <Link href={`/pacientes/${id}/atencion-rapida`} className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800">
+                  Atención rápida
+                </Link>
+              )}
               {modulos.etapa11 && sesion.esDentista && (
                 <Link href={`/pacientes/${id}/exportar`} className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">
                   Exportar historia clínica

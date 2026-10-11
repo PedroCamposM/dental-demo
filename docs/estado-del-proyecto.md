@@ -564,6 +564,25 @@ gratuita por clínica, suscripción).
   anterior, emitir un certificado de descanso falla con el mensaje «El certificado de
   descanso indica el tratamiento realizado»: se resuelve al fusionar el PR de esta etapa.
 
+## v2 — Etapa 14 (atención rápida)
+
+Opción adicional (no reemplaza el flujo completo), aprobada por Pedro: un botón en la ficha
+del paciente, solo para el cirujano dentista, con una sola pantalla para el paciente
+ocasional atendido en una sesión. El alta del paciente se hace antes por la vía normal.
+- La NTS 139 no tiene un formato abreviado para la consulta externa dental (solo el de
+  emergencias, Anexo 7): la pantalla pide lo mínimo de la primera atención en consulta
+  externa (5.2.1 g y ficha 12.2): motivo, tiempo de enfermedad, alergias (preguntadas
+  siempre), anticoagulantes, embarazo si corresponde, examen, diagnóstico CIE-10,
+  tratamiento realizado, descripción y firma.
+- **0925** `registrar_atencion_rapida` (SECURITY INVOKER, una transacción): deja lo mismo
+  que el flujo completo (cuestionario versionado, examen, diagnóstico, plan aceptado,
+  evolución firmada; ítems realizados y sus controles). Si algo falla no queda nada a medias.
+  Los procedimientos que requieren consentimiento no se ofrecen (regla 3) y la base lo
+  rechaza igual.
+- Bandera nueva `HABILITAR_ETAPA14` (requiere la 0925 en la base).
+- Pruebas: `supabase/tests/atencion_rapida.test.sql`, Vitest de la validación,
+  `e2e/atencion-rapida.spec.ts`. Checklist: `docs/checklist-etapa14.md`.
+
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 
 Sin huecos de RLS, grants ni aislamiento entre clínicas en laboratorio, exportación y
