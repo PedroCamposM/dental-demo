@@ -29,6 +29,23 @@ export async function guardarInactividad(_previo: EstadoConfiguracion, form: For
   return { mensaje: `Guardado: la sesión se cerrará tras ${minutos} minutos sin actividad.`, error: null };
 }
 
+/** Etapa 20: el administrador cambia el nombre de su clínica (queda en la auditoría). */
+export async function guardarNombreClinica(_previo: EstadoConfiguracion, form: FormData): Promise<EstadoConfiguracion> {
+  if (!modulos.etapa20) return { mensaje: null, error: "Este módulo aún no está habilitado." };
+  const sesion = await obtenerSesion();
+  if (!sesion || sesion.rol !== "admin") return { mensaje: null, error: "Solo el administrador cambia la configuración." };
+  const nombre = String(form.get("nombre") ?? "").trim().replace(/\s+/g, " ");
+  if (nombre.length < 3 || nombre.length > 120) return { mensaje: null, error: "El nombre de la clínica va de 3 a 120 caracteres." };
+  const { error } = await (await createClient()).rpc("cambiar_nombre_clinica", { id_clinica: sesion.clinicaId, nuevo_nombre: nombre });
+  if (error) {
+    if (error.code === "P0001" && /^El nombre de la clínica/.test(error.message)) return { mensaje: null, error: `${error.message}.` };
+    if (!error.message.includes("está en solo lectura")) registrarError("configuracion.nombre", error);
+    return { mensaje: null, error: siSoloLectura(error, "No se pudo guardar. Inténtalo de nuevo.") };
+  }
+  revalidatePath("/", "layout");
+  return { mensaje: "Nombre guardado. Se usa en la app y en los documentos.", error: null };
+}
+
 // ---------------------------------------------------------------------------
 // Etapa 15: marca de la clínica (color, logo y membrete de los documentos)
 // ---------------------------------------------------------------------------

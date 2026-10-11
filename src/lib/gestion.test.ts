@@ -27,6 +27,7 @@ describe("estado y cobranza", () => {
     expect(estadoCliente(fila({ prueba_hasta: "2026-10-10" }), hoy)).toBe("vencido");
     expect(estadoCliente(fila({ plan: "activo", activo_hasta: null }), hoy)).toBe("activo");
     expect(estadoCliente(fila({ plan: "demo" }), hoy)).toBe("demo");
+    expect(estadoCliente(fila({ suspendida_at: hace(1) }), hoy)).toBe("suspendida");
   });
   it("lista a quién contactar, primero lo que vence; las vencidas hace más de 30 días ya no", () => {
     const lista = cobranza([
@@ -36,6 +37,7 @@ describe("estado y cobranza", () => {
       fila({ id: "d", prueba_hasta: "2026-12-01" }),
       fila({ id: "e", plan: "demo" }),
       fila({ id: "f", prueba_hasta: "2026-08-01" }),
+      fila({ id: "g", prueba_hasta: "2026-10-12", suspendida_at: hace(2) }),  // suspendida: no se le cobra
     ], hoy);
     expect(lista.map((c) => [c.fila.id, c.motivo, c.dias, c.pagoRechazado])).toEqual([
       ["b", "vence_pronto", 3, true], ["a", "vencido", 10, false],

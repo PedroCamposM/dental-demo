@@ -15,6 +15,8 @@ import {
 import { FormularioPlan } from "./formulario";
 import { COLOR_SALUD, Contacto } from "./contacto";
 import { EditarCobro, EditarTarifa, RevisarPago } from "./suscripcion";
+import { NuevoAviso, RetirarAviso } from "./herramientas";
+import { PASOS_ACTIVACION } from "@/lib/plataforma";
 
 export const metadata: Metadata = { title: "Plataforma – Dental Demo" };
 
@@ -24,8 +26,10 @@ type Fila = {
 } & FilaCliente;
 type Resumen = {
   ingreso_mensual_centimos: number; en_prueba: number; activas: number; vencidas: number; vencen_7: number;
-  pruebas_total: number; pruebas_pagadas: number; vencieron_mes: number;
+  pruebas_total: number; pruebas_pagadas: number; vencieron_mes: number; suspendidas?: number;
 };
+type Aviso = { id: string; clinica_id: string | null; clinica: string | null; texto: string; nivel: "info" | "importante";
+  hasta: string; creado_at: string; vigente: boolean };
 
 type PagoPendiente = {
   id: string; clinica_id: string; clinica: string; tarifa: string; periodo: Periodo; monto_centimos: number; metodo: MetodoSuscripcion;
@@ -74,13 +78,24 @@ export default async function Plataforma({ searchParams }: { searchParams: Promi
   const porCobrar = modulos.etapa18 ? cobranza(filas, hoy) : [];
   const conv = resumen ? conversion(resumen.pruebas_pagadas, resumen.pruebas_total) : null;
   const enUnMes = fechaLima(new Date(Date.now() + 31 * 86_400_000));
+  const avisosR = modulos.etapa20 ? await supabase.rpc("avisos_plataforma") : null;
+  if (avisosR?.error) registrarError("plataforma.avisos", avisosR.error);
+  const avisos = ((avisosR?.data ?? []) as Aviso[]).filter((a) => a.vigente);
   return (
     <main className="mx-auto max-w-6xl px-4 py-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Clínicas de la plataforma</h1>
-        <form action={cerrarSesion}>
-          <button type="submit" className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">Cerrar sesión</button>
-        </form>
+        <div className="flex flex-wrap items-center gap-2">
+          {modulos.etapa20 && (
+            <>
+              <Link href="/plataforma/ingresos" className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">Ingresos</Link>
+              <Link href="/plataforma/bitacora" className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">Bitácora</Link>
+            </>
+          )}
+          <form action={cerrarSesion}>
+            <button type="submit" className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">Cerrar sesión</button>
+          </form>
+        </div>
       </div>
       <p className="mt-1 text-sm text-gray-600">Activa el plan al confirmar el pago. Cada cambio queda en la auditoría de la clínica con su motivo.</p>
       {resumen && (
@@ -95,6 +110,7 @@ export default async function Plataforma({ searchParams }: { searchParams: Promi
               ["Vencen en 7 días", String(resumen.vencen_7)],
               ["Conversión prueba → pago", conv === null ? "—" : `${conv} % (${resumen.pruebas_pagadas} de ${resumen.pruebas_total})`],
               ["Vencieron este mes", String(resumen.vencieron_mes)],
+              ...(modulos.etapa20 ? [["Suspendidas", String(resumen.suspendidas ?? 0)] as const] : []),
             ] as const).map(([t, v]) => (
               <div key={t} className="rounded-xl border border-gray-200 bg-white p-3">
                 <dt className="text-xs text-gray-600">{t}</dt>
@@ -163,6 +179,29 @@ export default async function Plataforma({ searchParams }: { searchParams: Promi
           )}
         </section>
       )}
+      {modulos.etapa20 && (
+        <section aria-labelledby="t-avisos" className="mt-6 rounded-xl border border-gray-200 bg-white p-4">
+          <h2 id="t-avisos" className="text-lg font-semibold">Avisos a las clínicas</h2>
+          <p className="mb-3 text-sm text-gray-600">Se muestran arriba de cada pantalla a todo el personal, hasta la fecha que elijas.</p>
+          {avisos.length > 0 && (
+            <ul className="mb-4 flex flex-col divide-y divide-gray-100 text-sm">
+              {avisos.map((a) => (
+                <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                  <span>
+                    <span className={`mr-2 rounded-full px-2 py-0.5 text-xs font-medium ${a.nivel === "importante" ? "bg-amber-100 text-amber-900" : "bg-sky-100 text-sky-900"}`}>
+                      {a.nivel === "importante" ? "Importante" : "Informativo"}
+                    </span>
+                    {a.texto} <span className="text-gray-500">· {a.clinica ?? "Todas las clínicas"} · hasta {a.hasta}</span>
+                  </span>
+                  <RetirarAviso avisoId={a.id} />
+                </li>
+              ))}
+            </ul>
+          )}
+          <NuevoAviso clinicas={filas.filter((c) => c.plan !== "demo").map((c) => ({ id: c.id, nombre: c.nombre }))}
+            hastaSugerido={fechaLima(new Date(Date.now() + 7 * 86_400_000))} />
+        </section>
+      )}
       {error && <p role="alert" className="mt-4 text-sm text-red-700">No se pudo cargar la lista de clínicas.</p>}
       <h2 className="mt-8 text-lg font-semibold">Clínicas{modulos.etapa18 && ` (${visibles.length} de ${filas.length})`}</h2>
       {modulos.etapa18 && (
@@ -176,7 +215,7 @@ export default async function Plataforma({ searchParams }: { searchParams: Promi
             Estado
             <select name="estado" defaultValue={filtro.estado ?? ""} className="rounded-md border border-gray-300 px-2 py-1.5 text-sm">
               <option value="">Todos</option>
-              {(["prueba", "activo", "vencido", "demo"] as const).map((e) => <option key={e} value={e}>{NOMBRE_ESTADO[e]}</option>)}
+              {(["prueba", "activo", "vencido", ...(modulos.etapa20 ? ["suspendida"] as const : []), "demo"] as const).map((e) => <option key={e} value={e}>{NOMBRE_ESTADO[e]}</option>)}
             </select>
           </label>
           <label className="flex flex-col gap-1 text-xs font-medium text-gray-700">
@@ -192,7 +231,7 @@ export default async function Plataforma({ searchParams }: { searchParams: Promi
       )}
       <ul className="mt-3 flex flex-col gap-3">
         {visibles.map((c) => {
-          const est = estadoPlan(c, hoy);
+          const est = estadoPlan({ ...c, suspendida: Boolean(c.suspendida_at) }, hoy);
           const s = salud(c.ultima_actividad ?? null, c.actividad_30 ?? 0, c.actividad_previa_30 ?? 0, ahora);
           const hasta = c.plan === "prueba" ? c.prueba_hasta : c.plan === "activo" ? c.activo_hasta : null;
           return (
@@ -203,6 +242,12 @@ export default async function Plataforma({ searchParams }: { searchParams: Promi
                   {modulos.etapa18 && c.plan !== "demo" && (
                     <span className={`ml-2 rounded-full px-2 py-0.5 text-xs font-medium ${COLOR_SALUD[s]}`}>{NOMBRE_SALUD[s]}</span>
                   )}
+                  {modulos.etapa20 && c.suspendida_at && (
+                    <span className="ml-2 rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-900">Suspendida</span>
+                  )}
+                  {modulos.etapa20 && c.descuento_pct ? (
+                    <span className="ml-2 rounded-full bg-violet-100 px-2 py-0.5 text-xs font-medium text-violet-900">−{c.descuento_pct} %</span>
+                  ) : null}
                 </h2>
                 <p className={`text-sm ${est.soloLectura ? "font-medium text-red-700" : "text-gray-600"}`}>
                   {NOMBRE_PLAN[c.plan]}{hasta ? ` hasta ${hasta}` : ""}{est.soloLectura ? " · solo lectura" : ""}
@@ -213,7 +258,14 @@ export default async function Plataforma({ searchParams }: { searchParams: Promi
                 {modulos.etapa17 && <> · {c.odontologos ?? 0} odontólogo(s) · Tarifa: {nombreTarifa(c.tarifa)}
                   {excede(c.tarifa, c.odontologos ?? 0) && <strong className="text-red-700"> (supera su plan)</strong>}</>}
                 {modulos.etapa18 && <> · Última actividad: {c.ultima_actividad ? `hace ${Math.max(0, -diasHasta(fechaLima(c.ultima_actividad), hoy))} día(s)` : "—"}</>}
+                {modulos.etapa20 && c.plan !== "demo" && <> · Activación: {c.activacion ?? 0} de {PASOS_ACTIVACION.length}</>}
               </p>
+              {modulos.etapa18 && (
+                <Link href={`/plataforma/clinicas/${c.id}`} aria-label={`Ver ficha de ${c.nombre}`}
+                  className="mt-2 inline-block rounded-md border border-teal-700 px-3 py-1 text-sm font-medium text-teal-800 hover:bg-teal-50">
+                  Ver ficha →
+                </Link>
+              )}
               {c.plan !== "demo" && (
                 <div className="mt-3"><FormularioPlan clinicaId={c.id} nombre={c.nombre} hastaSugerido={enUnMes} /></div>
               )}

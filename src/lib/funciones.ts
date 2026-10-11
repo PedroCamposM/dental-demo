@@ -124,4 +124,12 @@ export const modulos = {
    * Requiere la migración 0932 (y la Etapa 1).
    */
   etapa19: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA19 === "1",
+  /**
+   * Etapa 20: herramientas del superadministrador (nombre, suspensión, descuento, avisos,
+   * activación, ingresos y bitácora) y turnos de caja.
+   * Requiere la migración 0933 en adelante (y las etapas 16 a 18).
+   */
+  etapa20: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA16 === "1"
+    && process.env.HABILITAR_ETAPA17 === "1" && process.env.HABILITAR_ETAPA18 === "1"
+    && process.env.HABILITAR_ETAPA20 === "1",
 };

@@ -55,6 +55,20 @@ export function validarCierre(t: (c: string) => string):
   return { ok: true, datos: { efectivo, observaciones: obs || null } };
 }
 
+/** Etapa 20: fondo inicial al abrir un turno de caja (0 si se empieza sin sencillo). */
+export function validarFondo(t: (c: string) => string): { ok: true; fondo: number } | { ok: false; error: string } {
+  const texto = t("fondo").trim();
+  if (!texto) return { ok: false, error: "Indica el fondo inicial (0 si no hay)." };
+  let fondo: number;
+  try {
+    fondo = aCentimos(texto);
+  } catch {
+    return { ok: false, error: "Monto inválido (p. ej. 100 o 100.50)." };
+  }
+  if (fondo < 0 || fondo > MAXIMO) return { ok: false, error: "Monto inválido." };
+  return { ok: true, fondo };
+}
+
 export function validarAjuste(t: (c: string) => string):
   { ok: true; datos: { monto: number; metodo: MetodoPago; motivo: string } } | { ok: false; error: string } {
   const m = monto(t("monto"), true);

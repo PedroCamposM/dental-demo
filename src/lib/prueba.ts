@@ -5,7 +5,11 @@
 export const CORREO_CONTACTO = "contacto.hud@gmail.com";
 
 export type PlanClinica = "demo" | "prueba" | "activo";
-export type DatosPlan = { plan: PlanClinica; prueba_hasta: string | null; activo_hasta: string | null };
+export type DatosPlan = {
+  plan: PlanClinica; prueba_hasta: string | null; activo_hasta: string | null;
+  /** Etapa 20: suspendida por la plataforma (solo lectura hasta que se reactive). */
+  suspendida?: boolean;
+};
 
 /** Días entre dos fechas YYYY-MM-DD (hasta − desde). */
 function dias(desde: string, hasta: string): number {
@@ -18,11 +22,20 @@ export type EstadoPlan = {
   diasRestantes: number | null;
   /** Aviso para el encabezado; null si no hay nada que avisar. */
   aviso: string | null;
+  /** Etapa 20: suspendida (el aviso ya trae el contacto; no se ofrece pagar). */
+  suspendida?: boolean;
 };
 
 export function estadoPlan(p: DatosPlan, hoy: string): EstadoPlan {
   const hasta = p.plan === "prueba" ? p.prueba_hasta : p.plan === "activo" ? p.activo_hasta : null;
-  if (p.plan === "demo" || !hasta) return { soloLectura: false, diasRestantes: null, aviso: null };
+  if (p.plan === "demo") return { soloLectura: false, diasRestantes: null, aviso: null };
+  if (p.suspendida) {
+    return {
+      soloLectura: true, diasRestantes: null, suspendida: true,
+      aviso: `La cuenta de la clínica está suspendida: está en solo lectura. Puedes ver y exportar las historias; para reactivarla, escríbenos a ${CORREO_CONTACTO}.`,
+    };
+  }
+  if (!hasta) return { soloLectura: false, diasRestantes: null, aviso: null };
   const restantes = dias(hoy, hasta) + 1;
   if (restantes <= 0) {
     return {

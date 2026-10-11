@@ -68,6 +68,7 @@ jobs:
           export HABILITAR_ETAPA17=1
           export HABILITAR_ETAPA18=1
           export HABILITAR_ETAPA19=1
+          export HABILITAR_ETAPA20=1
           # Invitaciones al equipo (Etapa 19): la service role del Supabase local.
           export SUPABASE_SERVICE_ROLE_KEY="${SECRET_KEY:-$SERVICE_ROLE_KEY}"
           npm run test:e2e

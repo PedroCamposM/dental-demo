@@ -4,6 +4,7 @@ import { Encabezado } from "@/components/encabezado";
 import { formatearSoles } from "@/lib/dinero";
 import { fechaLima, formatearFecha } from "@/lib/fechas";
 import { modulos } from "@/lib/funciones";
+import { conDescuento } from "@/lib/plataforma";
 import { CORREO_CONTACTO, estadoPlan } from "@/lib/prueba";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion } from "@/lib/sesion";
@@ -39,6 +40,14 @@ export default async function PlanYPagos() {
     if (r.error) registrarError(`plan.${n}`, r.error);
   }
   const tarifas = (tarifasR.data ?? []) as Tarifa[];
+  // Etapa 20: descuento de la clínica (la base lo aplica al reportar el pago).
+  const descuentoR = modulos.etapa20 ? await supabase.rpc("mi_descuento") : null;
+  if (descuentoR?.error) registrarError("plan.descuento", descuentoR.error);
+  const descuento = ((descuentoR?.data ?? []) as { porcentaje: number; hasta: string | null }[])[0] ?? null;
+  const tarifasPago = descuento
+    ? tarifas.map((t) => ({ ...t, mensual_centimos: conDescuento(t.mensual_centimos, descuento.porcentaje),
+        anual_centimos: conDescuento(t.anual_centimos, descuento.porcentaje) }))
+    : tarifas;
   const cobro = ((cobroR.data ?? []) as Cobro[])[0] ?? null;
   const odontologos = typeof odontologosR.data === "number" ? odontologosR.data : 0;
   const pagos = (pagosR.data ?? []) as Pago[];
@@ -67,7 +76,8 @@ export default async function PlanYPagos() {
                 {plan?.plan === "prueba" && `Prueba gratuita hasta el ${formatearFecha(plan.prueba_hasta ?? hoy)}.`}
                 {plan?.plan === "activo" && (plan.activo_hasta ? `Plan activo hasta el ${formatearFecha(plan.activo_hasta)}.`
                   : "Plan activo, sin fecha de fin. Al confirmarse tu primer pago, el plan queda pagado hasta la fecha que cubra.")}
-                {est?.soloLectura && " Está vencido: la clínica está en solo lectura hasta que confirmemos tu pago."}
+                {est?.soloLectura && !est.suspendida && " Está vencido: la clínica está en solo lectura hasta que confirmemos tu pago."}
+                {est?.suspendida && ` La cuenta está suspendida: la clínica está en solo lectura. Escríbenos a ${CORREO_CONTACTO}.`}
               </p>
               <p className="mt-1 text-sm text-gray-600">
                 Odontólogos activos (con COP): {odontologos}.{sugerida && ` Te corresponde el plan ${sugerida.nombre}.`}
@@ -99,6 +109,13 @@ export default async function PlanYPagos() {
               </tbody>
             </table>
           </div>
+          {descuento && (
+            <p role="status" className="mt-3 rounded-md bg-violet-50 px-3 py-2 text-sm text-violet-900">
+              Tienes un descuento del {descuento.porcentaje} %{descuento.hasta ? ` hasta el ${formatearFecha(descuento.hasta)}` : ""}:
+              {" "}{tarifasPago.map((t) => `${t.nombre} ${formatearSoles(t.mensual_centimos)} al mes o ${formatearSoles(t.anual_centimos)} al año`).join("; ")}.
+              Se aplica solo al reportar tu pago.
+            </p>
+          )}
           <p className="mt-2 text-xs text-gray-500">Todos los planes incluyen todos los módulos. El comprobante de pago se emite por separado.</p>
         </section>
 
@@ -127,7 +144,7 @@ export default async function PlanYPagos() {
             <section aria-labelledby="t-reportar" className={seccion}>
               <h2 id="t-reportar" className="mb-1 text-lg font-semibold">Reportar un pago</h2>
               <p className="mb-4 text-sm text-gray-600">Después de pagar, avísanos aquí. Al confirmarlo, el plan se extiende solo.</p>
-              <FormularioReporte tarifas={tarifas} sugerida={sugerida?.codigo ?? tarifas[0]?.codigo ?? ""} hoy={hoy} />
+              <FormularioReporte tarifas={tarifasPago} sugerida={sugerida?.codigo ?? tarifas[0]?.codigo ?? ""} hoy={hoy} />
             </section>
 
             <section aria-labelledby="t-historial" className={seccion}>

@@ -9,7 +9,7 @@ import { modulos } from "@/lib/funciones";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
-import { CerrarCaja, RegistrarAjuste } from "./formularios";
+import { AbrirTurno, CerrarCaja, CerrarTurno, RegistrarAjuste } from "./formularios";
 
 export const metadata: Metadata = { title: "Caja – Dental Demo" };
 
@@ -26,6 +26,13 @@ type Pago = {
   id: string; monto_centimos: number; metodo: MetodoPago; referencia: string | null; pagado_at: string; anulado_at: string | null;
   plan_tratamiento: { titulo: string; paciente: { id: string; nombres: string; apellidos: string } | null } | null;
 };
+type Turno = {
+  id: string; fondo_centimos: number; abierto_por: string; abierto_at: string; por_metodo: Partial<Record<MetodoPago, number>> | null;
+  total_centimos: number | null; pagos: number | null; efectivo_esperado: number | null; efectivo_contado: number | null;
+  diferencia_centimos: number | null; observaciones: string | null; cerrado_por: string | null; cerrado_at: string | null;
+};
+type TurnoAbierto = { id: string; fecha: string; fondo_centimos: number; abierto_por: string; abierto_at: string;
+  resumen: { total_centimos: number; pagos: number; por_metodo: Partial<Record<MetodoPago, number>> } };
 type Ajuste = { id: string; metodo: MetodoPago; monto_centimos: number; motivo: string; registrado_por: string; registrado_at: string };
 
 function Montos({ porMetodo }: { porMetodo: Partial<Record<MetodoPago, number>> }) {
@@ -65,7 +72,16 @@ export default async function Caja({ searchParams }: { searchParams: Promise<{ f
     ? await supabase.from("ajuste_caja").select("id, metodo, monto_centimos, motivo, registrado_por, registrado_at")
         .eq("cierre_id", cierre.data.id).order("registrado_at").returns<Ajuste[]>()
     : { data: [] as Ajuste[], error: null };
-  const error = resumen.error ?? cierre.error ?? pagos.error ?? ajustes.error;
+  // Etapa 20: turnos del día y el turno abierto (puede venir de un día anterior si no se cerró).
+  const [turnosR, abiertoR] = modulos.etapa20
+    ? await Promise.all([
+        supabase.from("turno_caja").select("*").eq("fecha", fecha).not("cerrado_at", "is", null).order("abierto_at").returns<Turno[]>(),
+        supabase.rpc("turno_abierto"),
+      ])
+    : [null, null];
+  const turnos = turnosR?.data ?? [];
+  const abierto = ((abiertoR?.data ?? []) as TurnoAbierto[])[0] ?? null;
+  const error = resumen.error ?? cierre.error ?? pagos.error ?? ajustes.error ?? turnosR?.error ?? abiertoR?.error;
   if (error) registrarError("caja.ver", error, { fecha });
   const r = (resumen.data ?? { total_centimos: 0, pagos: 0, por_metodo: {}, por_profesional: [] }) as Resumen;
   const c = cierre.data;
@@ -90,6 +106,42 @@ export default async function Caja({ searchParams }: { searchParams: Promise<{ f
           </nav>
         </div>
         {error && <p role="alert" className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">No se pudo cargar toda la caja. Recarga la página.</p>}
+
+        {modulos.etapa20 && (abierto || turnos.length > 0 || (fecha === hoy && !c)) && (
+          <section aria-labelledby="t-turno" className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
+            <h2 id="t-turno" className="text-lg font-semibold">Turnos de caja</h2>
+            <p className="text-sm text-gray-600">
+              Opcional: para el cambio de turno. Abre con el sencillo de la gaveta y cierra contando el efectivo; los pagos se suman al turno abierto.
+            </p>
+            {turnos.length > 0 && (
+              <ul className="mt-3 text-sm">
+                {turnos.map((t, i) => (
+                  <li key={t.id} className="border-b border-gray-100 py-1.5">
+                    <span className="font-medium">Turno {i + 1}</span> · {horaLima(t.abierto_at)} a {t.cerrado_at ? horaLima(t.cerrado_at) : "—"} ·
+                    {" "}{autor.get(t.abierto_por) ?? "—"}{t.cerrado_por && t.cerrado_por !== t.abierto_por ? ` → ${autor.get(t.cerrado_por) ?? "—"}` : ""} ·
+                    {" "}fondo {formatearSoles(t.fondo_centimos)} · cobrado {formatearSoles(t.total_centimos ?? 0)} ({t.pagos ?? 0} pagos) ·
+                    {" "}efectivo esperado {formatearSoles(t.efectivo_esperado ?? 0)}, contado {formatearSoles(t.efectivo_contado ?? 0)} ·{" "}
+                    <b className={t.diferencia_centimos === 0 ? "text-teal-800" : "text-red-700"}>diferencia {formatearSoles(t.diferencia_centimos ?? 0)}</b>
+                    {t.observaciones && <span className="text-gray-600"> · {t.observaciones}</span>}
+                  </li>
+                ))}
+              </ul>
+            )}
+            {abierto ? (
+              <div className="mt-4 rounded-lg bg-teal-50 p-3">
+                <p className="text-sm">
+                  <b>Turno abierto</b> por {autor.get(abierto.abierto_por) ?? "—"} a las {horaLima(abierto.abierto_at)}
+                  {abierto.fecha !== hoy && ` del ${abierto.fecha}`} · fondo {formatearSoles(abierto.fondo_centimos)} ·
+                  {" "}cobrado {formatearSoles(abierto.resumen.total_centimos)} ({abierto.resumen.pagos} pagos)
+                </p>
+                <div className="mt-2"><Montos porMetodo={abierto.resumen.por_metodo} /></div>
+                <div className="mt-3">
+                  <CerrarTurno esperado={formatearSoles(abierto.fondo_centimos + (abierto.resumen.por_metodo.efectivo ?? 0))} />
+                </div>
+              </div>
+            ) : fecha === hoy && !c && <div className="mt-4"><AbrirTurno /></div>}
+          </section>
+        )}
 
         <section aria-labelledby="t-resumen" className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -120,6 +172,9 @@ export default async function Caja({ searchParams }: { searchParams: Promise<{ f
             </div>
           ) : (
             <div className="mt-5 border-t border-gray-100 pt-4">
+              {modulos.etapa20 && turnos.length > 0 && (
+                <p className="mb-2 text-sm text-gray-600">El efectivo del día es el de los pagos, sin los fondos iniciales de los turnos.</p>
+              )}
               <CerrarCaja fecha={fecha} esperado={formatearSoles(r.por_metodo.efectivo ?? 0)} />
             </div>
           )}

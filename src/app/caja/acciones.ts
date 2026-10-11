@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { validarAjuste, validarCierre, validarPago } from "@/lib/caja";
+import { validarAjuste, validarCierre, validarFondo, validarPago } from "@/lib/caja";
 import { validarMotivo } from "@/lib/clinico/consentimientos";
 import { modulos } from "@/lib/funciones";
 import { esSoloLectura } from "@/lib/prueba";
@@ -103,4 +103,33 @@ export async function registrarAjuste(previo: EstadoCaja, form: FormData): Promi
   if (error) return fallo(previo, mensajeDeError(error, "caja.ajuste", "registrar el ajuste"));
   revalidatePath("/caja");
   return { error: null, mensaje: "Ajuste registrado.", exitos: previo.exitos + 1 };
+}
+
+// ---------------------------------------------------------------------------
+// Etapa 20: turnos de caja (abrir con fondo, cerrar contando el efectivo)
+// ---------------------------------------------------------------------------
+export async function abrirTurno(previo: EstadoCaja, form: FormData): Promise<EstadoCaja> {
+  if (!modulos.etapa20) return fallo(previo, "Este módulo aún no está habilitado.");
+  const c = await caja();
+  if (c.error !== null) return fallo(previo, c.error);
+  const r = validarFondo((k) => String(form.get(k) ?? ""));
+  if (!r.ok) return fallo(previo, r.error);
+  const { error } = await (await createClient()).rpc("abrir_turno", { fondo: r.fondo, observaciones: null });
+  if (error) return fallo(previo, mensajeDeError(error, "caja.abrir_turno", "abrir el turno"));
+  revalidatePath("/caja");
+  return { error: null, mensaje: "Turno abierto.", exitos: previo.exitos + 1 };
+}
+
+export async function cerrarTurno(previo: EstadoCaja, form: FormData): Promise<EstadoCaja> {
+  if (!modulos.etapa20) return fallo(previo, "Este módulo aún no está habilitado.");
+  const c = await caja();
+  if (c.error !== null) return fallo(previo, c.error);
+  const r = validarCierre((k) => String(form.get(k) ?? ""));
+  if (!r.ok) return fallo(previo, r.error);
+  const { error } = await (await createClient()).rpc("cerrar_turno", {
+    efectivo_contado: r.datos.efectivo, observaciones: r.datos.observaciones,
+  });
+  if (error) return fallo(previo, mensajeDeError(error, "caja.cerrar_turno", "cerrar el turno"));
+  revalidatePath("/caja");
+  return { error: null, mensaje: "Turno cerrado.", exitos: previo.exitos + 1 };
 }

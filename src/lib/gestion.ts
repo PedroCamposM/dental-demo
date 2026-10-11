@@ -2,13 +2,13 @@
 // datos clínicos. Lógica pura y probada; la base trae los conteos.
 
 export type Salud = "verde" | "ambar" | "rojo" | "sin_datos";
-export type EstadoCliente = "demo" | "prueba" | "activo" | "vencido";
+export type EstadoCliente = "demo" | "prueba" | "activo" | "vencido" | "suspendida";
 
 export const NOMBRE_SALUD: Record<Salud, string> = {
   verde: "Activa", ambar: "Uso en baja", rojo: "Sin uso", sin_datos: "Sin actividad aún",
 };
 export const NOMBRE_ESTADO: Record<EstadoCliente, string> = {
-  demo: "Demostración", prueba: "En prueba", activo: "Activa (pagando)", vencido: "Vencida",
+  demo: "Demostración", prueba: "En prueba", activo: "Activa (pagando)", vencido: "Vencida", suspendida: "Suspendida",
 };
 
 const DIA = 86_400_000;
@@ -32,6 +32,8 @@ export type FilaCliente = {
   id: string; nombre: string; plan: "demo" | "prueba" | "activo"; prueba_hasta: string | null; activo_hasta: string | null;
   ultima_actividad?: string | null; actividad_30?: number; actividad_previa_30?: number; ultimo_pago_estado?: string | null;
   correo_admin?: string | null; telefono?: string | null; administrador: string | null;
+  /** Etapa 20: suspendida por el superadministrador (solo lectura). */
+  suspendida_at?: string | null; descuento_pct?: number | null; activacion?: number;
 };
 
 /** Fin del periodo vigente (null: demo o activo sin fecha). */
@@ -40,8 +42,9 @@ export function finPlan(c: Pick<FilaCliente, "plan" | "prueba_hasta" | "activo_h
 }
 
 /** Estado comercial; `hoy` en YYYY-MM-DD (Lima). Vence al terminar el día de fin. */
-export function estadoCliente(c: Pick<FilaCliente, "plan" | "prueba_hasta" | "activo_hasta">, hoy: string): EstadoCliente {
+export function estadoCliente(c: Pick<FilaCliente, "plan" | "prueba_hasta" | "activo_hasta" | "suspendida_at">, hoy: string): EstadoCliente {
   if (c.plan === "demo") return "demo";
+  if (c.suspendida_at) return "suspendida";
   const fin = finPlan(c);
   if (fin && fin < hoy) return "vencido";
   return c.plan;
@@ -61,7 +64,7 @@ export const DIAS_SEGUIMIENTO_VENCIDA = 30;
 export function cobranza(filas: FilaCliente[], hoy: string): Cobro[] {
   const lista: Cobro[] = [];
   for (const f of filas) {
-    if (f.plan === "demo") continue;
+    if (f.plan === "demo" || f.suspendida_at) continue;
     const fin = finPlan(f);
     if (!fin) continue;
     const d = diasHasta(fin, hoy);

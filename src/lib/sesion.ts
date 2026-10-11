@@ -48,12 +48,12 @@ export const obtenerSesion = cache(async (): Promise<Sesion | null> => {
   const { data } = await supabase
     .from("usuario")
     .select(`id, nombre, rol, cop, activo, clinica_id, clinica(nombre${modulos.etapa1 ? ", inactividad_minutos" : ""}`
-      + `${modulos.etapa15 ? ", color_marca, logo_ruta" : ""}${modulos.etapa16 ? ", plan, prueba_hasta, activo_hasta" : ""})`)
+      + `${modulos.etapa15 ? ", color_marca, logo_ruta" : ""}${modulos.etapa16 ? ", plan, prueba_hasta, activo_hasta" : ""}${modulos.etapa20 ? ", suspendida_at" : ""})`)
     .eq("id", user.id)
     .maybeSingle<{
       id: string; nombre: string; rol: Rol; cop: string | null; activo: boolean; clinica_id: string;
-      clinica: { nombre: string; inactividad_minutos?: number; color_marca?: string | null; logo_ruta?: string | null }
-        & Partial<DatosPlan> | null;
+      clinica: { nombre: string; inactividad_minutos?: number; color_marca?: string | null; logo_ruta?: string | null;
+        suspendida_at?: string | null } & Partial<DatosPlan> | null;
     }>();
 
   if (!data?.activo || !data.clinica) return null;
@@ -62,7 +62,8 @@ export const obtenerSesion = cache(async (): Promise<Sesion | null> => {
     inactividadMinutos: data.clinica.inactividad_minutos ?? null,
     colorMarca: data.clinica.color_marca ?? null, logoRuta: data.clinica.logo_ruta ?? null,
     plan: data.clinica.plan
-      ? { plan: data.clinica.plan, prueba_hasta: data.clinica.prueba_hasta ?? null, activo_hasta: data.clinica.activo_hasta ?? null }
+      ? { plan: data.clinica.plan, prueba_hasta: data.clinica.prueba_hasta ?? null, activo_hasta: data.clinica.activo_hasta ?? null,
+          suspendida: Boolean(data.clinica.suspendida_at) }
       : null,
     veClinico: data.rol === "asistente" || ((data.rol === "admin" || data.rol === "odontologo") && data.cop !== null),
     esDentista: (data.rol === "admin" || data.rol === "odontologo") && data.cop !== null,

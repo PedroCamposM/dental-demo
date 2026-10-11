@@ -11,16 +11,22 @@ import { createClient } from "@/lib/supabase/server";
 import { COLOR_SALUD, Contacto } from "../../contacto";
 import { FormularioPlan } from "../../formulario";
 import { NuevaNota } from "../../suscripcion";
+import { EditarDescuento, NuevoAviso, RenombrarClinica, SuspenderClinica } from "../../herramientas";
+import { detalleBitacora, NOMBRE_ACCION, PASOS_ACTIVACION, type Activacion } from "@/lib/plataforma";
 
 export const metadata: Metadata = { title: "Ficha de clínica – Dental Demo" };
 
 type Ficha = {
   usuarios: { nombre: string; rol: string; activo: boolean; correo: string | null; ultimo_ingreso: string | null; cirujano_dentista: boolean }[];
   pagos: { tarifa: string; periodo: Periodo; monto_centimos: number; metodo: MetodoSuscripcion; operacion: string; pagado_el: string;
-    estado: EstadoPago; motivo_rechazo: string | null; plan_hasta: string | null }[];
+    estado: EstadoPago; motivo_rechazo: string | null; plan_hasta: string | null; descuento_pct?: number | null }[];
   semanas: { desde: string; pacientes: number; citas: number; evoluciones: number }[];
   notas: { texto: string; creada_at: string; autor: string | null }[];
   correos: { tipo: string; enviado_at: string }[];
+  // Etapa 20
+  activacion?: Activacion;
+  descuento?: { porcentaje: number; hasta: string | null; motivo: string; vigente: boolean } | null;
+  bitacora?: { accion: string; detalle: Record<string, unknown>; creada_at: string; autor: string | null }[];
 };
 type Fila = FilaCliente & { creada: string; usuarios: number; pacientes: number; odontologos?: number; tarifa?: string | null };
 
@@ -56,6 +62,7 @@ export default async function FichaClinica({ params }: { params: Promise<{ id: s
       <div className="mt-2 flex flex-wrap items-center gap-3">
         <h1 className="text-2xl font-semibold">{fila.nombre}</h1>
         {fila.plan !== "demo" && <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${COLOR_SALUD[s]}`}>{NOMBRE_SALUD[s]}</span>}
+        {fila.suspendida_at && <span className="rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-900">Suspendida</span>}
       </div>
       <p className="mt-1 text-gray-700">
         {NOMBRE_ESTADO[estado]}
@@ -67,6 +74,70 @@ export default async function FichaClinica({ params }: { params: Promise<{ id: s
         <span className="text-gray-600">Contacto: {fila.administrador ?? "—"} {fila.correo_admin ? `(${fila.correo_admin})` : ""}</span>
         <Contacto fila={fila} />
       </div>
+
+      {fila.plan === "demo" && (
+        <p className="mt-3 rounded-md bg-gray-50 px-3 py-2 text-sm text-gray-700">
+          Es la clínica de demostración compartida: no tiene plan, pagos ni correos automáticos, y no se suspende.
+        </p>
+      )}
+      {fila.suspendida_at && (
+        <p role="status" className="mt-3 rounded-md bg-red-50 px-3 py-2 text-sm text-red-800">
+          Suspendida desde el {fecha(fila.suspendida_at ?? null)}: la clínica está en solo lectura (ve y exporta sus historias, no registra nada nuevo).
+        </p>
+      )}
+
+      {modulos.etapa20 && f.activacion && fila.plan !== "demo" && (
+        <section aria-labelledby="t-activacion" className={seccion}>
+          <h2 id="t-activacion" className="mb-2 text-lg font-semibold">
+            Activación ({PASOS_ACTIVACION.filter((p) => f.activacion?.[p.clave]).length} de {PASOS_ACTIVACION.length})
+          </h2>
+          <ul className="grid gap-1 text-sm sm:grid-cols-2">
+            {PASOS_ACTIVACION.map((p) => (
+              <li key={p.clave} className={f.activacion?.[p.clave] ? "text-emerald-800" : "text-gray-500"}>
+                {f.activacion?.[p.clave] ? "✓" : "○"} {p.texto}
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-gray-500">Si se queda en los primeros pasos, conviene llamar y ofrecer ayuda.</p>
+        </section>
+      )}
+
+      {modulos.etapa20 && (
+        <section aria-labelledby="t-cuenta" className={seccion}>
+          <h2 id="t-cuenta" className="mb-3 text-lg font-semibold">Cuenta</h2>
+          <div className="flex flex-col gap-4">
+            {fila.plan === "demo" ? <p className="text-sm text-gray-600">La clínica de demostración conserva su nombre.</p> : (
+              <>
+                <RenombrarClinica clinicaId={fila.id} nombre={fila.nombre} />
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="mb-1 text-sm font-medium">Descuento</p>
+                  <p className="mb-2 text-xs text-gray-600">
+                    {f.descuento
+                      ? `Tiene ${f.descuento.porcentaje} %${f.descuento.hasta ? ` hasta el ${f.descuento.hasta}` : " sin fecha de fin"}`
+                        + `${f.descuento.vigente ? "" : " (ya terminó)"} · ${f.descuento.motivo}. `
+                      : "Sin descuento. "}
+                    Se aplica cuando la clínica reporta su próximo pago (lo ve en «Plan y pagos»). 0 lo quita.
+                  </p>
+                  <EditarDescuento clinicaId={fila.id} porcentaje={f.descuento?.vigente ? f.descuento.porcentaje : null}
+                    hasta={f.descuento?.vigente ? f.descuento.hasta : null} />
+                </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="mb-1 text-sm font-medium">Aviso solo para esta clínica</p>
+                  <NuevoAviso clinicaFija={fila.id} hastaSugerido={fechaLima(new Date(Date.now() + 7 * 86_400_000))} />
+                </div>
+                <div className="border-t border-gray-100 pt-3">
+                  <p className="mb-1 text-sm font-medium">{fila.suspendida_at ? "Reactivar" : "Suspender"}</p>
+                  <p className="mb-2 text-xs text-gray-600">
+                    Suspendida, la clínica queda en solo lectura: sigue viendo y exportando sus historias (son de sus pacientes),
+                    pero no registra nada nuevo. No recibe correos automáticos.
+                  </p>
+                  <SuspenderClinica clinicaId={fila.id} nombre={fila.nombre} suspendida={Boolean(fila.suspendida_at)} />
+                </div>
+              </>
+            )}
+          </div>
+        </section>
+      )}
 
       <section aria-labelledby="t-uso" className={seccion}>
         <h2 id="t-uso" className="mb-1 text-lg font-semibold">Uso por semana</h2>
@@ -107,7 +178,8 @@ export default async function FichaClinica({ params }: { params: Promise<{ id: s
           <ul className="flex flex-col divide-y divide-gray-100 text-sm">
             {f.pagos.map((p) => (
               <li key={`${p.metodo}-${p.operacion}-${p.pagado_el}`} className="flex flex-wrap justify-between gap-2 py-1.5">
-                <span>{p.pagado_el} · {p.tarifa} {NOMBRE_PERIODO[p.periodo].toLowerCase()} · {formatearSoles(p.monto_centimos)} · {NOMBRE_METODO[p.metodo]} {p.operacion}</span>
+                <span>{p.pagado_el} · {p.tarifa} {NOMBRE_PERIODO[p.periodo].toLowerCase()} · {formatearSoles(p.monto_centimos)}
+                  {p.descuento_pct ? ` (−${p.descuento_pct} %)` : ""} · {NOMBRE_METODO[p.metodo]} {p.operacion}</span>
                 <span>{NOMBRE_ESTADO_PAGO[p.estado]}{p.plan_hasta ? ` (hasta ${p.plan_hasta})` : ""}{p.motivo_rechazo ? `: ${p.motivo_rechazo}` : ""}</span>
               </li>
             ))}
@@ -144,6 +216,23 @@ export default async function FichaClinica({ params }: { params: Promise<{ id: s
           </ul>
         )}
       </section>
+
+      {modulos.etapa20 && f.bitacora && (
+        <section aria-labelledby="t-bitacora" className={seccion}>
+          <h2 id="t-bitacora" className="mb-2 text-lg font-semibold">Bitácora del superadministrador</h2>
+          {f.bitacora.length === 0 ? <p className="text-sm text-gray-600">Sin cambios registrados todavía.</p> : (
+            <ul className="flex flex-col divide-y divide-gray-100 text-sm">
+              {f.bitacora.map((b, i) => (
+                <li key={`${b.creada_at}-${i}`} className="py-1.5">
+                  <span className="font-medium">{NOMBRE_ACCION[b.accion] ?? b.accion}</span>
+                  {detalleBitacora(b.accion, b.detalle) && <span className="text-gray-700"> · {detalleBitacora(b.accion, b.detalle)}</span>}
+                  <span className="block text-xs text-gray-500">{fecha(b.creada_at)}{b.autor ? ` · ${b.autor}` : ""}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
     </main>
   );
 }
