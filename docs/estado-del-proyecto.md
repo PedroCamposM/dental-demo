@@ -699,6 +699,9 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
   confirmación en español y límite de 60 correos por hora. Falta: registrar
   agencia.hud@gmail.com y agregarla como superadmin; `HABILITAR_ETAPA17=1` en Vercel; datos de
   cobro en `/plataforma`.
+- 11-oct: agencia.hud@gmail.com se registró y confirmó su correo (el SMTP funciona) y quedó como
+  superadmin en `privado.superadmin` (sin clínica). Pedro encendió `HABILITAR_ETAPA17=1`.
+  Falta solo que Pedro ponga los datos de cobro en `/plataforma`.
 
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 
