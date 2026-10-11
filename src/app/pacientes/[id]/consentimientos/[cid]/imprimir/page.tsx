@@ -1,3 +1,4 @@
+import { MembreteClinica, PieClinica } from "@/components/membrete";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DocumentoImprimible, LineaFirma, RecuadroHuella } from "@/components/documento-imprimible";
@@ -42,13 +43,12 @@ export default async function ImprimirConsentimiento({ params }: { params: Promi
   if (!modulos.etapa7 || !UUID.test(cid)) notFound();
   const { sesion, paciente } = await abrirHistoria(id);
   const supabase = await createClient();
-  const [{ data: c, error }, { data: clinica }] = await Promise.all([
+  const [{ data: c, error }] = await Promise.all([
     supabase.from("consentimiento")
       .select("id, tipo, titulo, descripcion, riesgos, efectos_adversos, pronostico, es_ejemplo, fines, representante_nombre, "
         + "representante_documento, representante_parentesco, creado_at, anulado_at, "
         + "profesional:usuario!consentimiento_clinica_id_profesional_id_fkey(nombre, cop)")
       .eq("id", cid).eq("paciente_id", id).maybeSingle<Consentimiento>(),
-    supabase.from("clinica").select("nombre, ruc").eq("id", sesion.clinicaId).maybeSingle<{ nombre: string; ruc: string | null }>(),
   ]);
   if (error) registrarError("consentimiento.imprimir", error, { consentimiento: cid });
   if (!c || c.anulado_at) notFound();
@@ -66,8 +66,7 @@ export default async function ImprimirConsentimiento({ params }: { params: Promi
       )}
       <header className="flex items-start justify-between gap-4 border-b border-black pb-2">
         <div>
-          <p className="text-[12pt] font-bold">{clinica?.nombre ?? "Clínica"}</p>
-          {clinica?.ruc && <p className="text-[9pt]">RUC {clinica.ruc}</p>}
+          <MembreteClinica clinicaId={sesion.clinicaId} />
         </div>
         <div className="text-right text-[9pt]">
           <p>Historia clínica N° {paciente.numero_documento ?? "—"}</p>
@@ -145,6 +144,7 @@ export default async function ImprimirConsentimiento({ params }: { params: Promi
         </div>
       </section>
       <p className="mt-4 text-[8pt] text-gray-700">Código del formato: {c.id}</p>
+      <PieClinica clinicaId={sesion.clinicaId} />
     </DocumentoImprimible>
   );
 }

@@ -3,6 +3,8 @@ import Link from "next/link";
 import { cerrarSesion } from "@/app/login/actions";
 import { ControlSesion } from "@/components/control-sesion";
 import { modulos } from "@/lib/funciones";
+import { cssMarca } from "@/lib/marca";
+import { urlLogo } from "@/lib/marca-servidor";
 import { veGestion } from "@/lib/permisos";
 import { NOMBRE_ROL, type Rol, type Sesion } from "@/lib/sesion";
 import { COOKIE_BLOQUEO } from "@/lib/sesion-segura/inactividad";
@@ -30,15 +32,23 @@ export async function Encabezado({ sesion, seccion }: { sesion: Sesion; seccion?
     (s) => (!s.etapa1 || modulos.etapa1) && (!s.etapa2 || modulos.etapa2) && (!s.etapa8 || modulos.etapa8)
       && (!s.etapa10 || modulos.etapa10) && s.ve(sesion.rol),
   );
+  // Etapa 15: el color de la clínica reemplaza al teal en toda la app (validado: #rrggbb).
+  const css = modulos.etapa15 ? cssMarca(sesion.colorMarca) : null;
+  const logo = await urlLogo(sesion.logoRuta);
   return (
-    <header className="border-b border-gray-200 bg-white">
+    <header className={`border-b border-gray-200 bg-white ${css ? "border-t-4 border-t-teal-700" : ""}`}>
+      {css && <style>{css}</style>}
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
         <div className="flex flex-wrap items-center gap-6">
-          <div>
+          <div className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element -- URL firmada de corta duración: next/image no aplica */}
+            {logo && <img src={logo} alt={`Logo de ${sesion.clinica}`} className="h-10 max-w-[8rem] object-contain" />}
+            <div>
             <p className="font-semibold">{sesion.clinica}</p>
             <p className="text-sm text-gray-600">
               {sesion.nombre} · {NOMBRE_ROL[sesion.rol]}
             </p>
+            </div>
           </div>
           <nav aria-label="Secciones" className="flex flex-wrap gap-1">
             {visibles.map((s) => (

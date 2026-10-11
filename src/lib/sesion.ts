@@ -12,6 +12,9 @@ export type Sesion = {
   nombre: string;
   rol: Rol;
   clinica: string;
+  /** Color propio de la clínica (#rrggbb) y ruta del logo en el bucket `marca` (Etapa 15). */
+  colorMarca: string | null;
+  logoRuta: string | null;
   /** Minutos sin actividad antes de cerrar la sesión (null: módulo aún apagado). */
   inactividadMinutos: number | null;
   /** Ve la historia clínica: cirujano dentista (admin u odontólogo con COP) o asistente. Lo exige RLS. */
@@ -41,17 +44,19 @@ export const obtenerSesion = cache(async (): Promise<Sesion | null> => {
 
   const { data } = await supabase
     .from("usuario")
-    .select(`id, nombre, rol, cop, activo, clinica_id, clinica(nombre${modulos.etapa1 ? ", inactividad_minutos" : ""})`)
+    .select(`id, nombre, rol, cop, activo, clinica_id, clinica(nombre${modulos.etapa1 ? ", inactividad_minutos" : ""}`
+      + `${modulos.etapa15 ? ", color_marca, logo_ruta" : ""})`)
     .eq("id", user.id)
     .maybeSingle<{
       id: string; nombre: string; rol: Rol; cop: string | null; activo: boolean; clinica_id: string;
-      clinica: { nombre: string; inactividad_minutos?: number } | null;
+      clinica: { nombre: string; inactividad_minutos?: number; color_marca?: string | null; logo_ruta?: string | null } | null;
     }>();
 
   if (!data?.activo || !data.clinica) return null;
   return {
     usuarioId: data.id, clinicaId: data.clinica_id, nombre: data.nombre, rol: data.rol, clinica: data.clinica.nombre,
     inactividadMinutos: data.clinica.inactividad_minutos ?? null,
+    colorMarca: data.clinica.color_marca ?? null, logoRuta: data.clinica.logo_ruta ?? null,
     veClinico: data.rol === "asistente" || ((data.rol === "admin" || data.rol === "odontologo") && data.cop !== null),
     esDentista: (data.rol === "admin" || data.rol === "odontologo") && data.cop !== null,
   };

@@ -1,3 +1,4 @@
+import { MembreteClinica, PieClinica } from "@/components/membrete";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
@@ -95,9 +96,8 @@ export default async function DocumentoHistoria({ params }: { params: Promise<{ 
     );
   }
 
-  const [pacienteR, clinicaR, versiones, odontos, diagnosticos, planes, notas, consentimientos, recetas, equipo] = await Promise.all([
+  const [pacienteR, versiones, odontos, diagnosticos, planes, notas, consentimientos, recetas, equipo] = await Promise.all([
     supabase.from("paciente").select("*").eq("id", id).maybeSingle<Paciente>(),
-    supabase.from("clinica").select("nombre, ruc").eq("id", sesion.clinicaId).maybeSingle<{ nombre: string; ruc: string | null }>(),
     supabase.from("cuestionario_salud").select(COLUMNAS_VERSION).eq("paciente_id", id).order("version").returns<Version[]>(),
     supabase.from("odontograma").select("id, tipo, fecha, denticion, odontologo_id, especificaciones, observaciones, anulado_at, motivo_anulacion")
       .eq("paciente_id", id).order("fecha").returns<Odonto[]>(),
@@ -162,8 +162,7 @@ export default async function DocumentoHistoria({ params }: { params: Promise<{ 
     <DocumentoImprimible volver={`/pacientes/${id}/exportar`}>
       <header className="flex items-start justify-between gap-4 border-b-2 border-black pb-2">
         <div>
-          <p className="text-[12pt] font-bold">{clinicaR.data?.nombre ?? "Clínica"}</p>
-          {clinicaR.data?.ruc && <p className="text-[9pt]">RUC {clinicaR.data.ruc}</p>}
+          <MembreteClinica clinicaId={sesion.clinicaId} />
         </div>
         <div className="text-right text-[9pt]">
           <p>Historia clínica N° {p.numero_documento ?? "—"}</p>
@@ -333,6 +332,7 @@ export default async function DocumentoHistoria({ params }: { params: Promise<{ 
       <p className="mt-6 border-t border-black pt-1 text-center text-[8pt]">
         Documento generado desde la historia clínica electrónica. Exportación registrada en la auditoría ({exportacion.id}).
       </p>
+      <PieClinica clinicaId={sesion.clinicaId} />
     </DocumentoImprimible>
   );
 }

@@ -1,3 +1,4 @@
+import { MembreteClinica, PieClinica } from "@/components/membrete";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DocumentoImprimible, LineaFirma } from "@/components/documento-imprimible";
@@ -27,12 +28,11 @@ export default async function ImprimirConstancia({ params }: { params: Promise<{
   if (!modulos.etapa7 || !UUID.test(cid)) notFound();
   const { sesion, paciente } = await abrirHistoria(id);
   const supabase = await createClient();
-  const [{ data: c, error }, { data: clinica }] = await Promise.all([
+  const [{ data: c, error }] = await Promise.all([
     supabase.from("constancia")
       .select("id, tipo, fecha_atencion, hora_inicio, hora_fin, descanso_desde, descanso_dias, cie10, tratamiento, observaciones, emitida_at, "
         + "anulado_at, profesional_nombre, profesional_cop, catalogo_cie10(descripcion)")
       .eq("id", cid).eq("paciente_id", id).maybeSingle<Constancia>(),
-    supabase.from("clinica").select("nombre, ruc").eq("id", sesion.clinicaId).maybeSingle<{ nombre: string; ruc: string | null }>(),
   ]);
   if (error) registrarError("constancia.imprimir", error, { constancia: cid });
   if (!c || c.anulado_at) notFound();
@@ -45,8 +45,7 @@ export default async function ImprimirConstancia({ params }: { params: Promise<{
   return (
     <DocumentoImprimible volver={`/pacientes/${id}/documentos`}>
       <header className="border-b border-black pb-2">
-        <p className="text-[12pt] font-bold">{clinica?.nombre ?? "Clínica"}</p>
-        {clinica?.ruc && <p className="text-[9pt]">RUC {clinica.ruc}</p>}
+        <MembreteClinica clinicaId={sesion.clinicaId} />
       </header>
       <h1 className="mt-6 text-center text-[14pt] font-bold uppercase">{TIPOS_CONSTANCIA[c.tipo]}</h1>
       <div className="mt-6 flex flex-col gap-4 text-justify text-[12pt] leading-relaxed">
@@ -72,6 +71,7 @@ export default async function ImprimirConstancia({ params }: { params: Promise<{
         <LineaFirma rotulo={`Firma y sello · ${c.profesional_nombre} · COP ${c.profesional_cop ?? ""}`} />
       </div>
       <p className="mt-6 text-[8pt] text-gray-700">Código del documento: {c.id}</p>
+      <PieClinica clinicaId={sesion.clinicaId} />
     </DocumentoImprimible>
   );
 }

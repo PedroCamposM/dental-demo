@@ -1,3 +1,4 @@
+import { MembreteClinica, PieClinica } from "@/components/membrete";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DocumentoImprimible, LineaFirma } from "@/components/documento-imprimible";
@@ -26,12 +27,11 @@ export default async function ImprimirReceta({ params }: { params: Promise<{ id:
   if (!modulos.etapa7 || !UUID.test(rid)) notFound();
   const { sesion, paciente } = await abrirHistoria(id);
   const supabase = await createClient();
-  const [{ data: r, error }, { data: clinica }] = await Promise.all([
+  const [{ data: r, error }] = await Promise.all([
     supabase.from("receta")
       .select("id, indicaciones, emitida_at, anulado_at, profesional_nombre, profesional_cop, "
         + "receta_item(orden, medicamento, presentacion, dosis, frecuencia, duracion, indicaciones)")
       .eq("id", rid).eq("paciente_id", id).maybeSingle<Receta>(),
-    supabase.from("clinica").select("nombre, ruc").eq("id", sesion.clinicaId).maybeSingle<{ nombre: string; ruc: string | null }>(),
   ]);
   if (error) registrarError("receta.imprimir", error, { receta: rid });
   if (!r || r.anulado_at) notFound();
@@ -40,8 +40,7 @@ export default async function ImprimirReceta({ params }: { params: Promise<{ id:
     <DocumentoImprimible volver={`/pacientes/${id}/documentos`}>
       <header className="flex items-start justify-between gap-4 border-b border-black pb-2">
         <div>
-          <p className="text-[12pt] font-bold">{clinica?.nombre ?? "Clínica"}</p>
-          {clinica?.ruc && <p className="text-[9pt]">RUC {clinica.ruc}</p>}
+          <MembreteClinica clinicaId={sesion.clinicaId} />
         </div>
         <div className="text-right text-[10pt]">
           <p className="font-bold">{r.profesional_nombre}</p>
@@ -77,6 +76,7 @@ export default async function ImprimirReceta({ params }: { params: Promise<{ id:
         <LineaFirma rotulo={`Firma y sello · ${r.profesional_nombre} · COP ${r.profesional_cop ?? ""}`} />
       </div>
       <p className="mt-6 text-[8pt] text-gray-700">Código de la receta: {r.id}</p>
+      <PieClinica clinicaId={sesion.clinicaId} />
     </DocumentoImprimible>
   );
 }
