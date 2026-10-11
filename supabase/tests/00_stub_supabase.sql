@@ -31,7 +31,8 @@ create table auth.users (
   confirmation_token text,
   recovery_token text,
   email_change_token_new text,
-  email_change text
+  email_change text,
+  last_sign_in_at timestamptz  -- Supabase lo actualiza en cada ingreso
 );
 create table auth.identities (
   id uuid primary key default gen_random_uuid(),
