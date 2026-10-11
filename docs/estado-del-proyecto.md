@@ -832,6 +832,10 @@ Aprobada por Pedro el 11-oct («Apruebo la etapa»). Migraciones aditivas:
   Queda anotado: un turno que no se cierra antes de la medianoche sigue sumando los pagos del
   día siguiente. Se ve como «Turno abierto» en la caja de cualquier día y el cierre de ese
   día lo exige cerrar antes.
+- 11-oct: PR #10 fusionado con CI verde (Playwright 112 pruebas). Con el OK de Pedro,
+  «Aplicar migraciones» run 38173223553 (respaldo previo): 0933 y 0934 aplicadas. Verificado
+  en el remoto: las 2 migraciones registradas, `clinica.suspendida_at`, tabla `turno_caja`
+  con RLS y las 8 funciones nuevas. Falta `HABILITAR_ETAPA20=1` en Vercel.
 
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 
@@ -875,7 +879,7 @@ Queda anotado, sin cambio de código:
 
 ## Próximas etapas (CLAUDE.md)
 
-Etapas 0 a 19 terminadas (v2 en producción desde el 10-oct); Etapa 20 en revisión. Sigue: actualización de dependencias (Next 16, Vitest 4). Opcional, por decidir: enlace para que los pacientes soliciten cita (el portal del paciente está fuera de alcance en CLAUDE.md).
+Etapas 0 a 19 terminadas (v2 en producción desde el 10-oct); Etapa 20 aplicada (falta la bandera en Vercel). Sigue: actualización de dependencias (Next 16, Vitest 4). Opcional, por decidir: enlace para que los pacientes soliciten cita (el portal del paciente está fuera de alcance en CLAUDE.md).
 Falta en `/docs`: formatos de la clínica piloto (historia y consentimientos),
 necesarios antes de la Etapa 7. La Etapa 4 incluye además lo de las fichas
 odonto-estomatológicas de la NTS 139 (índice CPOD/ceod, IHO-S, riesgo estomatológico
