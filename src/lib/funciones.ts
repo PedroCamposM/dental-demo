@@ -107,4 +107,10 @@ export const modulos = {
    * Requiere la migración 0929 (y la Etapa 1).
    */
   etapa16: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA16 === "1",
+  /**
+   * Etapa 17: suscripción con cobro manual (tarifas, reporte y confirmación de pagos).
+   * Requiere la migración 0930 (y la Etapa 16).
+   */
+  etapa17: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA16 === "1"
+    && process.env.HABILITAR_ETAPA17 === "1",
 };

@@ -86,8 +86,11 @@ export async function Encabezado({ sesion, seccion }: { sesion: Sesion; seccion?
       {plan?.aviso && (
         <p role={plan.soloLectura ? "alert" : "status"}
           className={`px-4 py-2 text-center text-sm ${plan.soloLectura ? "bg-red-50 text-red-800" : "bg-amber-50 text-amber-900"}`}>
-          {plan.aviso}{sesion.rol === "admin" && <> Para activar el plan, escríbenos a{" "}
-            <a href={`mailto:${CORREO_CONTACTO}`} className="font-medium underline">{CORREO_CONTACTO}</a>.</>}
+          {plan.aviso}
+          {sesion.rol === "admin" && (modulos.etapa17
+            ? <> <Link href="/configuracion/plan" className="font-medium underline">Ver planes y reportar tu pago</Link>.</>
+            : <> Para activar el plan, escríbenos a{" "}
+              <a href={`mailto:${CORREO_CONTACTO}`} className="font-medium underline">{CORREO_CONTACTO}</a>.</>)}
         </p>
       )}
     </header>
