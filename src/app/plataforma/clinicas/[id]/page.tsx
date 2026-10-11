@@ -35,7 +35,7 @@ export default async function FichaClinica({ params }: { params: Promise<{ id: s
   const supabase = await createClient();
   const { data: esSuper } = await supabase.rpc("es_superadmin");
   if (esSuper !== true) notFound();
-  const [filasR, fichaR] = await Promise.all([supabase.rpc("clinicas_plataforma"), supabase.rpc("ficha_clinica", { id_clinica: id })]);
+  const [filasR, fichaR] = await Promise.all([supabase.rpc("clinicas_plataforma", { solo: id }), supabase.rpc("ficha_clinica", { id_clinica: id })]);
   const fila = ((filasR.data ?? []) as Fila[]).find((c) => c.id === id);
   if (fichaR.error || !fila) {
     if (fichaR.error && !fichaR.error.message.startsWith("Clínica no encontrada")) registrarError("plataforma.ficha", fichaR.error);

@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { modulos } from "@/lib/funciones";
 import { registrarError } from "@/lib/registro";
 import { enviarCorreo, urlApp } from "@/lib/correo-servidor";
@@ -59,15 +60,15 @@ export async function revisarPago(previo: EstadoSimple, form: FormData): Promise
     id_pago: id, aprobar, motivo: aprobar ? null : motivo,
   });
   if (error) return { ...previo, error: errorBase(error, "plataforma.revisar_pago"), mensaje: null };
-  // Etapa 18: avisa al administrador de la clínica (si falla el correo, el pago ya quedó revisado).
-  const clinicaId = String(form.get("clinica_id") ?? "");
-  if (modulos.etapa18 && /^[0-9a-f-]{36}$/.test(clinicaId)) {
-    const { data: contacto } = await supabase.rpc("contacto_clinica", { id_clinica: clinicaId });
+  // Etapa 18: avisa al administrador de la clínica, después de responder (el pago ya quedó revisado).
+  if (modulos.etapa18) {
+    const { data: contacto } = await supabase.rpc("contacto_pago", { id_pago: id });
     const c = ((contacto ?? []) as { nombre: string; correo: string; clinica: string }[])[0];
     if (c?.correo) {
-      await enviarCorreo(c.correo, armarCorreo(aprobar ? "pago_confirmado" : "pago_rechazado", {
+      const m = armarCorreo(aprobar ? "pago_confirmado" : "pago_rechazado", {
         nombre: c.nombre, clinica: c.clinica, url: urlApp(), fecha: aprobar ? String(data) : undefined, motivo,
-      }), "pago_revisado");
+      });
+      after(() => enviarCorreo(c.correo, m, "pago_revisado"));
     }
   }
   revalidatePath("/plataforma");

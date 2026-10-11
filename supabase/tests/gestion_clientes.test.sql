@@ -22,6 +22,8 @@ insert into public.pago_suscripcion (clinica_id, tarifa, periodo, monto_centimos
    (now() at time zone 'America/Lima')::date - 40, 'confirmado', 'd8000000-0000-0000-0000-00000000000a', now() - interval '40 days',
    (now() at time zone 'America/Lima')::date - 2);
 insert into privado.superadmin (usuario_id) values ('c8000000-0000-0000-0000-0000000000aa');
+create temp table pago_g as select id from public.pago_suscripcion where operacion = 'G-ANUAL-1';
+grant select on pago_g to authenticated;
 
 set role authenticated;
 -- Una clínica no ve nada de esto
@@ -29,9 +31,10 @@ select pruebas.como('c8000000-0000-0000-0000-00000000000a');
 select pruebas.debe_fallar($$select * from public.resumen_plataforma()$$, 'superadministrador');
 select pruebas.debe_fallar($$select public.ficha_clinica('c8c8c8c8-0000-0000-0000-000000000000')$$, 'superadministrador');
 select pruebas.debe_fallar($$select public.agregar_nota_clinica('c8c8c8c8-0000-0000-0000-000000000000', 'Hola')$$, 'superadministrador');
-select pruebas.debe_fallar($$select * from public.contacto_clinica('c8c8c8c8-0000-0000-0000-000000000000')$$, 'superadministrador');
+select pruebas.debe_fallar($$select * from public.contacto_pago(gen_random_uuid())$$, 'superadministrador');
 select pruebas.debe_fallar($$select * from public.correos_pendientes()$$, 'permission denied');
-select pruebas.debe_fallar($$select public.marcar_correo('c8c8c8c8-0000-0000-0000-000000000000', 'sin_uso', 'x', 'x')$$, 'permission denied');
+select pruebas.debe_fallar($$select public.reservar_correo('c8c8c8c8-0000-0000-0000-000000000000', 'sin_uso', 'x', 'x')$$, 'permission denied');
+select pruebas.debe_fallar($$select privado.correo_admin('c8c8c8c8-0000-0000-0000-000000000000')$$, 'permission denied');
 select pruebas.debe_fallar($$select * from privado.nota_clinica$$, 'permission denied');
 
 -- El superadministrador
@@ -52,8 +55,9 @@ select pruebas.igual((select count(*) from ficha where f -> 'usuarios' -> 0 ->> 
 -- Solo conteos: la ficha no trae nombres de pacientes ni textos clínicos
 select pruebas.igual((select count(*) from ficha where f::text ~* 'paciente_id|nombres|texto_evolucion|diagnostico'), 0,
                      'sin datos clínicos');
-select pruebas.igual((select count(*) from public.contacto_clinica('d8d8d8d8-0000-0000-0000-000000000000')
+select pruebas.igual((select count(*) from public.contacto_pago((select id from pago_g))
                        where correo = 'admin-v@clinica.example'), 1, 'contacto para avisar del pago');
+select pruebas.igual((select count(*) from public.clinicas_plataforma('c8c8c8c8-0000-0000-0000-000000000000')), 1, 'una sola clínica');
 reset role;
 
 -- Correos diarios (service role): vence pronto y sin uso para la de prueba; vencido para la otra
@@ -68,10 +72,26 @@ select pruebas.igual((select count(*) from public.correos_pendientes() where cli
                      'aviso: venció');
 select pruebas.igual((select count(*) from public.correos_pendientes() where clinica = 'Clínica Vencida' and tipo = 'sin_uso'), 0,
                      'vencida: no se le avisa de uso');
-select public.marcar_correo(clinica_id, tipo, referencia, para) from public.correos_pendientes()
- where clinica in ('Clínica Gestión', 'Clínica Vencida');
+-- Reserva antes de enviar: la segunda vez ya no se obtiene
+select pruebas.igual((select count(*) from public.correos_pendientes() p
+                       where p.clinica in ('Clínica Gestión', 'Clínica Vencida')
+                         and public.reservar_correo(p.clinica_id, p.tipo, p.referencia, p.para)), 3, 'tres reservas');
+select pruebas.igual((select count(*) from public.clinica c where c.id = 'c8c8c8c8-0000-0000-0000-000000000000'
+                       and public.reservar_correo(c.id, 'sin_uso', ((now() - interval '20 days') at time zone 'America/Lima')::date::text, 'x')), 0,
+                     'una reserva repetida no se obtiene');
 select pruebas.igual((select count(*) from public.correos_pendientes() where clinica in ('Clínica Gestión', 'Clínica Vencida')), 0,
                      'cada correo sale una sola vez');
+-- Si el envío falla, se libera y vuelve a estar pendiente
+select public.liberar_correo('c8c8c8c8-0000-0000-0000-000000000000', 'vence_pronto',
+                             ((now() at time zone 'America/Lima')::date + 5)::text);
+select pruebas.igual((select count(*) from public.correos_pendientes() where clinica = 'Clínica Gestión' and tipo = 'vence_pronto'), 1,
+                     'liberado: se reintenta');
+-- Con un pago por confirmar no se le pide pagar
+insert into public.pago_suscripcion (clinica_id, tarifa, periodo, monto_centimos, metodo, operacion, pagado_el, reportado_por)
+values ('c8c8c8c8-0000-0000-0000-000000000000', 'consultorio', 'mensual', 9900, 'yape', 'G-PEND-1',
+        (now() at time zone 'America/Lima')::date, 'c8000000-0000-0000-0000-00000000000a');
+select pruebas.igual((select count(*) from public.correos_pendientes() where clinica = 'Clínica Gestión' and tipo = 'vence_pronto'), 0,
+                     'con pago por confirmar no se avisa');
 reset role;
 select pruebas.como(null);
 \echo 'gestion_clientes: todas las aserciones pasaron'

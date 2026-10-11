@@ -51,12 +51,12 @@ test("el superadministrador ve el resumen, busca, contacta y anota", async ({ pa
   await expect(page.getByRole("heading", { name: /^Clínicas \(0 de \d+\)$/ })).toBeVisible();
   await page.getByRole("link", { name: "Quitar filtros" }).click();
 
-  // Ficha: uso por semana (los 3 pacientes de ejemplo), usuarios y nota interna
+  // Ficha: uso por semana (los pacientes de ejemplo no cuentan), usuarios y nota interna
   await page.getByRole("heading", { level: 2 }).getByRole("link", { name: CLINICA }).click();
   await expect(page).toHaveURL(/\/plataforma\/clinicas\/[0-9a-f-]{36}$/);
   await expect(page.getByRole("heading", { level: 1, name: CLINICA })).toBeVisible();
   const uso = page.getByRole("region", { name: "Uso por semana" });
-  await expect(uso.getByRole("row").last().getByRole("cell").nth(1)).toHaveText("3");
+  await expect(uso.getByRole("row").last().getByRole("cell").nth(1)).toHaveText("0");
   await expect(page.getByRole("region", { name: "Usuarios" }).getByText(`gestion-${sufijo}@clinica-nueva.example`)).toBeVisible();
   const notas = page.getByRole("region", { name: "Notas internas" });
   await notas.getByLabel(/Nota interna/).fill("Llamé: quiere el plan anual");

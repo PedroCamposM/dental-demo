@@ -31,6 +31,16 @@ create table privado.correo_enviado (
 alter table privado.correo_enviado enable row level security;
 revoke all on privado.correo_enviado from public, anon, authenticated;
 
+-- Índices para contar actividad por clínica y fecha sin recorrer tablas enteras.
+create index if not exists paciente_clinica_creado on public.paciente (clinica_id, created_at);
+create index if not exists cita_clinica_creada on public.cita (clinica_id, created_at);
+create index if not exists nota_evolucion_clinica_creada on public.nota_evolucion (clinica_id, created_at);
+create index if not exists nota_evolucion_clinica_firmada on public.nota_evolucion (clinica_id, firmada_at);
+
+-- Pacientes de ejemplo de la prueba gratuita (no cuentan como uso real).
+create function privado.es_ejemplo(nombres text) returns boolean
+language sql immutable set search_path = '' as $$ select nombres like '%(ejemplo)' $$;
+
 -- Fin del periodo vigente de una clínica (null: demo o activo sin fecha).
 create function privado.fin_plan(c public.clinica) returns date
 language sql immutable set search_path = '' as $$
@@ -44,7 +54,7 @@ language sql stable security definer set search_path = '' as $$
   select greatest(
     (select max(a.last_sign_in_at) from public.usuario u join auth.users a on a.id = u.id
       where u.clinica_id = id_clinica and u.activo),
-    (select max(created_at) from public.paciente where clinica_id = id_clinica),
+    (select max(created_at) from public.paciente where clinica_id = id_clinica and not privado.es_ejemplo(nombres)),
     (select max(created_at) from public.cita where clinica_id = id_clinica),
     (select max(created_at) from public.nota_evolucion where clinica_id = id_clinica))
 $$;
@@ -52,7 +62,8 @@ $$;
 -- Registros en una ventana (para ver si el uso sube o baja).
 create function privado.registros_entre(id_clinica uuid, desde timestamptz, hasta timestamptz) returns integer
 language sql stable security definer set search_path = '' as $$
-  select ((select count(*) from public.paciente where clinica_id = id_clinica and created_at >= desde and created_at < hasta)
+  select ((select count(*) from public.paciente where clinica_id = id_clinica and created_at >= desde and created_at < hasta
+             and not privado.es_ejemplo(nombres))
         + (select count(*) from public.cita where clinica_id = id_clinica and created_at >= desde and created_at < hasta)
         + (select count(*) from public.nota_evolucion where clinica_id = id_clinica and created_at >= desde and created_at < hasta))::integer
 $$;
@@ -64,6 +75,10 @@ language sql stable security definer set search_path = '' as $$
    where u.clinica_id = id_clinica and u.activo and u.rol = 'admin' and a.email is not null
    order by u.created_at limit 1
 $$;
+
+revoke all on function privado.fin_plan(public.clinica), privado.ultima_actividad(uuid),
+  privado.registros_entre(uuid, timestamptz, timestamptz), privado.correo_admin(uuid), privado.es_ejemplo(text)
+  from public, anon, authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Resumen del negocio
@@ -89,13 +104,16 @@ begin
      order by p.clinica_id, p.revisado_at desc
   )
   select
-    coalesce((select sum(case u.periodo when 'anual' then u.monto_centimos / 12 else u.monto_centimos end)
+    coalesce((select sum(case u.periodo when 'anual' then round(u.monto_centimos / 12.0) else u.monto_centimos end)
                 from ultimo u join c on c.id = u.clinica_id where c.plan = 'activo' and c.escribible), 0)::bigint,
     (select count(*) from c where c.plan = 'prueba' and c.escribible)::integer,
     (select count(*) from c where c.plan = 'activo' and c.escribible)::integer,
     (select count(*) from c where not c.escribible)::integer,
     (select count(*) from c where c.fin between v_hoy and v_hoy + 7)::integer,
-    (select count(*) from c where c.prueba_hasta is not null)::integer,
+    -- Conversión: solo pruebas ya terminadas o pagadas (las que siguen corriendo aún no deciden).
+    (select count(*) from c where c.prueba_hasta is not null
+        and (c.prueba_hasta < v_hoy
+             or exists (select 1 from public.pago_suscripcion p where p.clinica_id = c.id and p.estado = 'confirmado')))::integer,
     (select count(*) from c where c.prueba_hasta is not null
         and exists (select 1 from public.pago_suscripcion p where p.clinica_id = c.id and p.estado = 'confirmado'))::integer,
     (select count(*) from c where not c.escribible and c.fin >= date_trunc('month', v_hoy)::date)::integer;
@@ -105,7 +123,7 @@ grant execute on function public.resumen_plataforma() to authenticated;
 
 -- La lista de clínicas suma actividad, último pago y contacto.
 drop function public.clinicas_plataforma();
-create function public.clinicas_plataforma()
+create function public.clinicas_plataforma(solo uuid default null)
 returns table (id uuid, nombre text, plan text, prueba_hasta date, activo_hasta date, creada date, usuarios bigint,
                pacientes bigint, administrador text, tarifa text, odontologos integer, ultima_actividad timestamptz,
                actividad_30 integer, actividad_previa_30 integer, ultimo_pago_estado text, correo_admin text, telefono text)
@@ -125,10 +143,10 @@ begin
            (select p.estado from public.pago_suscripcion p where p.clinica_id = c.id order by p.reportado_at desc limit 1),
            (select a.correo from privado.correo_admin(c.id) a),
            c.telefono
-      from public.clinica c order by c.created_at desc;
+      from public.clinica c where solo is null or c.id = solo order by c.created_at desc;
 end $$;
-revoke all on function public.clinicas_plataforma() from public, anon;
-grant execute on function public.clinicas_plataforma() to authenticated;
+revoke all on function public.clinicas_plataforma(uuid) from public, anon;
+grant execute on function public.clinicas_plataforma(uuid) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Ficha de una clínica: usuarios, pagos, uso por semana (conteos) y notas internas
@@ -157,13 +175,15 @@ begin
       from public.pago_suscripcion p where p.clinica_id = id_clinica), '[]'),
     'semanas', (select jsonb_agg(jsonb_build_object(
         'desde', s.lunes,
-        'pacientes', (select count(*) from public.paciente where clinica_id = id_clinica
-                        and (created_at at time zone 'America/Lima')::date between s.lunes and s.lunes + 6),
+        'pacientes', (select count(*) from public.paciente where clinica_id = id_clinica and not privado.es_ejemplo(nombres)
+                        and created_at >= s.desde and created_at < s.hasta),
         'citas', (select count(*) from public.cita where clinica_id = id_clinica
-                        and (created_at at time zone 'America/Lima')::date between s.lunes and s.lunes + 6),
-        'evoluciones', (select count(*) from public.nota_evolucion where clinica_id = id_clinica and firmada_at is not null
-                        and (firmada_at at time zone 'America/Lima')::date between s.lunes and s.lunes + 6)) order by s.lunes)
-      from (select (v_lunes - 7 * g)::date as lunes from generate_series(0, 7) g) s),
+                        and created_at >= s.desde and created_at < s.hasta),
+        'evoluciones', (select count(*) from public.nota_evolucion where clinica_id = id_clinica
+                        and firmada_at >= s.desde and firmada_at < s.hasta)) order by s.lunes)
+      from (select l.lunes, (l.lunes::timestamp at time zone 'America/Lima') as desde,
+                   ((l.lunes + 7)::timestamp at time zone 'America/Lima') as hasta
+              from (select (v_lunes - 7 * g)::date as lunes from generate_series(0, 7) g) l) s),
     'notas', coalesce((select jsonb_agg(jsonb_build_object('texto', n.texto, 'creada_at', n.creada_at,
         'autor', (select email from auth.users where id = n.autor)) order by n.creada_at desc)
       from privado.nota_clinica n where n.clinica_id = id_clinica), '[]'),
@@ -189,17 +209,19 @@ end $$;
 revoke all on function public.agregar_nota_clinica(uuid, text) from public, anon;
 grant execute on function public.agregar_nota_clinica(uuid, text) to authenticated;
 
--- Contacto del administrador de una clínica (para avisarle que su pago fue revisado).
-create function public.contacto_clinica(id_clinica uuid) returns table (nombre text, correo text, clinica text)
+-- Contacto del administrador de la clínica de un pago (para avisarle que fue revisado).
+create function public.contacto_pago(id_pago uuid) returns table (nombre text, correo text, clinica text)
 language plpgsql stable security definer set search_path = '' as $$
 begin
   if not privado.es_superadmin() then
     raise exception 'Solo el superadministrador';
   end if;
-  return query select a.nombre, a.correo, c.nombre from public.clinica c, privado.correo_admin(c.id) a where c.id = id_clinica;
+  return query select a.nombre, a.correo, c.nombre
+    from public.pago_suscripcion p join public.clinica c on c.id = p.clinica_id
+    cross join lateral privado.correo_admin(c.id) a where p.id = id_pago;
 end $$;
-revoke all on function public.contacto_clinica(uuid) from public, anon;
-grant execute on function public.contacto_clinica(uuid) to authenticated;
+revoke all on function public.contacto_pago(uuid) from public, anon;
+grant execute on function public.contacto_pago(uuid) to authenticated;
 
 -- ---------------------------------------------------------------------------
 -- Correos automáticos diarios (solo el servidor, con la service role)
@@ -217,6 +239,8 @@ language sql stable security definer set search_path = '' as $$
     -- Vence en 7 días o menos (uno por fecha de fin)
     select c.id, 'vence_pronto'::text as tipo, c.fin::text as referencia, c.nombre, c.plan, c.fin as fecha
       from c, hoy where c.fin between hoy.d and hoy.d + 7
+       -- Si ya reportó su pago, no se le pide pagar.
+       and not exists (select 1 from public.pago_suscripcion p where p.clinica_id = c.id and p.estado = 'pendiente')
     union all
     -- Venció en la última semana (uno por fecha de fin)
     select c.id, 'vencido', c.fin::text, c.nombre, c.plan, c.fin
@@ -227,6 +251,8 @@ language sql stable security definer set search_path = '' as $$
            (c.actividad at time zone 'America/Lima')::date
       from c, hoy where c.escribible and c.actividad is not null
                     and (c.actividad at time zone 'America/Lima')::date <= hoy.d - 10
+                    -- Solo rachas recientes: no se escribe a quien dejó de usarlo hace meses.
+                    and (c.actividad at time zone 'America/Lima')::date >= hoy.d - 30
   )
   select k.id, k.tipo, k.referencia, a.correo, a.nombre, k.nombre, k.plan, k.fecha
     from candidatos k cross join lateral privado.correo_admin(k.id) a
@@ -236,10 +262,23 @@ $$;
 revoke all on function public.correos_pendientes() from public, anon, authenticated;
 grant execute on function public.correos_pendientes() to service_role;
 
-create function public.marcar_correo(id_clinica uuid, tipo_correo text, ref text, destinatario text) returns void
-language sql security definer set search_path = '' as $$
+-- Se reserva ANTES de enviar: si dos ejecuciones coinciden, solo una obtiene true y envía.
+create function public.reservar_correo(id_clinica uuid, tipo_correo text, ref text, destinatario text) returns boolean
+language plpgsql security definer set search_path = '' as $$
+declare v_ok boolean;
+begin
   insert into privado.correo_enviado (clinica_id, tipo, referencia, para) values (id_clinica, tipo_correo, ref, destinatario)
-  on conflict do nothing
+  on conflict do nothing returning true into v_ok;
+  return coalesce(v_ok, false);
+end $$;
+revoke all on function public.reservar_correo(uuid, text, text, text) from public, anon, authenticated;
+grant execute on function public.reservar_correo(uuid, text, text, text) to service_role;
+
+-- Si el envío falla, se libera la reserva para reintentarlo al día siguiente (es un registro de
+-- envíos, no un dato clínico).
+create function public.liberar_correo(id_clinica uuid, tipo_correo text, ref text) returns void
+language sql security definer set search_path = '' as $$
+  delete from privado.correo_enviado where clinica_id = id_clinica and tipo = tipo_correo and referencia = ref
 $$;
-revoke all on function public.marcar_correo(uuid, text, text, text) from public, anon, authenticated;
-grant execute on function public.marcar_correo(uuid, text, text, text) to service_role;
+revoke all on function public.liberar_correo(uuid, text, text) from public, anon, authenticated;
+grant execute on function public.liberar_correo(uuid, text, text) to service_role;

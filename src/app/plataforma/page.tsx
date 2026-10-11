@@ -116,13 +116,13 @@ export default async function Plataforma({ searchParams }: { searchParams: Promi
                 </tr></thead>
                 <tbody>
                   {porCobrar.map((c) => (
-                    <tr key={`${c.fila.id}-${c.motivo}`} className="border-t border-gray-100">
+                    <tr key={c.fila.id} className="border-t border-gray-100">
                       <td className="py-2 pr-3"><Link href={`/plataforma/clinicas/${c.fila.id}`} className="font-medium text-teal-700 hover:underline">{c.fila.nombre}</Link></td>
                       <td className="py-2 pr-3">
                         {c.motivo === "vence_pronto" && (c.dias === 0 ? "Vence hoy" : `Vence en ${c.dias} día${c.dias === 1 ? "" : "s"}`)}
                         {c.motivo === "vencido" && `Venció hace ${c.dias} día${c.dias === 1 ? "" : "s"}`}
-                        {c.motivo === "pago_rechazado" && "Pago rechazado: falta que vuelva a pagar"}
                         {c.fila.plan === "prueba" ? " (prueba)" : ""}
+                        {c.pagoRechazado && " · último pago rechazado"}
                       </td>
                       <td className="py-2"><Contacto fila={c.fila} /></td>
                     </tr>
@@ -155,7 +155,7 @@ export default async function Plataforma({ searchParams }: { searchParams: Promi
                       {enlaces.has(p.id) && <> · <a href={enlaces.get(p.id)} target="_blank" rel="noopener noreferrer"
                         className="font-medium text-teal-700 hover:underline">Ver constancia</a></>}
                     </p>
-                    <div className="mt-3"><RevisarPago pagoId={p.id} clinicaId={p.clinica_id} descripcion={desc} /></div>
+                    <div className="mt-3"><RevisarPago pagoId={p.id} descripcion={desc} /></div>
                   </li>
                 );
               })}

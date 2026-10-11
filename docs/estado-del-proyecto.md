@@ -719,6 +719,15 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
 - Bandera `HABILITAR_ETAPA18`. Pruebas: `supabase/tests/gestion_clientes.test.sql`, Vitest
   (`src/lib/gestion.test.ts`, `src/lib/correos.test.ts`), `e2e/gestion-clientes.spec.ts`.
   Checklist: `docs/checklist-etapa18.md`.
+- Revisión independiente (11-oct): sin hallazgos graves. Corregido: cada correo diario se
+  reserva antes de enviarlo (dos ejecuciones no lo duplican) y se libera si falla; tope de 40
+  por ejecución, tiempos cortos de SMTP y `maxDuration` 60 s; bienvenida y pago revisado se
+  envían después de responder (`after`), sin demorar al usuario; índices por clínica y fecha;
+  la ficha pide solo su clínica; los pacientes «(ejemplo)» no cuentan como uso; «sin uso» solo
+  para rachas de 10 a 30 días; sin «vence pronto» si ya hay un pago por confirmar; «por
+  contactar» deja de mostrar vencidas de más de 30 días; ingreso mensual redondeado y
+  conversión solo con pruebas terminadas; clave del cron comparada en tiempo constante;
+  funciones auxiliares de `privado` sin EXECUTE para los roles de la app.
 
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 

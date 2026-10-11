@@ -16,12 +16,11 @@ function Resultado({ estado }: { estado: EstadoSimple }) {
   );
 }
 
-export function RevisarPago({ pagoId, clinicaId, descripcion }: { pagoId: string; clinicaId: string; descripcion: string }) {
+export function RevisarPago({ pagoId, descripcion }: { pagoId: string; descripcion: string }) {
   const [estado, accion, enviando] = useActionState(revisarPago, INICIAL);
   return (
     <form key={estado.exitos} action={accion} aria-label={`Revisar ${descripcion}`} className="flex flex-wrap items-end gap-2">
       <input type="hidden" name="pago_id" value={pagoId} />
-      <input type="hidden" name="clinica_id" value={clinicaId} />
       <button type="submit" name="decision" value="confirmar" disabled={enviando}
         onClick={(ev) => { if (!window.confirm(`¿Confirmar ${descripcion}? El plan se extiende al guardar.`)) ev.preventDefault(); }}
         className={`${BOTON} bg-teal-700 text-white hover:bg-teal-800`}>Confirmar pago</button>

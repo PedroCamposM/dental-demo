@@ -1,5 +1,5 @@
 import "server-only";
-import nodemailer from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 import type { Mensaje } from "@/lib/correos";
 import { registrarError } from "@/lib/registro";
 
@@ -9,13 +9,19 @@ export function correoConfigurado(): boolean {
   return !!process.env.SMTP_USER && !!process.env.SMTP_PASS;
 }
 
-export async function enviarCorreo(para: string, m: Mensaje, contexto: string): Promise<boolean> {
-  if (!correoConfigurado()) return false;
+/** Transporte con tiempos cortos (un Gmail lento no debe colgar la app). `pool` para enviar varios. */
+export function crearTransporte(pool = false): Transporter | null {
+  if (!correoConfigurado()) return null;
+  return nodemailer.createTransport({
+    host: "smtp.gmail.com", port: 465, secure: true, pool,
+    connectionTimeout: 8000, greetingTimeout: 8000, socketTimeout: 15000,
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
+  });
+}
+
+export async function enviarCorreo(para: string, m: Mensaje, contexto: string, transporte = crearTransporte()): Promise<boolean> {
+  if (!transporte) return false;
   try {
-    const transporte = nodemailer.createTransport({
-      host: "smtp.gmail.com", port: 465, secure: true,
-      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
-    });
     await transporte.sendMail({
       from: { name: "Dental Demo", address: process.env.SMTP_USER! }, to: para,
       subject: m.asunto, text: m.texto, html: m.html,

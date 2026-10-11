@@ -68,7 +68,7 @@ select pruebas.como('c7000000-0000-0000-0000-0000000000aa');
 select pruebas.igual((select count(*) from public.pagos_por_confirmar() where clinica = 'Clínica que paga' and odontologos = 2), 1,
                      'pago por confirmar con sus odontólogos');
 select pruebas.igual((select count(*) from storage.objects where bucket_id = 'suscripcion'), 1, 'el superadmin ve la constancia');
-create temp table pago_id as select id from public.pagos_por_confirmar();
+create temp table pago_id as select id from public.pagos_por_confirmar() where clinica = 'Clínica que paga';
 select pruebas.debe_fallar($$select public.revisar_pago_suscripcion((select id from pago_id), false, '')$$, 'motivo');
 select public.revisar_pago_suscripcion((select id from pago_id), true, null);
 select pruebas.debe_fallar($$select public.revisar_pago_suscripcion((select id from pago_id), true, null)$$, 'ya fue revisado');
@@ -96,7 +96,7 @@ select pruebas.debe_fallar($$select public.reportar_pago_suscripcion('consultori
 select public.reportar_pago_suscripcion('consultorio', 'anual', 'transferencia', 'OP-2026-1', (now() at time zone 'America/Lima')::date, null);
 select pruebas.igual((select monto_centimos from public.pago_suscripcion where estado = 'pendiente'), 109000, 'precio nuevo');
 select pruebas.como('c7000000-0000-0000-0000-0000000000aa');
-select public.revisar_pago_suscripcion((select id from public.pagos_por_confirmar()), true, null);
+select public.revisar_pago_suscripcion((select id from public.pagos_por_confirmar() where clinica = 'Clínica que paga'), true, null);
 select pruebas.igual((select count(*) from public.clinicas_plataforma() where nombre = 'Clínica que paga'
                         and activo_hasta = (((now() at time zone 'America/Lima')::date + interval '1 month')::date + interval '1 year')::date - 1), 1,
                      'vigente: el año se suma al fin actual');

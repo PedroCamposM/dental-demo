@@ -52,25 +52,24 @@ export function diasHasta(fecha: string, hoy: string): number {
   return Math.round((Date.parse(`${fecha}T12:00:00Z`) - Date.parse(`${hoy}T12:00:00Z`)) / DIA);
 }
 
-export type Cobro = { fila: FilaCliente; motivo: "vence_pronto" | "vencido" | "pago_rechazado"; dias: number };
+export type Cobro = { fila: FilaCliente; motivo: "vence_pronto" | "vencido"; dias: number; pagoRechazado: boolean };
 
-/** A quién contactar: vence en 7 días o menos, vencidas (más recientes primero) y pagos rechazados. */
+/** Días que una vencida sigue en «por contactar» (después se considera baja). */
+export const DIAS_SEGUIMIENTO_VENCIDA = 30;
+
+/** A quién contactar: vence en 7 días o menos y vencidas hace 30 días o menos (marcando si su último pago fue rechazado). */
 export function cobranza(filas: FilaCliente[], hoy: string): Cobro[] {
   const lista: Cobro[] = [];
   for (const f of filas) {
     if (f.plan === "demo") continue;
     const fin = finPlan(f);
-    if (fin) {
-      const d = diasHasta(fin, hoy);
-      if (d >= 0 && d <= 7) lista.push({ fila: f, motivo: "vence_pronto", dias: d });
-      else if (d < 0) lista.push({ fila: f, motivo: "vencido", dias: -d });
-    }
-    if (f.ultimo_pago_estado === "rechazado" && !(fin && diasHasta(fin, hoy) < 0)) {
-      lista.push({ fila: f, motivo: "pago_rechazado", dias: 0 });
-    }
+    if (!fin) continue;
+    const d = diasHasta(fin, hoy);
+    const pagoRechazado = f.ultimo_pago_estado === "rechazado";
+    if (d >= 0 && d <= 7) lista.push({ fila: f, motivo: "vence_pronto", dias: d, pagoRechazado });
+    else if (d < 0 && -d <= DIAS_SEGUIMIENTO_VENCIDA) lista.push({ fila: f, motivo: "vencido", dias: -d, pagoRechazado });
   }
-  const orden = { vence_pronto: 0, pago_rechazado: 1, vencido: 2 };
-  return lista.sort((a, b) => orden[a.motivo] - orden[b.motivo] || a.dias - b.dias);
+  return lista.sort((a, b) => (a.motivo === b.motivo ? a.dias - b.dias : a.motivo === "vence_pronto" ? -1 : 1));
 }
 
 /** Filtro de la lista: texto en nombre, administrador o correo; estado y salud opcionales. */
