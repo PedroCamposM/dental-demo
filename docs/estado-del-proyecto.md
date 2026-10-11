@@ -613,6 +613,13 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
   nadie lo cambió entretanto; si falla, se borra lo subido); el contenido del logo se revisa
   por su firma (PNG/JPEG/WebP); contraste mínimo 5:1; el formulario conserva lo escrito si
   hay error. Queda anotado: la URL firmada del logo se pide en cada página (sin caché).
+- 11-oct: PR #4 fusionado con CI verde; «Aplicar migraciones» run 38103933543 (respaldo
+  previo): 0928 aplicada y verificada (columnas y bucket `marca`). Falta encender
+  `HABILITAR_ETAPA15=1` en Vercel.
+- Etapa 16 (prueba gratuita): decisiones de Pedro: pacientes de ejemplo, 30 días, solo
+  lectura al vencer, activación manual por superadmin. Auth del remoto hoy: registro público
+  desactivado, site_url en localhost y sin SMTP propio (2 correos/hora). Plan propuesto,
+  pendiente de aprobación.
 
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 
