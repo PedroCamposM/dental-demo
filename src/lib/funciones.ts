@@ -97,4 +97,9 @@ export const modulos = {
     && process.env.HABILITAR_ETAPA9 === "1"
     && process.env.HABILITAR_ETAPA10 === "1"
     && process.env.HABILITAR_ETAPA11 === "1" && process.env.HABILITAR_ETAPA14 === "1",
+  /**
+   * Etapa 15: personalización de la clínica (logo, color y membrete de los documentos).
+   * Requiere la migración 0928 (y la Etapa 1).
+   */
+  etapa15: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA15 === "1",
 };

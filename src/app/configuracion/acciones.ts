@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { modulos } from "@/lib/funciones";
+import { MAX_LOGO_BYTES, TIPOS_LOGO, validarColor, validarMembrete } from "@/lib/marca";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion } from "@/lib/sesion";
 import { minutosValidos } from "@/lib/sesion-segura/inactividad";
@@ -25,4 +26,61 @@ export async function guardarInactividad(_previo: EstadoConfiguracion, form: For
   }
   revalidatePath("/", "layout");
   return { mensaje: `Guardado: la sesión se cerrará tras ${minutos} minutos sin actividad.`, error: null };
+}
+
+// ---------------------------------------------------------------------------
+// Etapa 15: marca de la clínica (color, logo y membrete de los documentos)
+// ---------------------------------------------------------------------------
+export type EstadoMarca = { mensaje: string | null; errores: Partial<Record<string, string>>; intento: number };
+
+export async function guardarMarca(previo: EstadoMarca, form: FormData): Promise<EstadoMarca> {
+  const intento = previo.intento + 1;
+  const fallo = (errores: EstadoMarca["errores"]): EstadoMarca => ({ mensaje: null, errores, intento });
+  if (!modulos.etapa15) return fallo({ general: "Este módulo aún no está habilitado." });
+  const sesion = await obtenerSesion();
+  if (!sesion || sesion.rol !== "admin") return fallo({ general: "Solo el administrador cambia la configuración." });
+
+  const texto = (c: string) => String(form.get(c) ?? "");
+  const color = validarColor(texto("color_marca"));
+  const membrete = validarMembrete(texto);
+  const errores: EstadoMarca["errores"] = {};
+  if (!color.ok) errores.color_marca = color.error;
+  if (!membrete.ok) Object.assign(errores, membrete.errores);
+
+  const archivo = form.get("logo");
+  const nuevoLogo = archivo instanceof File && archivo.size > 0 ? archivo : null;
+  const extension = nuevoLogo ? TIPOS_LOGO[nuevoLogo.type as keyof typeof TIPOS_LOGO] : undefined;
+  if (nuevoLogo && !extension) errores.logo = "El logo debe ser PNG, JPG o WebP.";
+  else if (nuevoLogo && nuevoLogo.size > MAX_LOGO_BYTES) errores.logo = "El logo pesa más de 512 KB: redúcelo.";
+  if (Object.keys(errores).length > 0 || !color.ok || !membrete.ok) return fallo(errores);
+
+  const supabase = await createClient();
+  const { data: actual } = await supabase.from("clinica").select("logo_ruta").eq("id", sesion.clinicaId)
+    .maybeSingle<{ logo_ruta: string | null }>();
+  const quitar = form.get("quitar_logo") === "1";
+  let logoRuta = quitar ? null : (actual?.logo_ruta ?? null);
+  if (nuevoLogo && extension) {
+    // Nombre nuevo en cada cambio: así ningún navegador muestra el logo anterior guardado en caché.
+    logoRuta = `${sesion.clinicaId}/logo-${Date.now()}.${extension}`;
+    const { error: errorSubida } = await supabase.storage.from("marca")
+      .upload(logoRuta, nuevoLogo, { contentType: nuevoLogo.type, upsert: false });
+    if (errorSubida) {
+      registrarError("configuracion.logo", errorSubida);
+      return fallo({ logo: "No se pudo subir el logo. Inténtalo de nuevo." });
+    }
+  }
+  const { data, error } = await supabase.from("clinica")
+    .update({ color_marca: color.color, logo_ruta: logoRuta, ...membrete.datos })
+    .eq("id", sesion.clinicaId).select("id").maybeSingle();
+  if (error || !data) {
+    registrarError("configuracion.marca", error ?? "sin fila");
+    return fallo({ general: "No se pudo guardar. Inténtalo de nuevo." });
+  }
+  // El logo anterior ya no se usa: se quita del bucket (si falla, solo queda un archivo sin uso).
+  if (actual?.logo_ruta && actual.logo_ruta !== logoRuta) {
+    const { error: errorBorrar } = await supabase.storage.from("marca").remove([actual.logo_ruta]);
+    if (errorBorrar) registrarError("configuracion.logo_anterior", errorBorrar);
+  }
+  revalidatePath("/", "layout");
+  return { mensaje: "Guardado: la app y los documentos ya usan la marca de la clínica.", errores: {}, intento };
 }

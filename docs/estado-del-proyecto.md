@@ -594,7 +594,18 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
   semanas y lactancia; mensaje que pide el subcódigo CIE-10 y códigos más largos ya no se
   recortan. Prueba SQL con historia previa y paciente que puede gestar; e2e más robusto.
   Queda anotado (bajo): dos atenciones rápidas seguidas generan dos controles de 6 meses.
-- **No encender `HABILITAR_ETAPA14` hasta aplicar la 0927 en el remoto.**
+- 0927 aplicada en el remoto (run 38102224679): ya se puede encender `HABILITAR_ETAPA14`.
+
+## v2 — Etapa 15 (personalización de la clínica)
+
+- **0928** (aditiva): columnas opcionales en `clinica` (color, logo, dirección, teléfono,
+  correo, pie de documentos) y bucket privado `marca` (solo el admin sube o reemplaza; cada
+  clínica solo ve su carpeta; el logo debe estar en la carpeta de la propia clínica).
+- El color reemplaza al teal en toda la app (variables CSS de Tailwind derivadas del color;
+  se exige contraste AA con el texto blanco de los botones). El logo va en el encabezado
+  (URL firmada). Membrete y pie compartidos en todos los documentos impresos.
+- Bandera `HABILITAR_ETAPA15`. Pruebas: `supabase/tests/marca.test.sql`, Vitest
+  (`src/lib/marca.test.ts`), `e2e/marca.spec.ts`. Checklist: `docs/checklist-etapa15.md`.
 
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 

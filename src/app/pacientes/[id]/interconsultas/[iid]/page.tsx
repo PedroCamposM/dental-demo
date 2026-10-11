@@ -1,3 +1,4 @@
+import { MembreteClinica, PieClinica } from "@/components/membrete";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { DocumentoImprimible, LineaFirma } from "@/components/documento-imprimible";
@@ -25,12 +26,11 @@ export default async function ImprimirInterconsulta({ params }: { params: Promis
   if (!modulos.etapa7 || !UUID.test(iid)) notFound();
   const { sesion, paciente } = await abrirHistoria(id);
   const supabase = await createClient();
-  const [{ data: i, error }, { data: clinica }, alertas] = await Promise.all([
+  const [{ data: i, error }, alertas] = await Promise.all([
     supabase.from("interconsulta")
       .select("id, tipo, destino, motivo, datos_clinicos, creada_at, estado, "
         + "solicitante:usuario!interconsulta_clinica_id_solicitante_id_fkey(nombre, cop)")
       .eq("id", iid).eq("paciente_id", id).maybeSingle<Interconsulta>(),
-    supabase.from("clinica").select("nombre, ruc").eq("id", sesion.clinicaId).maybeSingle<{ nombre: string; ruc: string | null }>(),
     cargarAlertas([id]),
   ]);
   if (error) registrarError("interconsulta.imprimir", error, { interconsulta: iid });
@@ -41,8 +41,7 @@ export default async function ImprimirInterconsulta({ params }: { params: Promis
     <DocumentoImprimible volver={`/pacientes/${id}/interconsultas`}>
       <header className="flex items-start justify-between gap-4 border-b border-black pb-2">
         <div>
-          <p className="text-[12pt] font-bold">{clinica?.nombre ?? "Clínica"}</p>
-          {clinica?.ruc && <p className="text-[9pt]">RUC {clinica.ruc}</p>}
+          <MembreteClinica clinicaId={sesion.clinicaId} />
         </div>
         <p className="text-right text-[9pt]">Historia clínica N° {paciente.numero_documento ?? "—"}<br />Fecha: {formatearFecha(fecha)}</p>
       </header>
@@ -80,6 +79,7 @@ export default async function ImprimirInterconsulta({ params }: { params: Promis
         </div>
       </section>
       <p className="mt-6 text-[8pt] text-gray-700">Código: {i.id}</p>
+      <PieClinica clinicaId={sesion.clinicaId} />
     </DocumentoImprimible>
   );
 }
