@@ -9,6 +9,8 @@ const contexto = {
     { id: RESINA, nombre: "Restauración con resina", requiere_consentimiento: false },
     { id: EXO, nombre: "Exodoncia simple", requiere_consentimiento: true },
   ],
+  puedeGestar: false,
+  categorias: new Set(["K02"]),
 };
 const base = {
   motivo_consulta: "Dolor al frío", alergias_ninguna: "1", anticoagulado: "no", examen: "Caries oclusal en 36",
@@ -54,6 +56,25 @@ describe("validarAtencionRapida (mínimo de la NTS 139)", () => {
     expect(exo.ok === false && exo.errores.procedimientos).toMatch(/requiere consentimiento/);
     const mala = validarAtencionRapida(t({ ...base, piezas_0: "36 99" }), contexto);
     expect(mala.ok === false && mala.errores.procedimientos).toMatch(/99/);
+  });
+
+  it("embarazo obligatorio para quien puede gestar; semanas solo si está embarazada", () => {
+    const gesta = { ...contexto, puedeGestar: true };
+    const sin = validarAtencionRapida(t(base), gesta);
+    expect(sin.ok === false && sin.errores.embarazo).toMatch(/embarazada/);
+    const si = validarAtencionRapida(t({ ...base, embarazo: "si", semanas_gestacion: "12", lactancia: "1" }), gesta);
+    expect(si.ok && [si.datos.historia.embarazo, si.datos.historia.semanas_gestacion, si.datos.historia.lactancia]).toEqual(["si", 12, true]);
+    const malas = validarAtencionRapida(t({ ...base, embarazo: "si", semanas_gestacion: "50" }), gesta);
+    expect(malas.ok === false && malas.errores.semanas_gestacion).toBeDefined();
+    const hombre = validarAtencionRapida(t({ ...base, embarazo: "si", lactancia: "1" }), contexto);
+    expect(hombre.ok && [hombre.datos.historia.embarazo, hombre.datos.historia.lactancia]).toEqual(["no_aplica", false]);
+  });
+
+  it("pide el subcódigo si se escribe una categoría, y no recorta códigos más largos", () => {
+    const cat = validarAtencionRapida(t({ ...base, cie10: "K02" }), contexto);
+    expect(cat.ok === false && cat.errores.cie10).toMatch(/subcódigo de K02/);
+    const largo = validarAtencionRapida(t({ ...base, cie10: "K02.12" }), contexto);
+    expect(largo.ok).toBe(false);
   });
 
   it("rechaza un CIE-10 que no está en el catálogo", () => {

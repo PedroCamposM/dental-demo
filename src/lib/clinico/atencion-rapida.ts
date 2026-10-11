@@ -10,14 +10,16 @@ export const FILAS_PROCEDIMIENTO = 4;
 export type ProcedimientoRapido = { id: string; nombre: string; requiere_consentimiento: boolean };
 
 export type CampoAtencion =
-  | "motivo_consulta" | "tiempo_enfermedad" | "alergias" | "anticoagulado" | "anticoagulante" | "embarazo" | "medicacion"
+  | "motivo_consulta" | "tiempo_enfermedad" | "alergias" | "anticoagulado" | "anticoagulante" | "embarazo"
+  | "semanas_gestacion" | "medicacion"
   | "examen" | "higiene" | "cie10" | "tipo_dx" | "pieza_dx" | "procedimientos" | "descripcion" | "anestesia_tipo"
   | "anestesia_cantidad" | "indicaciones" | "proxima_cita";
 
 export type DatosAtencion = {
   historia: {
     motivo_consulta: string; tiempo_enfermedad: string | null; alergias_preguntadas: true; alergias: string[];
-    anticoagulado: boolean; anticoagulante: string | null; embarazo: string; medicacion: string | null;
+    anticoagulado: boolean; anticoagulante: string | null; embarazo: string; semanas_gestacion: number | null;
+    lactancia: boolean; medicacion: string | null;
   };
   examen: { observaciones: string; higiene: string | null };
   diagnostico: { cie10: string; tipo: "presuntivo" | "definitivo"; pieza: string | null };
@@ -33,7 +35,13 @@ const HIGIENE = ["buena", "regular", "mala"];
 
 export function validarAtencionRapida(
   t: (campo: string) => string,
-  contexto: { codigosCie10: Set<string>; procedimientos: ProcedimientoRapido[] },
+  contexto: {
+    codigosCie10: Set<string>; procedimientos: ProcedimientoRapido[];
+    /** Mujer de 12 años o más (o sin dato): el embarazo se pregunta siempre. */
+    puedeGestar: boolean;
+    /** Categorías con subcódigos (p. ej. K02): se pide el subcódigo. */
+    categorias?: Set<string>;
+  },
 ): { ok: true; datos: DatosAtencion } | { ok: false; errores: Partial<Record<CampoAtencion, string>> } {
   const e: Partial<Record<CampoAtencion, string>> = {};
   const texto = (c: string, max: number, campo: CampoAtencion, nombre: string) => {
@@ -55,8 +63,18 @@ export function validarAtencionRapida(
   if (anticoag !== "si" && anticoag !== "no") e.anticoagulado = "Indica si toma anticoagulantes.";
   const anticoagulante = texto("anticoagulante", 200, "anticoagulante", "Anticoagulante");
   if (anticoag === "si" && (!anticoagulante || anticoagulante.length < 2)) e.anticoagulante = "Indica cuál anticoagulante toma.";
-  const embarazo = t("embarazo") || "no_aplica";
-  if (!EMBARAZO.includes(embarazo)) e.embarazo = "Elige una opción.";
+  let embarazo = contexto.puedeGestar ? t("embarazo") : "no_aplica";
+  if (contexto.puedeGestar && (!EMBARAZO.includes(embarazo) || embarazo === "no_aplica")) {
+    e.embarazo = "Pregunta si está embarazada.";
+    embarazo = "no";
+  }
+  let semanas: number | null = null;
+  const textoSemanas = t("semanas_gestacion").trim();
+  if (embarazo === "si" && textoSemanas) {
+    semanas = /^\d{1,2}$/.test(textoSemanas) ? Number(textoSemanas) : NaN;
+    if (!(semanas >= 1 && semanas <= 42)) { e.semanas_gestacion = "Semanas de gestación: de 1 a 42."; semanas = null; }
+  }
+  const lactancia = contexto.puedeGestar && t("lactancia") === "1";
   const medicacion = texto("medicacion", 1000, "medicacion", "Medicación");
 
   // Examen
@@ -67,7 +85,8 @@ export function validarAtencionRapida(
 
   // Diagnóstico CIE-10
   const cie10 = leerCodigoCie10(t("cie10"));
-  if (!cie10 || !contexto.codigosCie10.has(cie10)) e.cie10 = "Elige un código CIE-10 válido (p. ej. K02.1).";
+  if (cie10 && contexto.categorias?.has(cie10)) e.cie10 = `Elige el subcódigo de ${cie10} (p. ej. ${cie10}.1).`;
+  else if (!cie10 || !contexto.codigosCie10.has(cie10)) e.cie10 = "Elige un código CIE-10 válido (p. ej. K02.1).";
   const tipoDx = t("tipo_dx") || "definitivo";
   if (tipoDx !== "presuntivo" && tipoDx !== "definitivo") e.tipo_dx = "Elige presuntivo o definitivo.";
   const piezaDx = t("pieza_dx").trim() || null;
@@ -110,7 +129,8 @@ export function validarAtencionRapida(
     datos: {
       historia: {
         motivo_consulta: motivo ?? "", tiempo_enfermedad: tiempo, alergias_preguntadas: true, alergias,
-        anticoagulado: anticoag === "si", anticoagulante: anticoag === "si" ? anticoagulante : null, embarazo, medicacion,
+        anticoagulado: anticoag === "si", anticoagulante: anticoag === "si" ? anticoagulante : null, embarazo,
+        semanas_gestacion: semanas, lactancia, medicacion,
       },
       examen: { observaciones: examen ?? "", higiene },
       diagnostico: { cie10: cie10 ?? "", tipo: tipoDx as "presuntivo" | "definitivo", pieza: piezaDx },

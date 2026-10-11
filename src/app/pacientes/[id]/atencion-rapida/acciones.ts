@@ -8,6 +8,7 @@ import { modulos } from "@/lib/funciones";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
+import { COLUMNAS_PACIENTE, puedeGestar, type PacienteClinico } from "../datos-clinicos";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -28,16 +29,20 @@ export async function registrarAtencion(previo: EstadoAtencion, form: FormData):
   if (!sesion?.esDentista) return fallo({ general: "Solo el cirujano dentista registra la atención." });
 
   const supabase = await createClient();
-  const [cie10, procedimientos] = await Promise.all([
+  const [cie10, procedimientos, paciente] = await Promise.all([
     supabase.from("catalogo_cie10").select("codigo, descripcion, es_categoria").returns<CodigoCie10[]>(),
     supabase.from("procedimiento").select("id, nombre, requiere_consentimiento").eq("activo", true).returns<ProcedimientoRapido[]>(),
+    supabase.from("paciente").select(COLUMNAS_PACIENTE).eq("id", pacienteId).maybeSingle<PacienteClinico>(),
   ]);
-  if (cie10.error || procedimientos.error) {
-    registrarError("atencion_rapida.catalogos", cie10.error ?? procedimientos.error);
+  if (cie10.error || procedimientos.error || paciente.error) {
+    registrarError("atencion_rapida.catalogos", cie10.error ?? procedimientos.error ?? paciente.error);
     return fallo({ general: "No se pudieron cargar los catálogos. Inténtalo de nuevo." });
   }
+  if (!paciente.data) return fallo({ general: "Paciente no encontrado." });
+  const elegibles = new Set(codigosElegibles(cie10.data ?? []).map((c) => c.codigo));
   const r = validarAtencionRapida((c) => valores[c] ?? "", {
-    codigosCie10: new Set(codigosElegibles(cie10.data ?? []).map((c) => c.codigo)), procedimientos: procedimientos.data ?? [],
+    codigosCie10: elegibles, procedimientos: procedimientos.data ?? [], puedeGestar: puedeGestar(paciente.data),
+    categorias: new Set((cie10.data ?? []).filter((c) => !elegibles.has(c.codigo)).map((c) => c.codigo)),
   });
   if (!r.ok) return fallo(r.errores);
 

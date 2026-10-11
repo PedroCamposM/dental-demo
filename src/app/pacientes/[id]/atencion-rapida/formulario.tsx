@@ -89,6 +89,17 @@ export function FormularioAtencionRapida({ pacienteId, previo, preguntarEmbarazo
               ))}
             </div>
             {error("embarazo")}
+            <div className="mt-1 flex flex-wrap items-end gap-4">
+              <label className="flex flex-col gap-1 font-medium">
+                Semanas de gestación (si está embarazada)
+                <input name="semanas_gestacion" inputMode="numeric" maxLength={2} defaultValue={t("semanas_gestacion")}
+                  aria-invalid={!!e.semanas_gestacion} className={`${ENTRADA} w-28`} />
+              </label>
+              <label className="flex items-center gap-2 pb-2 font-normal">
+                <input type="checkbox" name="lactancia" value="1" defaultChecked={t("lactancia") === "1"} /> En lactancia
+              </label>
+            </div>
+            {error("semanas_gestacion")}
           </fieldset>
         ) : <input type="hidden" name="embarazo" value="no_aplica" />}
         <div className="mt-4">{area("medicacion", "Medicación actual (opcional)")}</div>
