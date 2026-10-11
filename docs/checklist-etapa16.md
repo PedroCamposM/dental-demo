@@ -21,7 +21,7 @@ del superadministrador y encender `HABILITAR_ETAPA16=1` en Vercel.
 ## Solo lectura al vencer (el superadmin pone una fecha pasada, o se espera)
 - [ ] Aviso rojo «La prueba gratuita terminó…» en todas las pantallas.
 - [ ] Se ven pacientes, historias, planes y documentos; la exportación de la historia funciona.
-- [ ] Registrar un paciente, una cita o un pago da un error claro y no guarda nada.
+- [ ] Registrar un paciente, una cita o un pago no guarda nada: muestra un error (en algunas pantallas genérico; el aviso rojo de arriba explica por qué).
 
 ## Superadministrador
 - [ ] Al ingresar va a «Clínicas de la plataforma» y ve todas, con plan, fechas, usuarios y pacientes.
