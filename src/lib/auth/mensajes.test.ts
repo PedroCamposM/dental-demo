@@ -14,3 +14,13 @@ describe("mensajeErrorLogin", () => {
     expect(mensajeErrorLogin({ code: "otra_cosa" })).toMatch(/No pudimos iniciar sesión/);
   });
 });
+
+describe("mensajeErrorRegistro", () => {
+  it("traduce los errores conocidos y no muestra detalles técnicos", async () => {
+    const { mensajeErrorRegistro } = await import("./registro");
+    expect(mensajeErrorRegistro({ code: "user_already_exists", status: 422 })).toMatch(/ya tiene una cuenta/);
+    expect(mensajeErrorRegistro({ code: "signup_disabled" })).toMatch(/aún no está abierto/);
+    expect(mensajeErrorRegistro({ status: 429 })).toMatch(/Demasiados intentos/);
+    expect(mensajeErrorRegistro(null)).toMatch(/No pudimos crear tu cuenta/);
+  });
+});

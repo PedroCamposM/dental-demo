@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { destinoSeguro } from "@/lib/auth/rutas";
+import { modulos } from "@/lib/funciones";
 import { FormularioLogin } from "./formulario";
 
 export const metadata: Metadata = { title: "Ingresar – Dental Demo" };
@@ -22,7 +24,18 @@ export default async function PaginaLogin({
             Cerramos tu sesión por inactividad. Vuelve a ingresar.
           </p>
         )}
+        {motivo === "enlace" && (
+          <p role="status" className="mb-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900">
+            No pudimos abrir tu sesión con ese enlace (ya se usó, venció o lo abriste en otro equipo). Si tu correo ya
+            quedó confirmado, ingresa con tu correo y contraseña; si no, regístrate otra vez.
+          </p>
+        )}
         <FormularioLogin next={destinoSeguro(next)} />
+        {modulos.etapa16 && (
+          <p className="mt-6 text-center text-sm text-gray-600">
+            ¿Tu clínica aún no lo usa? <Link href="/registro" className="font-medium text-teal-700 hover:underline">Prueba gratis 30 días</Link>
+          </p>
+        )}
       </div>
     </main>
   );

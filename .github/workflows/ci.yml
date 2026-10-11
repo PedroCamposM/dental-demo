@@ -64,6 +64,7 @@ jobs:
           export HABILITAR_ETAPA11=1
           export HABILITAR_ETAPA14=1
           export HABILITAR_ETAPA15=1
+          export HABILITAR_ETAPA16=1
           npm run test:e2e
       - name: Mostrar qué veía la página en cada prueba fallida
         if: always()

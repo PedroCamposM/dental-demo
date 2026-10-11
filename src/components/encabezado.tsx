@@ -3,9 +3,11 @@ import Link from "next/link";
 import { cerrarSesion } from "@/app/login/actions";
 import { ControlSesion } from "@/components/control-sesion";
 import { modulos } from "@/lib/funciones";
+import { fechaLima } from "@/lib/fechas";
 import { cssMarca } from "@/lib/marca";
 import { urlLogo } from "@/lib/marca-servidor";
 import { veGestion } from "@/lib/permisos";
+import { estadoPlan } from "@/lib/prueba";
 import { NOMBRE_ROL, type Rol, type Sesion } from "@/lib/sesion";
 import { COOKIE_BLOQUEO } from "@/lib/sesion-segura/inactividad";
 
@@ -35,6 +37,8 @@ export async function Encabezado({ sesion, seccion }: { sesion: Sesion; seccion?
   // Etapa 15: el color de la clínica reemplaza al teal en toda la app (validado: #rrggbb).
   const css = modulos.etapa15 ? cssMarca(sesion.colorMarca) : null;
   const logo = await urlLogo(sesion.logoRuta);
+  // Etapa 16: días de prueba que quedan o solo lectura al vencer (la base lo exige).
+  const plan = sesion.plan ? estadoPlan(sesion.plan, fechaLima(new Date())) : null;
   return (
     <header className={`border-b border-gray-200 bg-white ${css ? "border-t-4 border-t-teal-700" : ""}`}>
       {css && <style>{css}</style>}
@@ -79,6 +83,12 @@ export async function Encabezado({ sesion, seccion }: { sesion: Sesion; seccion?
           </form>
         </div>
       </div>
+      {plan?.aviso && (
+        <p role={plan.soloLectura ? "alert" : "status"}
+          className={`px-4 py-2 text-center text-sm ${plan.soloLectura ? "bg-red-50 text-red-800" : "bg-amber-50 text-amber-900"}`}>
+          {plan.aviso}{sesion.rol === "admin" && " Para activar el plan, escríbenos desde el correo de tu cuenta."}
+        </p>
+      )}
     </header>
   );
 }
