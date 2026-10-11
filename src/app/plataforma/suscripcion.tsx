@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState } from "react";
-import { guardarCobro, guardarTarifa, revisarPago, type EstadoSimple } from "./acciones";
+import { agregarNota, guardarCobro, guardarTarifa, revisarPago, type EstadoSimple } from "./acciones";
 
 const ENTRADA = "rounded-md border border-gray-300 px-2 py-1.5 text-sm focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600/30";
 const BOTON = "rounded-md px-3 py-1.5 text-sm font-medium disabled:opacity-60";
@@ -16,11 +16,12 @@ function Resultado({ estado }: { estado: EstadoSimple }) {
   );
 }
 
-export function RevisarPago({ pagoId, descripcion }: { pagoId: string; descripcion: string }) {
+export function RevisarPago({ pagoId, clinicaId, descripcion }: { pagoId: string; clinicaId: string; descripcion: string }) {
   const [estado, accion, enviando] = useActionState(revisarPago, INICIAL);
   return (
     <form key={estado.exitos} action={accion} aria-label={`Revisar ${descripcion}`} className="flex flex-wrap items-end gap-2">
       <input type="hidden" name="pago_id" value={pagoId} />
+      <input type="hidden" name="clinica_id" value={clinicaId} />
       <button type="submit" name="decision" value="confirmar" disabled={enviando}
         onClick={(ev) => { if (!window.confirm(`¿Confirmar ${descripcion}? El plan se extiende al guardar.`)) ev.preventDefault(); }}
         className={`${BOTON} bg-teal-700 text-white hover:bg-teal-800`}>Confirmar pago</button>
@@ -77,6 +78,24 @@ export function EditarCobro({ valores }: { valores: Record<string, string> }) {
       </label>
       <div className="flex flex-wrap items-center gap-3 sm:col-span-3">
         <button type="submit" disabled={enviando} className={`${BOTON} bg-teal-700 text-white hover:bg-teal-800`}>Guardar datos de cobro</button>
+        <Resultado estado={estado} />
+      </div>
+    </form>
+  );
+}
+
+export function NuevaNota({ clinicaId }: { clinicaId: string }) {
+  const [estado, accion, enviando] = useActionState(agregarNota, INICIAL);
+  return (
+    <form key={estado.exitos} action={accion} aria-label="Nueva nota" className="flex flex-col gap-2">
+      <input type="hidden" name="clinica_id" value={clinicaId} />
+      <label className="flex flex-col gap-1 text-xs font-medium text-gray-700">
+        Nota interna (no la ve la clínica)
+        <textarea name="texto" rows={2} maxLength={1000} className={ENTRADA}
+          placeholder="p. ej. Llamé el 12-oct: quiere el plan anual; volver a llamar el lunes" />
+      </label>
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="submit" disabled={enviando} className={`${BOTON} bg-teal-700 text-white hover:bg-teal-800`}>Guardar nota</button>
         <Resultado estado={estado} />
       </div>
     </form>

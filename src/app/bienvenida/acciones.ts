@@ -1,6 +1,8 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { enviarCorreo, urlApp } from "@/lib/correo-servidor";
+import { armarCorreo } from "@/lib/correos";
 import { modulos } from "@/lib/funciones";
 import { validarClinica } from "@/lib/prueba";
 import { registrarError } from "@/lib/registro";
@@ -27,6 +29,14 @@ export async function crearMiClinica(_previo: EstadoBienvenida, form: FormData):
     if (error.code === "P0001" && MENSAJES_BASE.test(error.message)) return { errores: { general: `${error.message}.` }, valores };
     registrarError("bienvenida.crear_clinica_prueba", error);
     return { errores: { general: "No pudimos crear tu clínica. Vuelve a intentarlo en unos minutos." }, valores };
+  }
+  // Etapa 18: correo de bienvenida (si falla, la clínica ya está creada: no se interrumpe).
+  if (modulos.etapa18) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (user?.email) {
+      await enviarCorreo(user.email, armarCorreo("bienvenida", { nombre: r.datos.nombre, clinica: r.datos.clinica, url: urlApp() }),
+        "bienvenida");
+    }
   }
   redirect("/");
 }

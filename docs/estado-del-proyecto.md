@@ -703,6 +703,23 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
   superadmin en `privado.superadmin` (sin clínica). Pedro encendió `HABILITAR_ETAPA17=1`.
   Falta solo que Pedro ponga los datos de cobro en `/plataforma`.
 
+## v2 — Etapa 18 (gestión de clientes)
+
+- Pedro aprobó (11-oct) tras revisar referencias de paneles SaaS: resumen, ficha, semáforo,
+  correos automáticos, cobranza y búsqueda. Etapa 19 propuesta: avance de activación, avisos en
+  la app, descuentos, reporte de ingresos, suspender y bitácora del superadmin.
+- **0931** (aditiva): notas internas y registro de correos en `privado` (clinica_id, RLS, sin
+  grants); funciones solo del superadmin (`resumen_plataforma`, `ficha_clinica`,
+  `agregar_nota_clinica`, `contacto_clinica`; `clinicas_plataforma` suma actividad, último pago
+  y contacto) y solo de la service role (`correos_pendientes`, `marcar_correo`). La ficha trae
+  solo conteos: nunca datos de pacientes.
+- Correos por el SMTP de Gmail (nodemailer 10.0.10). Al momento: bienvenida y pago revisado.
+  Diario (Vercel Cron 14:00 UTC = 9:00 Lima, `/api/cron/correos` con `CRON_SECRET`): vence en 7
+  días, venció y 10 días sin uso, una sola vez cada uno. Sin las variables no se envía nada.
+- Bandera `HABILITAR_ETAPA18`. Pruebas: `supabase/tests/gestion_clientes.test.sql`, Vitest
+  (`src/lib/gestion.test.ts`, `src/lib/correos.test.ts`), `e2e/gestion-clientes.spec.ts`.
+  Checklist: `docs/checklist-etapa18.md`.
+
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 
 Sin huecos de RLS, grants ni aislamiento entre clínicas en laboratorio, exportación y
@@ -745,7 +762,7 @@ Queda anotado, sin cambio de código:
 
 ## Próximas etapas (CLAUDE.md)
 
-Etapas 0 a 17 terminadas (v2 en producción desde el 10-oct).
+Etapas 0 a 17 terminadas (v2 en producción desde el 10-oct). 18 gestión de clientes en curso.
 Falta en `/docs`: formatos de la clínica piloto (historia y consentimientos),
 necesarios antes de la Etapa 7. La Etapa 4 incluye además lo de las fichas
 odonto-estomatológicas de la NTS 139 (índice CPOD/ceod, IHO-S, riesgo estomatológico

@@ -113,4 +113,10 @@ export const modulos = {
    */
   etapa17: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA16 === "1"
     && process.env.HABILITAR_ETAPA17 === "1",
+  /**
+   * Etapa 18: gestión de clientes (resumen, ficha, notas, cobranza y correos automáticos).
+   * Requiere la migración 0931 (y la Etapa 17).
+   */
+  etapa18: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA16 === "1"
+    && process.env.HABILITAR_ETAPA17 === "1" && process.env.HABILITAR_ETAPA18 === "1",
 };
