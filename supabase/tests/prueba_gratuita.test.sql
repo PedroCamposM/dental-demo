@@ -55,7 +55,9 @@ select pruebas.debe_fallar($$insert into public.paciente (clinica_id, nombres, a
 select pruebas.debe_fallar($$update public.paciente set telefono = '51911111113' where nombres = 'Real'$$, 'solo lectura');
 select pruebas.debe_fallar($$select public.crear_clinica_prueba('Otra', 'Dra. Prueba', null)$$, 'ya pertenece');
 -- Tampoco cambia la ficha de la clínica ni sube logos
-select pruebas.debe_fallar($$update public.clinica set nombre = 'Cambiada' where id = (select id from nueva)$$, 'solo lectura');
+-- (Etapa 20: el nombre se cambia solo por cambiar_nombre_clinica; las demás columnas siguen con el disparador.)
+select pruebas.debe_fallar($$select public.cambiar_nombre_clinica((select id from nueva), 'Cambiada')$$, 'solo lectura');
+select pruebas.debe_fallar($$update public.clinica set ruc = '20123456789' where id = (select id from nueva)$$, 'solo lectura');
 select pruebas.debe_fallar($$insert into storage.objects (bucket_id, name) select 'marca', id::text || '/logo.png' from nueva$$,
                            'row-level security');
 -- Otra clínica (activa) no se ve afectada
