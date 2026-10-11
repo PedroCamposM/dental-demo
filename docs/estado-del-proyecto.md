@@ -654,6 +654,11 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
   registro público debe seguir apagado en Supabase hasta el lanzamiento (la función de alta
   existe desde que se aplica la 0929); no hay pantalla para invitar personal (la prueba es
   de un usuario); en varias pantallas el error de solo lectura sigue siendo genérico.
+- 11-oct: PR #5 fusionado con CI verde (103 pruebas de Playwright); «Aplicar migraciones»
+  run 38108387582 (respaldo previo): 0929 aplicada y verificada (clínica demo en plan «demo»,
+  49 disparadores de solo lectura, funciones de alta y del superadmin). El registro público
+  sigue apagado en Supabase. Falta: correo del superadmin, correo de contacto, SMTP propio,
+  abrir el registro y `site_url`, y en Vercel `NEXT_PUBLIC_SITE_URL` y `HABILITAR_ETAPA16=1`.
 
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 
