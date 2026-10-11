@@ -12,6 +12,13 @@ describe("estadoPlan", () => {
       .toMatchObject({ soloLectura: false, diasRestantes: 30, aviso: "Prueba gratuita: quedan 30 días." });
     expect(estadoPlan({ plan: "prueba", prueba_hasta: hoy, activo_hasta: null }, hoy).aviso).toBe("Prueba gratuita: queda 1 día.");
   });
+  it("suspendida: solo lectura aunque el plan siga vigente, y la demo nunca", () => {
+    const r = estadoPlan({ plan: "activo", prueba_hasta: null, activo_hasta: "2027-01-01", suspendida: true }, hoy);
+    expect(r).toMatchObject({ soloLectura: true, suspendida: true });
+    expect(r.aviso).toMatch(/suspendida: está en solo lectura/);
+    expect(esSoloLectura({ code: "P0001", message: r.aviso ?? "" })).toBe(true);
+    expect(estadoPlan({ plan: "demo", prueba_hasta: null, activo_hasta: null, suspendida: true }, hoy).soloLectura).toBe(false);
+  });
   it("al vencer queda en solo lectura", () => {
     const r = estadoPlan({ plan: "prueba", prueba_hasta: "2026-10-10", activo_hasta: null }, hoy);
     expect(r.soloLectura).toBe(true);

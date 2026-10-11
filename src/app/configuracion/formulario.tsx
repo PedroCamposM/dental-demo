@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { CONTRASTE_MINIMO, contraste, MAX_LOGO_BYTES, TIPOS_LOGO } from "@/lib/marca";
-import { guardarInactividad, guardarMarca, type EstadoConfiguracion, type EstadoMarca } from "./acciones";
+import { guardarInactividad, guardarMarca, guardarNombreClinica, type EstadoConfiguracion, type EstadoMarca } from "./acciones";
 
 export function FormularioInactividad({ minutos }: { minutos: number }) {
   const [estado, accion, guardando] = useActionState<EstadoConfiguracion, FormData>(guardarInactividad, {
@@ -24,6 +24,31 @@ export function FormularioInactividad({ minutos }: { minutos: number }) {
         className="self-start rounded-md bg-teal-700 px-4 py-2 font-medium text-white hover:bg-teal-800 disabled:opacity-60">
         {guardando ? "Guardando…" : "Guardar"}
       </button>
+    </form>
+  );
+}
+
+/** Etapa 20: nombre de la clínica (solo el administrador; queda en la auditoría). */
+export function FormularioNombre({ nombre, bloqueado }: { nombre: string; bloqueado: boolean }) {
+  const [estado, accion, guardando] = useActionState<EstadoConfiguracion, FormData>(guardarNombreClinica, { mensaje: null, error: null });
+  return (
+    <form action={accion} className="flex flex-col gap-3" noValidate>
+      <label className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+        Nombre de la clínica
+        <input name="nombre" defaultValue={nombre} required minLength={3} maxLength={120} disabled={bloqueado}
+          className="w-full max-w-md rounded-md border border-gray-300 px-3 py-2 text-base font-normal disabled:bg-gray-50" />
+        <span className="text-xs font-normal text-gray-500">
+          {bloqueado ? "La clínica de demostración conserva su nombre." : "Aparece en la app y en el membrete de los documentos."}
+        </span>
+      </label>
+      {estado.error && <p role="alert" className="text-sm text-red-700">{estado.error}</p>}
+      {estado.mensaje && <p role="status" className="text-sm text-teal-700">{estado.mensaje}</p>}
+      {!bloqueado && (
+        <button type="submit" disabled={guardando}
+          className="self-start rounded-md bg-teal-700 px-4 py-2 font-medium text-white hover:bg-teal-800 disabled:opacity-60">
+          {guardando ? "Guardando…" : "Guardar nombre"}
+        </button>
+      )}
     </form>
   );
 }

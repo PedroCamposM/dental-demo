@@ -2,6 +2,7 @@ import { cookies } from "next/headers";
 import Link from "next/link";
 import { cerrarSesion } from "@/app/login/actions";
 import { ControlSesion } from "@/components/control-sesion";
+import { AvisosPlataforma, type AvisoPlataforma } from "@/components/avisos-plataforma";
 import { modulos } from "@/lib/funciones";
 import { fechaLima } from "@/lib/fechas";
 import { cssMarca } from "@/lib/marca";
@@ -10,6 +11,8 @@ import { veGestion } from "@/lib/permisos";
 import { CORREO_CONTACTO, estadoPlan } from "@/lib/prueba";
 import { NOMBRE_ROL, type Rol, type Sesion } from "@/lib/sesion";
 import { COOKIE_BLOQUEO } from "@/lib/sesion-segura/inactividad";
+import { registrarError } from "@/lib/registro";
+import { createClient } from "@/lib/supabase/server";
 
 type Seccion = "pacientes" | "agenda" | "clinico" | "laboratorio" | "gestion" | "caja" | "plantillas" | "configuracion";
 
@@ -39,6 +42,13 @@ export async function Encabezado({ sesion, seccion }: { sesion: Sesion; seccion?
   const logo = await urlLogo(sesion.logoRuta);
   // Etapa 16: días de prueba que quedan o solo lectura al vencer (la base lo exige).
   const plan = sesion.plan ? estadoPlan(sesion.plan, fechaLima(new Date())) : null;
+  // Etapa 20: avisos del superadministrador (a todas las clínicas o a esta).
+  let avisos: AvisoPlataforma[] = [];
+  if (modulos.etapa20) {
+    const { data, error } = await (await createClient()).rpc("avisos_vigentes");
+    if (error) registrarError("encabezado.avisos", error);
+    avisos = (data ?? []) as AvisoPlataforma[];
+  }
   return (
     <header className={`border-b border-gray-200 bg-white ${css ? "border-t-4 border-t-teal-700" : ""}`}>
       {css && <style>{css}</style>}
@@ -87,12 +97,13 @@ export async function Encabezado({ sesion, seccion }: { sesion: Sesion; seccion?
         <p role={plan.soloLectura ? "alert" : "status"}
           className={`px-4 py-2 text-center text-sm ${plan.soloLectura ? "bg-red-50 text-red-800" : "bg-amber-50 text-amber-900"}`}>
           {plan.aviso}
-          {sesion.rol === "admin" && (modulos.etapa17
+          {sesion.rol === "admin" && !plan.suspendida && (modulos.etapa17
             ? <> <Link href="/configuracion/plan" className="font-medium underline">Ver planes y reportar tu pago</Link>.</>
             : <> Para activar el plan, escríbenos a{" "}
               <a href={`mailto:${CORREO_CONTACTO}`} className="font-medium underline">{CORREO_CONTACTO}</a>.</>)}
         </p>
       )}
+      {avisos.length > 0 && <AvisosPlataforma avisos={avisos} />}
     </header>
   );
 }

@@ -6,7 +6,7 @@ import { urlLogo } from "@/lib/marca-servidor";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
-import { FormularioInactividad, FormularioMarca } from "./formulario";
+import { FormularioInactividad, FormularioMarca, FormularioNombre } from "./formulario";
 import { NavegacionConfiguracion } from "./navegacion";
 
 export const metadata: Metadata = { title: "Configuración – Dental Demo" };
@@ -30,6 +30,12 @@ export default async function Configuracion() {
       <main className="mx-auto max-w-5xl px-4 py-8">
         <h1 className="text-2xl font-semibold">Configuración de la clínica</h1>
         <NavegacionConfiguracion actual="general" />
+        {modulos.etapa20 && (
+          <section aria-labelledby="t-nombre" className="mt-6 max-w-3xl rounded-xl border border-gray-200 bg-white p-5">
+            <h2 id="t-nombre" className="mb-4 text-lg font-semibold">Datos de la clínica</h2>
+            <FormularioNombre nombre={sesion.clinica} bloqueado={sesion.plan?.plan === "demo"} />
+          </section>
+        )}
         <section className="mt-6 max-w-3xl rounded-xl border border-gray-200 bg-white p-5">
           <h2 className="mb-4 text-lg font-semibold">Seguridad de sesión</h2>
           <FormularioInactividad minutos={sesion.inactividadMinutos ?? 15} />

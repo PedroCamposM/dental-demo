@@ -85,3 +85,5 @@ export const conEtapa17 = conEtapa16 && process.env.HABILITAR_ETAPA17 === "1";
 export const conEtapa18 = conEtapa17 && process.env.HABILITAR_ETAPA18 === "1";
 /** Etapa 19: equipo de la clínica y recuperar la contraseña (migración 0932). */
 export const conEtapa19 = conEtapa1 && process.env.HABILITAR_ETAPA19 === "1";
+/** Etapa 20: herramientas del superadministrador y turnos de caja (migraciones 0933 en adelante). */
+export const conEtapa20 = conEtapa18 && process.env.HABILITAR_ETAPA20 === "1";
