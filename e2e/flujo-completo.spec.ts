@@ -52,7 +52,7 @@ test("2. la odontóloga registra historia, odontograma, diagnóstico y plan", as
   // Odontograma inicial: caries oclusal en la 36
   await page.goto(`/pacientes/${pacienteId}/odontograma`);
   await page.getByRole("button", { name: "Crear odontograma" }).click();
-  await page.getByRole("link", { name: "Elegir la pieza 36" }).click();
+  await page.getByRole("button", { name: "Pieza 36", exact: true }).click();
   await page.locator("#h-codigo").selectOption("caries");
   await page.getByRole("checkbox", { name: "Oclusal" }).check();
   await page.getByRole("radio", { name: /^CD / }).check();

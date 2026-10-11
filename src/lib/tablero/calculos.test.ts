@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   agruparAlternativas,
   calcularTablero,
+  controlCubierto,
   resumenDelMes,
   type CitaFila,
   type CuotaFila,
@@ -349,5 +350,21 @@ describe("Etapa 5: versiones y alternativas", () => {
       { paciente_id: "p", presentado_at: "2026-10-01T18:00:00Z" },
     ];
     expect(agruparAlternativas(planes)).toHaveLength(1);
+  });
+});
+
+describe("controlCubierto (misma regla en la ficha y los tableros)", () => {
+  const ahora = Date.parse("2026-10-08T15:00:00Z");
+  const c = { paciente_id: "p", fecha_programada: "2026-10-01", tipo: "control" };
+  it("lo cubre una atención en o después de la fecha, o una cita futura", () => {
+    expect(controlCubierto(c, [{ paciente_id: "p", inicio: "2026-10-02T15:00:00Z", estado: "atendida" }], ahora)).toBe(true);
+    expect(controlCubierto(c, [{ paciente_id: "p", inicio: "2026-09-20T15:00:00Z", estado: "atendida" }], ahora)).toBe(false);
+    expect(controlCubierto(c, [{ paciente_id: "p", inicio: "2026-10-20T15:00:00Z", estado: "programada" }], ahora)).toBe(true);
+    expect(controlCubierto(c, [{ paciente_id: "otro", inicio: "2026-10-20T15:00:00Z", estado: "programada" }], ahora)).toBe(false);
+  });
+  it("el retiro de puntos no lo cubre una cita futura", () => {
+    const r = { ...c, tipo: "retiro_puntos" };
+    expect(controlCubierto(r, [{ paciente_id: "p", inicio: "2026-10-20T15:00:00Z", estado: "confirmada" }], ahora)).toBe(false);
+    expect(controlCubierto(r, [{ paciente_id: "p", inicio: "2026-10-03T15:00:00Z", estado: "atendida" }], ahora)).toBe(true);
   });
 });

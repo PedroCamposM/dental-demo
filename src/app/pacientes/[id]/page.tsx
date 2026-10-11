@@ -4,7 +4,7 @@ import { notFound, redirect } from "next/navigation";
 import { AlertasPaciente } from "@/components/alertas-paciente";
 import { Encabezado } from "@/components/encabezado";
 import { ESTADOS_ACTIVOS, ESTADOS_CITA, type EstadoCita } from "@/lib/agenda/citas";
-import { NOMBRE_CONTROL, TIPOS_CONTROL, type TipoControl } from "@/lib/tablero/calculos";
+import { controlCubierto, NOMBRE_CONTROL, TIPOS_CONTROL, type TipoControl } from "@/lib/tablero/calculos";
 import { fechaLima, formatearFecha, horaLima } from "@/lib/fechas";
 import {
   ESTADOS_CIVILES, esMenorDeEdad, GRADOS_INSTRUCCION, SEGUROS, SEXOS, TIPOS_DOCUMENTO, type EntradaPaciente,
@@ -52,13 +52,22 @@ export default async function FichaPaciente({ params, searchParams }: {
         .order("inicio").limit(5)
         .returns<{ id: string; inicio: string; estado: EstadoCita; nota: string | null; usuario: { nombre: string } | null }[]>()
     : { data: null };
-  // Controles programados (Etapa 8: seguimiento clínico): los pendientes, del más próximo al más lejano.
-  const { data: controles } = modulos.etapa8
-    ? await supabase.from("seguimiento").select("id, tipo, fecha_programada, nota")
-        .eq("paciente_id", id).in("tipo", TIPOS_CONTROL).in("resultado", ["pendiente", "mensaje_enviado", "no_contesta", "contactado"])
-        .order("fecha_programada").limit(5)
-        .returns<{ id: string; tipo: TipoControl; fecha_programada: string; nota: string | null }[]>()
-    : { data: null };
+  // Controles programados (Etapa 8: seguimiento clínico): primero los vencidos sin cubrir, luego los próximos.
+  // Misma regla que los tableros: un vencido queda cubierto si lo atendieron después o ya tiene cita.
+  const hoyLima = fechaLima(new Date());
+  const [pendientes, citasPaciente] = modulos.etapa8
+    ? await Promise.all([
+        supabase.from("seguimiento").select("id, tipo, fecha_programada, nota")
+          .eq("paciente_id", id).in("tipo", TIPOS_CONTROL).in("resultado", ["pendiente", "mensaje_enviado", "no_contesta", "contactado"])
+          .is("realizado_at", null).order("fecha_programada").limit(50)
+          .returns<{ id: string; tipo: TipoControl; fecha_programada: string; nota: string | null }[]>(),
+        supabase.from("cita").select("paciente_id, inicio, estado").eq("paciente_id", id)
+          .in("estado", ["programada", "confirmada", "en_sala", "atendida"])
+          .returns<{ paciente_id: string; inicio: string; estado: string }[]>(),
+      ])
+    : [{ data: null }, { data: null }];
+  const controles = (pendientes.data ?? []).filter((c) => c.fecha_programada >= hoyLima
+    || !controlCubierto({ ...c, paciente_id: id }, citasPaciente.data ?? [], Date.now())).slice(0, 5);
   const menor = p.fecha_nacimiento ? esMenorDeEdad(p.fecha_nacimiento, fechaLima(new Date())) : false;
   const inicial = Object.fromEntries(
     Object.entries(p).filter(([, valor]) => typeof valor === "string").map(([k, valor]) => [k, valor]),
@@ -104,6 +113,11 @@ export default async function FichaPaciente({ params, searchParams }: {
               {sesion.rol === "admin" && (
                 <Link href={`/pacientes/${id}/fusionar`} className="rounded-md border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50">
                   Fusionar duplicado
+                </Link>
+              )}
+              {modulos.etapa14 && sesion.esDentista && !p.anulado_at && (
+                <Link href={`/pacientes/${id}/atencion-rapida`} className="rounded-md bg-teal-700 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-800">
+                  Atención rápida
                 </Link>
               )}
               {modulos.etapa11 && sesion.esDentista && (
@@ -201,7 +215,7 @@ export default async function FichaPaciente({ params, searchParams }: {
             ) : (
               <ul className="mt-3 divide-y divide-gray-100 text-sm">
                 {(controles ?? []).map((c) => {
-                  const vencido = c.fecha_programada < fechaLima(new Date());
+                  const vencido = c.fecha_programada < hoyLima;
                   return (
                     <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                       <span className="font-medium">{NOMBRE_CONTROL[c.tipo] ?? "Control"}{c.nota ? ` · ${c.nota}` : ""}</span>

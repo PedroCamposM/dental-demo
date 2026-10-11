@@ -1,7 +1,7 @@
 // Validación de un hallazgo del odontograma contra el catálogo NTS 188 (sección 6.1).
 // Repite en el servidor lo que la base exige (privado.validar_hallazgo) para dar
 // mensajes claros en español; la base vuelve a validar.
-import { esPiezaFdi, SUPERFICIES, type Superficie } from "@/lib/clinico/diagnostico";
+import { esPiezaFdi, superficiesImposibles, SUPERFICIES, type Superficie } from "@/lib/clinico/diagnostico";
 
 export type Ambito = "pieza" | "superficie" | "rango" | "entre_piezas" | "arcada";
 export type ItemCatalogo = {
@@ -126,6 +126,72 @@ export function validarHallazgo(
       siglas, estado, grado, especificacion,
     },
   };
+}
+
+/** Máximo de piezas en un solo registro (una boca completa permanente). */
+export const MAX_PIEZAS = 32;
+
+/** «16, 26 36;46» → ["16", "26", "36", "46"] (sin repetir, en el orden escrito). */
+export function leerListaPiezas(texto: string): string[] {
+  return [...new Set(texto.split(/[\s,;]+/).filter(Boolean))];
+}
+
+/** La pieza existe en la dentición del odontograma (en la mixta, todas). */
+export function piezaEnDenticion(pieza: number, denticion: Denticion): boolean {
+  const temp = cuadrante(pieza) >= 5;
+  return denticion === "mixta" || (denticion === "temporal" ? temp : !temp);
+}
+
+/**
+ * Valida uno o varios hallazgos iguales. Los que se registran por pieza o por superficie
+ * admiten varias piezas a la vez (p. ej. caries oclusal en 16, 26, 36 y 46): se devuelve un
+ * hallazgo por pieza, cada uno con su propio registro, como exige la norma.
+ */
+export function validarHallazgos(
+  e: { texto: (c: string) => string; lista: (c: string) => string[] }, catalogo: ItemCatalogo[], denticion: Denticion,
+): { ok: true; datos: HallazgoValidado[] } | { ok: false; errores: Partial<Record<CampoHallazgo, string>> } {
+  const c = catalogo.find((x) => x.codigo === e.texto("hallazgo_codigo"));
+  const piezas = leerListaPiezas(e.texto("pieza"));
+  const variasPermitidas = c?.ambito === "pieza" || c?.ambito === "superficie";
+  if (!c || piezas.length <= 1 || !variasPermitidas) {
+    if (c && !variasPermitidas && piezas.length > 1) {
+      return { ok: false, errores: { pieza: "Este hallazgo se registra con una sola pieza de inicio." } };
+    }
+    // Con una sola pieza se valida ya limpia («16,» o «16, 16» son la 16).
+    const r = validarHallazgo(piezas.length === 1 ? { texto: (k) => (k === "pieza" ? piezas[0] ?? "" : e.texto(k)), lista: e.lista } : e, catalogo);
+    if (!r.ok) return r;
+    return revisarPiezas([r.datos], denticion);
+  }
+  if (piezas.length > MAX_PIEZAS) return { ok: false, errores: { pieza: `Máximo ${MAX_PIEZAS} piezas a la vez.` } };
+
+  const datos: HallazgoValidado[] = [];
+  for (const p of piezas) {
+    const r = validarHallazgo({ texto: (k) => (k === "pieza" ? p : e.texto(k)), lista: e.lista }, catalogo);
+    if (!r.ok) {
+      const { pieza, ...otros } = r.errores;
+      return { ok: false, errores: pieza ? { ...otros, pieza: `Pieza ${p}: ${pieza.charAt(0).toLowerCase()}${pieza.slice(1)}` } : otros };
+    }
+    datos.push(r.datos);
+  }
+  return revisarPiezas(datos, denticion);
+}
+
+/** Lo que depende de cada pieza: que exista en la dentición y que tenga esas superficies. */
+function revisarPiezas(
+  datos: HallazgoValidado[], denticion: Denticion,
+): { ok: true; datos: HallazgoValidado[] } | { ok: false; errores: Partial<Record<CampoHallazgo, string>> } {
+  const fuera = datos.flatMap((d) => [d.pieza, d.pieza_hasta]).filter((p): p is number => p !== null && !piezaEnDenticion(p, denticion));
+  if (fuera.length > 0) {
+    return { ok: false, errores: { pieza: `${fuera.length > 1 ? "Las piezas" : "La pieza"} ${fuera.join(", ")} no ${fuera.length > 1 ? "corresponden" : "corresponde"} a la dentición ${DENTICIONES[denticion].toLowerCase()} de este odontograma.` } };
+  }
+  for (const d of datos) {
+    if (d.pieza === null || !d.superficies) continue;
+    const malas = superficiesImposibles(d.pieza, d.superficies);
+    if (malas.length > 0) {
+      return { ok: false, errores: { superficies: `La pieza ${d.pieza} no tiene superficie ${malas.map((m) => SUPERFICIES[m].toLowerCase()).join(" ni ")}.` } };
+    }
+  }
+  return { ok: true, datos };
 }
 
 /** Texto corto de la ubicación de un hallazgo. */

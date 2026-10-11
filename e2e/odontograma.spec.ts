@@ -31,10 +31,10 @@ test("la odontóloga crea el odontograma inicial, registra hallazgos y pasa uno 
   await expect(page.locator("#o-denticion")).toHaveValue("permanente");
   await page.getByRole("button", { name: "Crear odontograma" }).click();
   await expect(page.getByRole("heading", { name: /^Odontograma inicial/ })).toBeVisible();
-  await expect(page.getByRole("img", { name: /Odontograma inicial/ })).toBeVisible();
+  await expect(page.getByRole("group", { name: /Odontograma inicial/ })).toBeVisible();
 
   // Tocar la pieza 36 en el gráfico y registrar una caries oclusal
-  await page.getByRole("link", { name: "Elegir la pieza 36" }).click();
+  await page.getByRole("button", { name: "Pieza 36", exact: true }).click();
   await expect(page.getByRole("heading", { name: "Agregar hallazgo en la pieza 36" })).toBeVisible();
   await page.locator("#h-codigo").selectOption("caries");
   await expect(page.locator("#h-pieza")).toHaveValue("36");
@@ -44,9 +44,32 @@ test("la odontóloga crea el odontograma inicial, registra hallazgos y pasa uno 
   await page.getByRole("radio", { name: /^CD / }).check();
   await page.getByRole("button", { name: "Agregar hallazgo" }).click();
   await expect(page.getByText("Hallazgo registrado: Lesión de caries dental.")).toBeVisible();
-  const caries = page.locator("tr[data-hallazgo]").filter({ hasText: "Lesión de caries dental" });
+  const caries = page.locator("tr[data-hallazgo]").filter({ hasText: "Lesión de caries dental" }).filter({ hasText: "36 (oclusal)" });
   await expect(caries).toContainText("36 (oclusal)");
   await expect(caries).toContainText("CD");
+
+  // Varias piezas a la vez, sin recargar la página: la misma caries en 16 y 26
+  const url = page.url();
+  for (const p of ["16", "26"]) await page.getByRole("button", { name: `Pieza ${p}`, exact: true }).click();
+  await expect(page.getByRole("button", { name: "Pieza 26", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("heading", { name: "Agregar hallazgo en las piezas 16, 26" })).toBeVisible();
+  await expect(page.locator("#h-pieza")).toHaveValue("16, 26");
+  expect(page.url()).toBe(url);
+  await page.getByRole("checkbox", { name: "Oclusal" }).check();
+  await page.getByRole("radio", { name: /^CE / }).check();
+  await page.getByRole("button", { name: "Agregar en 2 piezas" }).click();
+  await expect(page.getByText("2 hallazgos registrados: Lesión de caries dental en las piezas 16, 26.")).toBeVisible();
+  await expect(page.locator("tr[data-hallazgo]").filter({ hasText: "16 (oclusal)" })).toContainText("CE");
+  await expect(page.locator("tr[data-hallazgo]").filter({ hasText: "26 (oclusal)" })).toContainText("CE");
+  await expect(page.getByRole("button", { name: "Pieza 16", exact: true })).toHaveAttribute("aria-pressed", "false");
+
+  // La superficie tiene que existir en cada pieza: un incisivo no tiene cara oclusal
+  await page.locator("#h-pieza").fill("17, 11");
+  await page.getByRole("checkbox", { name: "Oclusal" }).check();
+  await page.getByRole("radio", { name: /^CE / }).check();
+  await page.getByRole("button", { name: "Agregar en 2 piezas" }).click();
+  await expect(page.getByText("La pieza 11 no tiene superficie oclusal.")).toBeVisible();
+  await expect(page.locator("tr[data-hallazgo]").filter({ hasText: "17 (oclusal)" })).toHaveCount(0);
 
   // Validación NTS 188: el diastema es entre piezas vecinas
   await page.locator("#h-codigo").selectOption("diastema");
@@ -76,10 +99,10 @@ test("un odontograma de evolución parte de los hallazgos vigentes y conserva el
   await expect(page.getByRole("checkbox", { name: /Partir de los hallazgos vigentes/ })).toBeChecked();
   await page.getByRole("button", { name: "Crear odontograma" }).click();
   await expect(page.getByRole("heading", { name: /^Odontograma evolución/ })).toBeVisible();
-  await expect(page.locator("tr[data-hallazgo]").filter({ hasText: "Lesión de caries dental" })).toContainText("36 (oclusal)");
+  await expect(page.locator("tr[data-hallazgo]").filter({ hasText: "Lesión de caries dental" })).toHaveCount(3);
 
   // Anular en el nuevo lo que ya no está; el inicial no cambia
-  const caries = page.locator("tr[data-hallazgo]").filter({ hasText: "Lesión de caries dental" });
+  const caries = page.locator("tr[data-hallazgo]").filter({ hasText: "Lesión de caries dental" }).filter({ hasText: "36 (oclusal)" });
   await caries.getByText("Anular", { exact: true }).click();
   await caries.getByPlaceholder("Motivo").fill("Restaurada en la sesión de hoy");
   await caries.getByRole("button", { name: "Confirmar anulación" }).click();
@@ -87,7 +110,7 @@ test("un odontograma de evolución parte de los hallazgos vigentes y conserva el
   const historial = page.getByRole("region", { name: "Odontogramas del paciente" });
   await historial.getByRole("link", { name: "Ver" }).click();
   await expect(page.getByRole("heading", { name: /^Odontograma inicial/ })).toBeVisible();
-  await expect(page.locator("tr[data-hallazgo]").filter({ hasText: "Lesión de caries dental" })).not.toContainText("Anulado");
+  await expect(page.locator("tr[data-hallazgo]").filter({ hasText: "36 (oclusal)" })).not.toContainText("Anulado");
 });
 
 test("la asistente ve el odontograma pero no lo modifica", async ({ page }) => {
@@ -97,7 +120,7 @@ test("la asistente ve el odontograma pero no lo modifica", async ({ page }) => {
   await expect(page.getByRole("img", { name: /Odontograma evolución/ })).toBeVisible();
   await expect(page.getByRole("link", { name: "Nuevo odontograma" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: /Agregar hallazgo/ })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: /Elegir la pieza/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Pieza \d+$/ })).toHaveCount(0);
 });
 
 test("recepción no ve el odontograma", async ({ page }) => {

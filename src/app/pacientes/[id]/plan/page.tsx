@@ -47,10 +47,10 @@ const ubicacion = (i: Pick<Item, "pieza" | "superficies">) =>
   i.pieza === null ? "—" : `${i.pieza}${i.superficies ? ` (${i.superficies.map((s) => SUPERFICIES[s].toLowerCase()).join(", ")})` : ""}`;
 
 export default async function PlanTratamiento({ params, searchParams }: {
-  params: Promise<{ id: string }>; searchParams: Promise<{ p?: string; diagnostico?: string }>;
+  params: Promise<{ id: string }>; searchParams: Promise<{ p?: string; diagnostico?: string; atendido?: string }>;
 }) {
   const { id } = await params;
-  const { p, diagnostico } = await searchParams;
+  const { p, diagnostico, atendido } = await searchParams;
   if (!modulos.etapa5 || !UUID.test(id)) notFound();
   const sesion = await obtenerSesion();
   if (!sesion) redirect("/");
@@ -154,6 +154,12 @@ export default async function PlanTratamiento({ params, searchParams }: {
         <PestanasPaciente id={id} actual="plan" veClinico={sesion.veClinico} />
 
         {planesR.error && <p role="alert" className="mt-4 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">No se pudo cargar el plan. Recarga la página.</p>}
+        {atendido === "1" && (
+          <p role="status" className="mt-4 rounded-md bg-teal-50 px-3 py-2 text-sm text-teal-900">
+            Atención rápida registrada y firmada: historia, examen, diagnóstico y evolución quedaron en la historia clínica.
+            Aquí se cobra.
+          </p>
+        )}
         {diagnostico && !propuestoReciente && esDentista && (
           <p role="status" className="mt-4 rounded-md bg-teal-50 px-3 py-2 text-sm text-teal-900">
             Para agregar el diagnóstico a un plan, primero crea el plan.

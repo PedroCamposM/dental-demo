@@ -31,7 +31,7 @@ Paciente nuevo, registrado por la recepción.
 
 1. **Historia clínica**: motivo de consulta y antecedentes; anotar una alergia → aparece en el banner al instante. Guardar crea la versión 1 (las anteriores se conservan).
 2. **Signos vitales** (los puede registrar la asistente).
-3. **Odontograma** inicial (NTS 188): caries oclusal en la 36.
+3. **Odontograma** inicial (NTS 188): caries oclusal en la 36. Mostrar que se pueden tocar varias piezas (p. ej. 16, 26, 36) y registrar el mismo hallazgo en todas de una vez, sin recargar.
 4. Del hallazgo → **Registrar diagnóstico** (CIE-10 K02.1, definitivo).
 5. Del diagnóstico → **Agregar al plan**: el procedimiento toma precio y duración del catálogo; el ítem queda con su diagnóstico de origen. **Registrar aceptación** del paciente.
 6. **Agenda → Atender**: abre la evolución de la sesión. Marcar el ítem trabajado y terminado, describir lo realizado y **Firmar y cerrar**. La evolución firmada ya no se edita (solo adendas).

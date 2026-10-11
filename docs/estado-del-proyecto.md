@@ -532,6 +532,77 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
   agente revisor, se restablece el 13-oct). Encender `HABILITAR_ETAPA12` no hace falta:
   la etapa no agrega módulos nuevos detrás de una bandera.
 
+## v2 — Etapa 13 (registro más ágil, pedido del odontólogo piloto)
+
+Plan aprobado por Pedro (orden 13 → 17: ágil, atención rápida, personalización, prueba
+gratuita por clínica, suscripción).
+
+- **Odontograma:** las piezas del dibujo son botones de alternancia (antes, enlaces que
+  recargaban la página). Se marcan varias piezas y el mismo hallazgo se guarda en todas en un
+  solo envío, un registro por pieza (NTS 188). Se valida que cada pieza tenga la superficie
+  (p. ej. no hay oclusal en un incisivo) y que pertenezca a la dentición del odontograma.
+  El pintado por superficie ya existía desde la Etapa 4 (lo que vio el odontólogo era la v1).
+- **Plan:** «Piezas (FDI)» admite una lista; se crea un ítem por pieza. El diagnóstico de
+  origen elegido se lleva a cada pieza con su diagnóstico vigente del mismo CIE-10.
+- **Certificado de descanso:** migración **0924** (aditiva), columna `tratamiento`, obligatoria
+  en los certificados de descanso nuevos (trigger solo en insert: los anteriores no cambian).
+  Se completa con lo trabajado en las evoluciones firmadas de esa fecha. La prueba SQL de
+  recetas se actualizó a propósito (el descanso sin tratamiento ahora falla).
+- Pendiente de confirmar con el odontólogo: si «una parte de la oclusal» pide algo más fino
+  que la superficie (la NTS 188 registra por superficie; no se inventa nomenclatura).
+- Checklist: `docs/checklist-etapa13.md`.
+- Revisión independiente (subagente, 11-oct): sin errores bloqueantes ni huecos de RLS.
+  Corregido lo que señaló: diagnóstico de origen con la misma regla para una o varias piezas
+  (y aviso de las piezas que quedan sin diagnóstico); foco de teclado distinto de la
+  selección en el odontograma; piezas no elegibles con hallazgos por arcada; «16,» o
+  «16, 16» ya no dan error; si falla el orden de los ítems, el formulario se limpia (no se
+  duplican al reintentar); el precio indica que es por pieza; el tratamiento del certificado
+  vuelve a seguir la fecha tras un error; errores de consulta registrados y la sugerencia
+  solo se calcula para quien emite.
+- Remoto: CI verde (run 38094381712); «Aplicar migraciones» run 38094718586 (respaldo
+  previo): 0924 aplicada (columna y trigger presentes). Mientras producción tenga el código
+  anterior, emitir un certificado de descanso falla con el mensaje «El certificado de
+  descanso indica el tratamiento realizado»: se resuelve al fusionar el PR de esta etapa.
+
+## v2 — Etapa 14 (atención rápida)
+
+Opción adicional (no reemplaza el flujo completo), aprobada por Pedro: un botón en la ficha
+del paciente, solo para el cirujano dentista, con una sola pantalla para el paciente
+ocasional atendido en una sesión. El alta del paciente se hace antes por la vía normal.
+- La NTS 139 no tiene un formato abreviado para la consulta externa dental (solo el de
+  emergencias, Anexo 7): la pantalla pide lo mínimo de la primera atención en consulta
+  externa (5.2.1 g y ficha 12.2): motivo, tiempo de enfermedad, alergias (preguntadas
+  siempre), anticoagulantes, embarazo si corresponde, examen, diagnóstico CIE-10,
+  tratamiento realizado, descripción y firma.
+- **0925** `registrar_atencion_rapida` (SECURITY INVOKER, una transacción): deja lo mismo
+  que el flujo completo (cuestionario versionado, examen, diagnóstico, plan aceptado,
+  evolución firmada; ítems realizados y sus controles). Si algo falla no queda nada a medias.
+  Los procedimientos que requieren consentimiento no se ofrecen (regla 3) y la base lo
+  rechaza igual.
+- Bandera nueva `HABILITAR_ETAPA14` (requiere la 0925 en la base).
+- Pruebas: `supabase/tests/atencion_rapida.test.sql`, Vitest de la validación,
+  `e2e/atencion-rapida.spec.ts`. Checklist: `docs/checklist-etapa14.md`.
+
+## Revisión independiente de las etapas 10 a 12 (11-oct)
+
+Sin huecos de RLS, grants ni aislamiento entre clínicas en laboratorio, exportación y
+refresco. Corregido:
+- Los envíos de WhatsApp (se guardan como seguimiento ya realizado) ya no aparecen como
+  «controles» en la ficha ni en los tableros.
+- «Controles programados» de la ficha usa la misma regla que los tableros
+  (`controlCubierto`: atendido después o con cita agendada, salvo el retiro de puntos) y
+  muestra primero los vencidos sin cubrir y luego los próximos.
+- **0926**: el refresco de fechas corre semanas completas (las citas conservan su día de la
+  semana; antes podían quedar en días sin atención) y usa `lock_timeout` de 5 s. El flujo
+  «Refrescar fechas de la demo» ahora hace un respaldo cifrado antes. La prueba SQL del
+  refresco se actualizó a propósito (de 10 días pasados corre 7).
+Queda anotado, sin cambio de código:
+- La referencia del refresco en el remoto es el día en que se aplicó la 0923 (10-oct), no
+  el de la carga de los seeds; la demo vuelve al estado de ese día.
+- La auditoría de una exportación usa la tabla «historia_clinica», que solo ve el cirujano
+  dentista: un admin sin COP no la ve. Si el admin debe auditar exportaciones, hace falta
+  una vista para él (pendiente de decidir con Pedro).
+
 ## Remoto al 2026-10-10
 
 - Pedro autorizó («Hazlo»). «Aplicar migraciones» run 38013481738 (respaldo cifrado
@@ -554,7 +625,7 @@ Para llevarla al remoto: correr «Aplicar migraciones» (0906–0907), cargar
 
 ## Próximas etapas (CLAUDE.md)
 
-Etapas 0 a 12 terminadas.
+Etapas 0 a 12 terminadas (v2 en producción desde el 10-oct). Siguen: 13 registro ágil · 14 atención rápida · 15 personalización · 16 prueba gratuita por clínica · 17 suscripción.
 Falta en `/docs`: formatos de la clínica piloto (historia y consentimientos),
 necesarios antes de la Etapa 7. La Etapa 4 incluye además lo de las fichas
 odonto-estomatológicas de la NTS 139 (índice CPOD/ceod, IHO-S, riesgo estomatológico

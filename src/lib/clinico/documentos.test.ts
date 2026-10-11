@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { finDescanso, validarConstancia, validarReceta } from "./documentos";
+import { finDescanso, tratamientoDelDia, validarConstancia, validarReceta } from "./documentos";
 
 const listas = (v: Record<string, string[]>) => (c: string) => v[c] ?? [];
 const textos = (v: Record<string, string>) => (c: string) => v[c] ?? "";
@@ -45,10 +45,21 @@ describe("validarConstancia", () => {
     expect(r).toEqual({ ok: true, datos: expect.objectContaining({ descanso_desde: null, descanso_dias: null }) });
   });
   it("certificado de descanso: desde la atención hasta 3 días después y de 1 a 30 días", () => {
-    const base = { tipo: "descanso", fecha_atencion: "2026-10-09", descanso_desde: "2026-10-09", descanso_dias: "2" };
+    const base = { tipo: "descanso", fecha_atencion: "2026-10-09", descanso_desde: "2026-10-09", descanso_dias: "2", tratamiento: "Exodoncia" };
     expect(validarConstancia(textos(base), "2026-10-09", codigos).ok).toBe(true);
     expect(validarConstancia(textos({ ...base, descanso_desde: "2026-10-15" }), "2026-10-09", codigos).ok).toBe(false);
     expect(validarConstancia(textos({ ...base, descanso_dias: "31" }), "2026-10-09", codigos).ok).toBe(false);
+  });
+  it("el certificado de descanso exige el tratamiento realizado; la constancia de atención no", () => {
+    const sin = validarConstancia(textos({ tipo: "descanso", fecha_atencion: "2026-10-09", descanso_desde: "2026-10-09", descanso_dias: "2",
+      tratamiento: "  " }), "2026-10-09", codigos);
+    expect(sin.ok === false && sin.errores.tratamiento).toMatch(/tratamiento realizado/);
+    const atencion = validarConstancia(textos({ tipo: "atencion", fecha_atencion: "2026-10-09", tratamiento: " Profilaxis " }), "2026-10-09", codigos);
+    expect(atencion).toMatchObject({ ok: true, datos: { tratamiento: "Profilaxis" } });
+  });
+  it("sugiere el tratamiento del día con lo trabajado en las evoluciones firmadas", () => {
+    expect(tratamientoDelDia([{ procedimiento: "Exodoncia simple", pieza: 38 }, { procedimiento: "Profilaxis", pieza: null },
+      { procedimiento: "Exodoncia simple", pieza: 38 }])).toBe("Exodoncia simple (pieza 38); Profilaxis");
   });
   it("fecha futura, horas al revés y CIE-10 inexistente", () => {
     const r = validarConstancia(textos({ tipo: "atencion", fecha_atencion: "2026-10-10", hora_inicio: "10:00", hora_fin: "09:00",

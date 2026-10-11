@@ -48,6 +48,11 @@ test("la odontóloga emite un certificado de descanso de 2 días", async ({ page
   await page.goto(`${fichaUrl}/documentos`);
   await page.getByRole("radio", { name: "Certificado de descanso" }).check();
   await page.getByLabel("Días de descanso").fill("2");
+  // Etapa 13: el certificado de descanso menciona el tratamiento realizado
+  await page.getByLabel("Tratamiento realizado").fill("");
+  await page.getByRole("button", { name: "Emitir documento" }).click();
+  await expect(page.getByText("Indica el tratamiento realizado (es parte del porqué del descanso).")).toBeVisible();
+  await page.getByLabel("Tratamiento realizado").fill("Exodoncia de la pieza 38");
   await page.getByRole("button", { name: "Emitir documento" }).click();
   await expect(page.getByText("Documento emitido: ábrelo para imprimirlo.")).toBeVisible();
   const doc = page.locator("li[data-constancia]").filter({ hasText: "Certificado de descanso" }).first();
@@ -56,6 +61,7 @@ test("la odontóloga emite un certificado de descanso de 2 días", async ({ page
   await page.goto(enlace ?? "");
   await expect(page.getByRole("heading", { name: "Certificado de descanso" })).toBeVisible();
   await expect(page.getByText(/requiere descanso por/)).toContainText("2 días");
+  await expect(page.getByText("Tratamiento realizado: Exodoncia de la pieza 38.")).toBeVisible();
 });
 
 test("recepción no ve recetas ni documentos clínicos", async ({ page }) => {

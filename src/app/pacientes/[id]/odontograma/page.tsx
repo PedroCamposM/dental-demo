@@ -13,7 +13,7 @@ import { registrarError } from "@/lib/registro";
 import { createClient } from "@/lib/supabase/server";
 import { abrirHistoria } from "../datos-clinicos";
 import { PestanasPaciente } from "../pestanas";
-import { AnularHallazgo, FormularioHallazgo, NuevoOdontograma } from "./formularios";
+import { AnularHallazgo, EditorOdontograma, NuevoOdontograma } from "./formularios";
 
 export const metadata: Metadata = { title: "Odontograma – Dental Demo" };
 
@@ -126,45 +126,50 @@ export default async function PaginaOdontograma({ params, searchParams }: {
           )
         ) : (
           <>
-            <section aria-labelledby="t-odontograma" className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <h2 id="t-odontograma" className="text-lg font-semibold">
-                  Odontograma {NOMBRE_TIPO[actual.tipo].toLowerCase()} · {formatearFecha(fechaLima(actual.fecha))}
-                </h2>
-                <p className="text-sm text-gray-600">
-                  Dentición {DENTICIONES[actual.denticion].toLowerCase()} · {autor.get(actual.odontologo_id) ?? "—"}
-                </p>
-              </div>
-              {actual.anulado_at && (
-                <p role="alert" className="mt-2 rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-700">Anulado: {actual.motivo_anulacion}</p>
-              )}
-              <div className="mt-4 overflow-x-auto">
-                <div className="min-w-[44rem]">
-                  <Odontograma hallazgos={vigentesH} seleccionada={pieza}
-                    enlace={esAutor ? (p) => `${base}?o=${actual.id}&pieza=${p}#agregar` : undefined}
-                    titulo={`Odontograma ${NOMBRE_TIPO[actual.tipo].toLowerCase()} del ${formatearFecha(fechaLima(actual.fecha))}`} />
-                </div>
-              </div>
-              <p className="mt-2 text-xs text-gray-500">
-                Azul: buen estado. Rojo: mal estado, temporal o patológico (NTS 188, 5.13).
-                {esAutor && " Toca una pieza para registrar un hallazgo en ella."}
-              </p>
-              {(actual.especificaciones || actual.observaciones) && (
-                <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
-                  {actual.especificaciones && <div><dt className="font-medium">Especificaciones</dt><dd className="whitespace-pre-line">{actual.especificaciones}</dd></div>}
-                  {actual.observaciones && <div><dt className="font-medium">Observaciones</dt><dd className="whitespace-pre-line">{actual.observaciones}</dd></div>}
-                </dl>
-              )}
-            </section>
-
-            {esAutor && (
-              <section id="agregar" aria-labelledby="t-agregar" className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
-                <h2 id="t-agregar" className="mb-3 text-lg font-semibold">
-                  Agregar hallazgo{pieza ? ` en la pieza ${pieza}` : ""}
-                </h2>
-                <FormularioHallazgo key={pieza ?? 0} pacienteId={id} odontogramaId={actual.id} catalogo={items} pieza={pieza} />
-              </section>
-            )}
+            {(() => {
+              const titulo = `Odontograma ${NOMBRE_TIPO[actual.tipo].toLowerCase()} del ${formatearFecha(fechaLima(actual.fecha))}`;
+              const antes = (
+                <>
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <h2 id="t-odontograma" className="text-lg font-semibold">
+                      Odontograma {NOMBRE_TIPO[actual.tipo].toLowerCase()} · {formatearFecha(fechaLima(actual.fecha))}
+                    </h2>
+                    <p className="text-sm text-gray-600">
+                      Dentición {DENTICIONES[actual.denticion].toLowerCase()} · {autor.get(actual.odontologo_id) ?? "—"}
+                    </p>
+                  </div>
+                  {actual.anulado_at && (
+                    <p role="alert" className="mt-2 rounded-md bg-gray-100 px-3 py-2 text-sm text-gray-700">Anulado: {actual.motivo_anulacion}</p>
+                  )}
+                </>
+              );
+              const despues = (
+                <>
+                  <p className="mt-2 text-xs text-gray-500">
+                    Azul: buen estado. Rojo: mal estado, temporal o patológico (NTS 188, 5.13).
+                    {esAutor && " Toca una o varias piezas para registrar el mismo hallazgo en todas."}
+                  </p>
+                  {(actual.especificaciones || actual.observaciones) && (
+                    <dl className="mt-3 grid gap-3 text-sm sm:grid-cols-2">
+                      {actual.especificaciones && <div><dt className="font-medium">Especificaciones</dt><dd className="whitespace-pre-line">{actual.especificaciones}</dd></div>}
+                      {actual.observaciones && <div><dt className="font-medium">Observaciones</dt><dd className="whitespace-pre-line">{actual.observaciones}</dd></div>}
+                    </dl>
+                  )}
+                </>
+              );
+              return esAutor ? (
+                <EditorOdontograma key={actual.id} pacienteId={id} odontogramaId={actual.id} catalogo={items} piezaInicial={pieza}
+                  hallazgos={vigentesH} titulo={titulo} antes={antes} despues={despues} />
+              ) : (
+                <section aria-labelledby="t-odontograma" className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
+                  {antes}
+                  <div className="mt-4 overflow-x-auto">
+                    <div className="min-w-[44rem]"><Odontograma hallazgos={vigentesH} titulo={titulo} /></div>
+                  </div>
+                  {despues}
+                </section>
+              );
+            })()}
 
             <section aria-labelledby="t-hallazgos" className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
               <h2 id="t-hallazgos" className="text-lg font-semibold">Hallazgos</h2>

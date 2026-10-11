@@ -86,4 +86,15 @@ export const modulos = {
     && process.env.HABILITAR_ETAPA9 === "1"
     && process.env.HABILITAR_ETAPA10 === "1"
     && process.env.HABILITAR_ETAPA11 === "1",
+  /**
+   * Etapa 14: atención rápida (paciente ocasional, una sola sesión).
+   * Requiere la migración 0925 (y las etapas 1 a 11).
+   */
+  etapa14: process.env.HABILITAR_ETAPA1 === "1" && process.env.HABILITAR_ETAPA2 === "1"
+    && process.env.HABILITAR_ETAPA3 === "1" && process.env.HABILITAR_ETAPA4 === "1"
+    && process.env.HABILITAR_ETAPA5 === "1" && process.env.HABILITAR_ETAPA6 === "1"
+    && process.env.HABILITAR_ETAPA7 === "1" && process.env.HABILITAR_ETAPA8 === "1"
+    && process.env.HABILITAR_ETAPA9 === "1"
+    && process.env.HABILITAR_ETAPA10 === "1"
+    && process.env.HABILITAR_ETAPA11 === "1" && process.env.HABILITAR_ETAPA14 === "1",
 };

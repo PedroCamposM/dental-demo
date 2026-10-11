@@ -55,10 +55,11 @@ export function validarReceta(lista: (campo: string) => string[], t: (campo: str
 export const TIPOS_CONSTANCIA = { atencion: "Constancia de atención", descanso: "Certificado de descanso" } as const;
 export type TipoConstancia = keyof typeof TIPOS_CONSTANCIA;
 export type CampoConstancia = "tipo" | "fecha_atencion" | "hora_inicio" | "hora_fin" | "descanso_desde" | "descanso_dias"
-  | "cie10" | "observaciones";
+  | "cie10" | "tratamiento" | "observaciones";
 export type ConstanciaValidada = {
   tipo: TipoConstancia; fecha_atencion: string; hora_inicio: string | null; hora_fin: string | null;
-  descanso_desde: string | null; descanso_dias: number | null; cie10: string | null; observaciones: string | null;
+  descanso_desde: string | null; descanso_dias: number | null; cie10: string | null; tratamiento: string | null;
+  observaciones: string | null;
 };
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
@@ -99,6 +100,9 @@ export function validarConstancia(t: (c: string) => string, hoy: string, codigos
   }
   const cie10 = t("cie10").trim().toUpperCase();
   if (cie10 && (!CIE10.test(cie10) || !codigos.has(cie10))) e.cie10 = "Código CIE-10 no encontrado.";
+  const tratamiento = t("tratamiento").trim();
+  if (tipo === "descanso" && !tratamiento) e.tratamiento = "Indica el tratamiento realizado (es parte del porqué del descanso).";
+  else if (tratamiento.length > 500) e.tratamiento = "Máximo 500 caracteres.";
   const obs = t("observaciones").trim();
   if (obs.length > 500) e.observaciones = "Máximo 500 caracteres.";
   if (Object.keys(e).length > 0) return { ok: false, errores: e };
@@ -107,9 +111,17 @@ export function validarConstancia(t: (c: string) => string, hoy: string, codigos
     datos: {
       tipo: tipo as TipoConstancia, fecha_atencion: fecha, hora_inicio: hi || null, hora_fin: hf || null,
       descanso_desde: tipo === "descanso" ? desde : null, descanso_dias: tipo === "descanso" ? nDias : null,
-      cie10: cie10 || null, observaciones: obs || null,
+      cie10: cie10 || null, tratamiento: tratamiento || null, observaciones: obs || null,
     },
   };
+}
+
+/**
+ * Texto sugerido del tratamiento realizado en una fecha: lo trabajado en las evoluciones
+ * firmadas de ese día (p. ej. «Exodoncia simple (pieza 38); Restauración con resina (pieza 36)»).
+ */
+export function tratamientoDelDia(trabajos: { procedimiento: string; pieza: number | null }[]): string {
+  return [...new Set(trabajos.map((x) => (x.pieza ? `${x.procedimiento} (pieza ${x.pieza})` : x.procedimiento)))].join("; ");
 }
 
 /** Último día de descanso (inclusive). */

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { modulos } from "@/lib/funciones";
 import {
-  DENTICIONES, TIPOS_ODONTOGRAMA, validarHallazgo, type CampoHallazgo, type ItemCatalogo,
+  DENTICIONES, TIPOS_ODONTOGRAMA, validarHallazgos, type CampoHallazgo, type Denticion, type ItemCatalogo,
 } from "@/lib/odontograma/hallazgo";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion, type Sesion } from "@/lib/sesion";
@@ -105,17 +105,26 @@ export async function agregarHallazgo(previo: EstadoHallazgo, form: FormData): P
   if (!UUID.test(odontogramaId)) return fallo({ general: "Odontograma inválido." });
 
   const supabase = await createClient();
-  const { data: catalogo, error: errorCatalogo } = await supabase.from("catalogo_hallazgo").select("*").returns<ItemCatalogo[]>();
+  const [{ data: catalogo, error: errorCatalogo }, { data: odontograma }] = await Promise.all([
+    supabase.from("catalogo_hallazgo").select("*").returns<ItemCatalogo[]>(),
+    supabase.from("odontograma").select("denticion").eq("id", odontogramaId).eq("paciente_id", pacienteId)
+      .maybeSingle<{ denticion: Denticion }>(),
+  ]);
   if (errorCatalogo || !catalogo) {
     if (errorCatalogo) registrarError("odontograma.catalogo", errorCatalogo);
     return fallo({ general: "No se pudo cargar el catálogo de hallazgos. Inténtalo de nuevo." });
   }
-  const r = validarHallazgo({ texto: (c) => valores.textos[c] ?? "", lista: (c) => (c === "siglas" ? valores.siglas : valores.superficies) }, catalogo);
+  if (!odontograma) return fallo({ general: "Odontograma no encontrado. Recarga la página." });
+  const r = validarHallazgos(
+    { texto: (c) => valores.textos[c] ?? "", lista: (c) => (c === "siglas" ? valores.siglas : valores.superficies) },
+    catalogo, odontograma.denticion,
+  );
   if (!r.ok) return fallo(r.errores);
 
-  const { error } = await supabase.from("odontograma_hallazgo").insert({
-    ...r.datos, clinica_id: d.sesion.clinicaId, odontograma_id: odontogramaId,
-  });
+  // Un solo envío: o se guardan todas las piezas o ninguna.
+  const { error } = await supabase.from("odontograma_hallazgo").insert(
+    r.datos.map((h) => ({ ...h, clinica_id: d.sesion.clinicaId, odontograma_id: odontogramaId })),
+  );
   if (error) {
     if (error.code === "42501") return fallo({ general: "Solo quien firmó este odontograma le agrega hallazgos. Crea uno de evolución." });
     if (error.code === "P0001") return fallo({ general: error.message });
@@ -123,8 +132,12 @@ export async function agregarHallazgo(previo: EstadoHallazgo, form: FormData): P
     return fallo({ general: "No se pudo guardar el hallazgo. Inténtalo de nuevo." });
   }
   revalidatePath(`/pacientes/${pacienteId}/odontograma`);
-  const nombre = catalogo.find((c) => c.codigo === r.datos.hallazgo_codigo)?.nombre ?? "Hallazgo";
-  return { errores: {}, mensaje: `Hallazgo registrado: ${nombre}.`, intento, valores: { textos: {}, superficies: [], siglas: [] } };
+  const nombre = catalogo.find((c) => c.codigo === r.datos[0]?.hallazgo_codigo)?.nombre ?? "Hallazgo";
+  const mensaje = r.datos.length > 1
+    ? `${r.datos.length} hallazgos registrados: ${nombre} en las piezas ${r.datos.map((h) => h.pieza).join(", ")}.`
+    : `Hallazgo registrado: ${nombre}.`;
+  // Se conserva el hallazgo elegido: lo usual es seguir marcando el mismo en otras piezas.
+  return { errores: {}, mensaje, intento, valores: { textos: { hallazgo_codigo: valores.textos.hallazgo_codigo ?? "" }, superficies: [], siglas: [] } };
 }
 
 /** `intento` cambia en cada envío (remonta el formulario); `texto` conserva el motivo si hubo error. */

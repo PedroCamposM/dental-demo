@@ -2,6 +2,7 @@
 // la base vuelve a validar (fases, dependencias, diagnóstico de origen, RLS).
 import { esPiezaFdi, SUPERFICIES, superficiesImposibles, type Superficie } from "@/lib/clinico/diagnostico";
 import { aCentimos } from "@/lib/dinero";
+import { leerListaPiezas, MAX_PIEZAS } from "@/lib/odontograma/hallazgo";
 
 export const ESTADOS_PLAN = {
   propuesto: "Propuesto",
@@ -40,6 +41,54 @@ export type ItemValidado = {
 };
 export type CampoItem = "procedimiento_id" | "precio" | "duracion_minutos" | "pieza" | "superficies" | "fase"
   | "diagnostico_id" | "requiere";
+
+export type DiagnosticoVigente = { id: string; pieza: number | null; cie10: string };
+
+/**
+ * Diagnóstico de origen de cada pieza cuando un mismo procedimiento se agrega a varias: el
+ * elegido vale para su propia pieza; en las demás se usa el diagnóstico vigente del paciente
+ * con el mismo CIE-10 en esa pieza (p. ej. K02.1 en 16, 26 y 36). Si no hay, queda sin
+ * diagnóstico de origen.
+ */
+export function diagnosticoDePieza(elegido: string | null, vigentes: DiagnosticoVigente[], pieza: number | null): string | null {
+  const d = vigentes.find((x) => x.id === elegido);
+  if (!d) return null;
+  if (d.pieza === null || pieza === null || d.pieza === pieza) return d.id;
+  return vigentes.find((x) => x.pieza === pieza && x.cie10 === d.cie10)?.id ?? null;
+}
+
+/**
+ * Valida uno o varios ítems iguales: con varias piezas («16, 26, 36») se devuelve un ítem
+ * por pieza, cada uno con su estado y su cobro propios.
+ */
+export function validarItems(
+  e: { texto: (c: string) => string; lista: (c: string) => string[] },
+  contexto: { catalogo: ProcedimientoCatalogo[]; fases: number[]; diagnosticos: DiagnosticoVigente[]; items: string[] },
+): { ok: true; datos: ItemValidado[] } | { ok: false; errores: Partial<Record<CampoItem, string>> } {
+  const piezas = leerListaPiezas(e.texto("pieza"));
+  const base = { ...contexto, diagnosticos: contexto.diagnosticos.map((d) => d.id) };
+  if (piezas.length <= 1) {
+    // Con una sola pieza se valida ya limpia («16,» o «16, 16» son la 16).
+    const r = validarItem({ texto: (k) => (k === "pieza" ? (piezas[0] ?? "") : e.texto(k)), lista: e.lista }, base);
+    return r.ok
+      ? { ok: true, datos: [{ ...r.datos, diagnostico_id: diagnosticoDePieza(r.datos.diagnostico_id, contexto.diagnosticos, r.datos.pieza) }] }
+      : r;
+  }
+  if (piezas.length > MAX_PIEZAS) return { ok: false, errores: { pieza: `Máximo ${MAX_PIEZAS} piezas a la vez.` } };
+  const datos: ItemValidado[] = [];
+  for (const p of piezas) {
+    const r = validarItem({ texto: (k) => (k === "pieza" ? p : e.texto(k)), lista: e.lista }, base);
+    if (!r.ok) {
+      const { pieza, superficies, ...otros } = r.errores;
+      return {
+        ok: false,
+        errores: { ...otros, ...(pieza ? { pieza: `Pieza ${p}: ${pieza.charAt(0).toLowerCase()}${pieza.slice(1)}` } : {}), ...(superficies ? { superficies } : {}) },
+      };
+    }
+    datos.push({ ...r.datos, diagnostico_id: diagnosticoDePieza(r.datos.diagnostico_id, contexto.diagnosticos, r.datos.pieza) });
+  }
+  return { ok: true, datos };
+}
 
 /**
  * Valida un ítem nuevo. `contexto` trae lo que el plan permite: el catálogo activo,
