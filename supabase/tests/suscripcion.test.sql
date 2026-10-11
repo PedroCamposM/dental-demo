@@ -114,5 +114,8 @@ select public.revisar_pago_suscripcion((select id from public.pagos_por_confirma
 select pruebas.igual((select count(*) from public.clinicas_plataforma() where nombre = 'Clínica que paga'
                         and activo_hasta = date '2099-05-31'), 1, 'fin de mes: 30-abr → 31-may');
 reset role;
+-- Deja la plataforma como estaba: el CI corre después Playwright sobre esta misma base.
+update privado.tarifa set mensual_centimos = 9900, anual_centimos = 99000 where codigo = 'consultorio';
+update privado.cobro set yape = null, plin = null, banco = null, cuenta = null, cci = null, titular = null, instrucciones = null;
 select pruebas.como(null);
 \echo 'suscripcion: todas las aserciones pasaron'
