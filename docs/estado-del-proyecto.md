@@ -659,6 +659,10 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
   49 disparadores de solo lectura, funciones de alta y del superadmin). El registro público
   sigue apagado en Supabase. Falta: correo del superadmin, correo de contacto, SMTP propio,
   abrir el registro y `site_url`, y en Vercel `NEXT_PUBLIC_SITE_URL` y `HABILITAR_ETAPA16=1`.
+- 11-oct, Pedro: superadmin agencia.hud@gmail.com (se agrega a `privado.superadmin` cuando la
+  cuenta exista); contacto contacto.hud@gmail.com (aviso del plan, términos); Vercel listo.
+  Con su OK: registro público activado, `site_url` y URL de redirección a Vercel, contraseña
+  mínima 8. Falta el SMTP propio (lo configura Pedro).
 
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 

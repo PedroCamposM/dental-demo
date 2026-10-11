@@ -1,6 +1,9 @@
 // Etapa 16: prueba gratuita por clínica (30 días) y plan pagado activado a mano.
 // Al vencer, la clínica queda en solo lectura (la base lo exige; esto es para mostrarlo).
 
+/** Correo para activar el plan, consultas y solicitudes sobre datos personales. */
+export const CORREO_CONTACTO = "contacto.hud@gmail.com";
+
 export type PlanClinica = "demo" | "prueba" | "activo";
 export type DatosPlan = { plan: PlanClinica; prueba_hasta: string | null; activo_hasta: string | null };
 
