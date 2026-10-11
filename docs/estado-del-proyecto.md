@@ -781,6 +781,46 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
   (invitación, recuperación y confirmación del registro: botón «Continuar», sirve en otro
   equipo). Falta `HABILITAR_ETAPA19=1` en Vercel y, opcional, «Secure password change».
 
+## v2 — Etapa 20 (herramientas del superadministrador y turnos de caja)
+
+Aprobada por Pedro el 11-oct («Apruebo la etapa»). Migraciones aditivas:
+- **0933** (superadmin):
+  - El nombre de la clínica se cambia con `cambiar_nombre_clinica`: su administrador desde
+    Configuración, o el superadministrador desde la ficha (con motivo). Queda en la
+    auditoría. Se retiró el `UPDATE (nombre)` directo, y la clínica de demostración
+    conserva su nombre.
+  - **Suspender o reactivar** una clínica (`suspendida_at`, con motivo). Suspendida queda en
+    solo lectura: ve y exporta sus historias, pero no registra nada. Tiene su propio
+    mensaje, no recibe correos automáticos y puede reportar su pago.
+  - **Descuento** por clínica (1 % a 90 %, con fecha de fin opcional). La base lo aplica al
+    reportar el pago (`pago_suscripcion.descuento_pct`), y la clínica lo ve en «Plan y pagos».
+  - **Avisos** en la app, a todas las clínicas o a una: informativo (se puede cerrar) o
+    importante (fijo), hasta 90 días.
+  - **Activación** de cada clínica en 5 pasos (paciente real, cita, evolución firmada,
+    equipo y pago), solo como sí o no.
+  - **Ingresos** de los pagos confirmados por rango de fechas, por mes y en CSV (el CSV no
+    deja pasar fórmulas a Excel).
+  - **Bitácora del superadministrador** (`privado.bitacora_plataforma`): planes, pagos,
+    precios, cobro, notas, nombre, suspensión, descuento y avisos.
+  - La lista de clínicas tiene un botón visible «Ver ficha →».
+- **0934** (turnos de caja):
+  - Se abre un turno con fondo inicial, y los pagos se asignan solos al turno abierto
+    (`pago.turno_id`, que no se puede cambiar).
+  - El turno se cierra contando el efectivo: esperado = fondo + cobros en efectivo, con su
+    diferencia.
+  - Puede haber varios turnos al día, uno abierto a la vez, y un turno cerrado no se reabre.
+  - Es opcional: el cierre del día sigue igual (efectivo de los pagos, sin los fondos) y
+    solo exige cerrar antes el turno abierto.
+- Bandera `HABILITAR_ETAPA20` (requiere 16, 17 y 18).
+- Pruebas:
+  - SQL: `supabase/tests/superadmin.test.sql` y `turnos_caja.test.sql`.
+  - Vitest: `src/lib/plataforma.test.ts`, más casos en gestión, prueba y caja.
+  - Playwright: `e2e/superadmin.spec.ts` y `e2e/turnos-caja.spec.ts`.
+- Se actualizó a propósito `prueba_gratuita.test.sql`: el nombre ya no se edita directo
+  (`permission denied`). La solo lectura de la fila de la clínica se prueba con el RUC y con
+  `cambiar_nombre_clinica`.
+- Checklist: `docs/checklist-etapa20.md`.
+
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 
 Sin huecos de RLS, grants ni aislamiento entre clínicas en laboratorio, exportación y
@@ -823,7 +863,7 @@ Queda anotado, sin cambio de código:
 
 ## Próximas etapas (CLAUDE.md)
 
-Etapas 0 a 19 terminadas (v2 en producción desde el 10-oct). Siguen: actualización de dependencias (Next 16, Vitest 4) y Etapa 20 (herramientas del superadmin).
+Etapas 0 a 19 terminadas (v2 en producción desde el 10-oct); Etapa 20 en revisión. Sigue: actualización de dependencias (Next 16, Vitest 4). Opcional, por decidir: enlace para que los pacientes soliciten cita (el portal del paciente está fuera de alcance en CLAUDE.md).
 Falta en `/docs`: formatos de la clínica piloto (historia y consentimientos),
 necesarios antes de la Etapa 7. La Etapa 4 incluye además lo de las fichas
 odonto-estomatológicas de la NTS 139 (índice CPOD/ceod, IHO-S, riesgo estomatológico
