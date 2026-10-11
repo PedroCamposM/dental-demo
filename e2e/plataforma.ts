@@ -17,6 +17,7 @@ export async function registrarCuenta(page: Page, correo: string, clave: string,
   await page.getByLabel("Nombre de la clínica o consultorio").fill(clinica);
   await page.getByLabel("Tu nombre").fill("Dra. Prueba Nueva");
   await page.getByLabel(/N\.º de colegiatura/).fill(cop);
+  await page.getByLabel("Celular (WhatsApp)").fill("987654321");
   await page.getByLabel("Correo").fill(correo);
   await page.getByLabel("Contraseña").fill(clave);
   await page.getByRole("checkbox").check();

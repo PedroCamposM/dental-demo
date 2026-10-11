@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { validarAjuste, validarCierre, validarPago } from "@/lib/caja";
 import { validarMotivo } from "@/lib/clinico/consentimientos";
 import { modulos } from "@/lib/funciones";
+import { esSoloLectura } from "@/lib/prueba";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion, type Sesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
@@ -23,6 +24,8 @@ async function caja(): Promise<{ error: string } | { error: null; sesion: Sesion
 }
 
 function mensajeDeError(error: { code?: string; message: string }, contexto: string, que: string): string {
+  // Clínica vencida: el mensaje de la base explica qué pasa y cómo seguir.
+  if (esSoloLectura(error)) return `${error.message}.`;
   if (error.code === "P0001") return `${error.message}.`.replace(/\.\.$/, ".");
   registrarError(contexto, error);
   return `No se pudo ${que}. Inténtalo de nuevo.`;

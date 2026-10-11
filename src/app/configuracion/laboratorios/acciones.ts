@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { validarLaboratorio } from "@/lib/clinico/laboratorio";
 import { modulos } from "@/lib/funciones";
+import { siSoloLectura } from "@/lib/prueba";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
@@ -29,7 +30,7 @@ export async function crearLaboratorio(previo: EstadoLaboratorio, form: FormData
   if (error) {
     if (error.code === "23505") return fallo("Ya hay un laboratorio con ese nombre.");
     registrarError("laboratorio.crear", error);
-    return fallo("No se pudo guardar el laboratorio. Inténtalo de nuevo.");
+    return fallo(siSoloLectura(error, "No se pudo guardar el laboratorio. Inténtalo de nuevo."));
   }
   revalidatePath("/configuracion/laboratorios");
   return { error: null, mensaje: `Agregado: ${r.datos.nombre}.`, exitos: previo.exitos + 1 };
@@ -46,7 +47,7 @@ export async function cambiarActivo(previo: EstadoLaboratorio, form: FormData): 
   const { data, error } = await supabase.from("laboratorio").update({ activo }).eq("id", id).select("id").maybeSingle();
   if (error || !data) {
     if (error) registrarError("laboratorio.activo", error);
-    return fallo("No se pudo cambiar. Recarga la página.");
+    return fallo(siSoloLectura(error, "No se pudo cambiar. Recarga la página."));
   }
   revalidatePath("/configuracion/laboratorios");
   return { error: null, mensaje: activo ? "Activado." : "Desactivado.", exitos: previo.exitos + 1 };

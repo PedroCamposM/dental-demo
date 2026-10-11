@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { modulos } from "@/lib/funciones";
 import { validarItems, type CampoItem, type DiagnosticoVigente, type ProcedimientoCatalogo } from "@/lib/plan/plan";
+import { esSoloLectura } from "@/lib/prueba";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion, type Sesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
@@ -24,6 +25,8 @@ async function permitir(pacienteId: string, permiso: Permiso): Promise<{ error: 
 
 /** Mensaje para el usuario a partir de un error de la base (nunca el error técnico). */
 function mensaje(error: { code?: string; message: string }, contexto: string, que: string): string {
+  // Clínica vencida: el mensaje de la base explica qué pasa y cómo seguir.
+  if (esSoloLectura(error)) return `${error.message}.`;
   if (error.code === "P0001") return error.message;
   if (error.code === "42501") return "Tu rol no puede hacer este cambio.";
   registrarError(contexto, error);

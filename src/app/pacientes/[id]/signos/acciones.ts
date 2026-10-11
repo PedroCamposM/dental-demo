@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { validarSignos, type CampoSignos } from "@/lib/historia/cuestionario";
 import { modulos } from "@/lib/funciones";
+import { siSoloLectura } from "@/lib/prueba";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
@@ -34,7 +35,7 @@ export async function registrarSignos(_previo: EstadoSignos, form: FormData): Pr
     if (!(error.code === "P0001" && error.message.includes("anulado"))) registrarError("signos.registrar", error);
     return fallo({ general: error.message.includes("anulado")
       ? "Este paciente está anulado o fusionado: registra los signos en el registro vigente."
-      : "No se pudieron guardar los signos vitales. Inténtalo de nuevo." });
+      : siSoloLectura(error, "No se pudieron guardar los signos vitales. Inténtalo de nuevo.") });
   }
   revalidatePath(`/pacientes/${pacienteId}/signos`);
   return { errores: {}, mensaje: "Signos vitales registrados.", valores: {} };
@@ -57,7 +58,7 @@ export async function anularSignos(_previo: EstadoAnulacion, form: FormData): Pr
     .eq("id", id).is("anulado_at", null).select("id").maybeSingle();
   if (error || !data) {
     if (error) registrarError("signos.anular", error, { id });
-    return { error: "No se pudo anular el registro. Recarga la página." };
+    return { error: siSoloLectura(error, "No se pudo anular el registro. Recarga la página.") };
   }
   revalidatePath(`/pacientes/${pacienteId}/signos`);
   return { error: null };

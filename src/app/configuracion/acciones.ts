@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { modulos } from "@/lib/funciones";
 import { esImagenPermitida, MAX_LOGO_BYTES, TIPOS_LOGO, validarColor, validarMembrete } from "@/lib/marca";
+import { siSoloLectura } from "@/lib/prueba";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion } from "@/lib/sesion";
 import { minutosValidos } from "@/lib/sesion-segura/inactividad";
@@ -22,7 +23,7 @@ export async function guardarInactividad(_previo: EstadoConfiguracion, form: For
     .eq("id", sesion.clinicaId).select("id").maybeSingle();
   if (error || !data) {
     registrarError("configuracion.inactividad", error ?? "sin fila");
-    return { mensaje: null, error: "No se pudo guardar. Inténtalo de nuevo." };
+    return { mensaje: null, error: siSoloLectura(error, "No se pudo guardar. Inténtalo de nuevo.") };
   }
   revalidatePath("/", "layout");
   return { mensaje: `Guardado: la sesión se cerrará tras ${minutos} minutos sin actividad.`, error: null };
@@ -78,7 +79,7 @@ export async function guardarMarca(previo: EstadoMarca, form: FormData): Promise
       .upload(logoRuta, nuevoLogo, { contentType: nuevoLogo.type, upsert: false });
     if (errorSubida) {
       registrarError("configuracion.logo", errorSubida);
-      return fallo({ logo: "No se pudo subir el logo. Inténtalo de nuevo." });
+      return fallo({ logo: siSoloLectura(errorSubida, "No se pudo subir el logo. Inténtalo de nuevo.") });
     }
   }
   const cambiaLogo = logoRuta !== actual.logo_ruta;
@@ -92,7 +93,7 @@ export async function guardarMarca(previo: EstadoMarca, form: FormData): Promise
   if (error || !data) {
     if (nuevoLogo && logoRuta) await supabase.storage.from("marca").remove([logoRuta]);
     if (error) registrarError("configuracion.marca", error);
-    return fallo({ general: error ? "No se pudo guardar. Inténtalo de nuevo." : "El logo cambió mientras tanto (otra pestaña u otro administrador). Recarga la página y vuelve a intentarlo." });
+    return fallo({ general: error ? siSoloLectura(error, "No se pudo guardar. Inténtalo de nuevo.") : "El logo cambió mientras tanto (otra pestaña u otro administrador). Recarga la página y vuelve a intentarlo." });
   }
   // El logo anterior ya no se usa: se quita del bucket (si falla, solo queda un archivo sin uso).
   if (cambiaLogo && actual.logo_ruta) {

@@ -6,6 +6,7 @@ import { modulos } from "@/lib/funciones";
 import {
   DENTICIONES, TIPOS_ODONTOGRAMA, validarHallazgos, type CampoHallazgo, type Denticion, type ItemCatalogo,
 } from "@/lib/odontograma/hallazgo";
+import { siSoloLectura } from "@/lib/prueba";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion, type Sesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
@@ -49,7 +50,7 @@ export async function crearOdontograma(_previo: EstadoNuevo, form: FormData): Pr
   }).select("id").single<{ id: string }>();
   if (error || !nuevo) {
     if (error) registrarError("odontograma.crear", error, { paciente: pacienteId });
-    return fallo("No se pudo crear el odontograma. Inténtalo de nuevo.");
+    return fallo(siSoloLectura(error, "No se pudo crear el odontograma. Inténtalo de nuevo."));
   }
 
   // Parte del estado anterior: se copian sus hallazgos vigentes (el anterior no cambia).
@@ -163,7 +164,7 @@ export async function anularHallazgo(previo: EstadoAnular, form: FormData): Prom
     .select("id").maybeSingle();
   if (error || !data) {
     if (error) registrarError("odontograma.anular", error, { id });
-    return fallo("No se pudo anular el hallazgo: solo lo anula quien firmó el odontograma. Recarga la página.");
+    return fallo(siSoloLectura(error, "No se pudo anular el hallazgo: solo lo anula quien firmó el odontograma. Recarga la página."));
   }
   revalidatePath(`/pacientes/${pacienteId}/odontograma`);
   return { error: null, intento, texto: "" };

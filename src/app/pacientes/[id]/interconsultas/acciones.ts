@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { validarMotivo } from "@/lib/clinico/consentimientos";
 import { validarInterconsulta, validarRespuesta, type CampoInterconsulta } from "@/lib/clinico/interconsultas";
 import { modulos } from "@/lib/funciones";
+import { esSoloLectura } from "@/lib/prueba";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion, type Sesion } from "@/lib/sesion";
 import { createClient } from "@/lib/supabase/server";
@@ -23,6 +24,8 @@ async function personal(pacienteId: string, soloDentista: boolean):
 }
 
 function mensajeDeError(error: { code?: string; message: string }, contexto: string, que: string): string {
+  // Clínica vencida: el mensaje de la base explica qué pasa y cómo seguir.
+  if (esSoloLectura(error)) return `${error.message}.`;
   if (error.code === "P0001" && error.message.startsWith("El paciente está anulado")) {
     return "Este paciente está anulado o fusionado: regístralo en el paciente vigente.";
   }

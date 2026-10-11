@@ -28,6 +28,7 @@ async function registrar(page: Page, correo: string, clinica: string, cop: strin
   await page.getByLabel("Nombre de la clínica o consultorio").fill(clinica);
   await page.getByLabel("Tu nombre").fill("Dra. Prueba Nueva");
   await page.getByLabel(/N\.º de colegiatura/).fill(cop);
+  await page.getByLabel("Celular (WhatsApp)").fill("987654321");
   await page.getByLabel("Correo").fill(correo);
   await page.getByLabel("Contraseña").fill("corta");
   await page.getByRole("button", { name: "Crear cuenta" }).click();

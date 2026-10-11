@@ -20,7 +20,7 @@ export async function registrarse(_previo: EstadoRegistro, form: FormData): Prom
   if (!modulos.etapa16) return { errores: { general: "El registro aún no está abierto." }, valores: {}, enviadoA: null };
   const t = (c: string) => String(form.get(c) ?? "");
   // La contraseña nunca vuelve al navegador.
-  const valores = { email: t("email"), clinica: t("clinica"), nombre: t("nombre"), cop: t("cop"), acepta: t("acepta") };
+  const valores = { email: t("email"), clinica: t("clinica"), nombre: t("nombre"), cop: t("cop"), celular: t("celular"), acepta: t("acepta") };
   const r = validarRegistro(t);
   if (!r.ok) return { errores: r.errores, valores, enviadoA: null };
 
@@ -35,7 +35,7 @@ export async function registrarse(_previo: EstadoRegistro, form: FormData): Prom
     options: {
       emailRedirectTo: `${origen}/auth/confirmar`,
       // Se usan en /bienvenida para crear la clínica (se pueden corregir ahí).
-      data: { clinica: r.datos.clinica, nombre: r.datos.nombre, cop: r.datos.cop, acepta_terminos_at: new Date().toISOString() },
+      data: { clinica: r.datos.clinica, nombre: r.datos.nombre, cop: r.datos.cop, celular: r.datos.celular, acepta_terminos_at: new Date().toISOString() },
     },
   });
   if (error) {
