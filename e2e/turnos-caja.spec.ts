@@ -23,7 +23,7 @@ test("el cambio de turno: abrir con fondo, cerrar contando y abrir otro", async 
   await expect(abrir.getByRole("alert")).toContainText("Monto inválido");
   await abrir.getByLabel("Fondo inicial en efectivo (S/)").fill("100");
   await abrir.getByRole("button", { name: "Abrir turno" }).click();
-  await expect(turnos.locator("p", { hasText: "Turno abierto" })).toContainText("fondo S/ 100.00");
+  await expect(turnos.locator("p", { hasText: /^Turno abierto por/ })).toContainText("fondo S/ 100.00");
 
   // Con el turno abierto no se cierra el día
   await page.getByLabel("Efectivo contado (S/)").fill("0");
@@ -42,7 +42,7 @@ test("el cambio de turno: abrir con fondo, cerrar contando y abrir otro", async 
   // Tarde: otro turno el mismo día
   await turnos.getByRole("form", { name: "Abrir turno" }).getByLabel("Fondo inicial en efectivo (S/)").fill("95");
   await turnos.getByRole("form", { name: "Abrir turno" }).getByRole("button", { name: "Abrir turno" }).click();
-  await expect(turnos.locator("p", { hasText: "Turno abierto" })).toContainText("fondo S/ 95.00");
+  await expect(turnos.locator("p", { hasText: /^Turno abierto por/ })).toContainText("fondo S/ 95.00");
   const tarde = turnos.getByRole("form", { name: "Cerrar turno" });
   await tarde.getByLabel("Efectivo contado en la gaveta (S/)").fill("95");
   page.once("dialog", (d) => void d.accept());
