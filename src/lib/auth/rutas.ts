@@ -3,7 +3,7 @@
 // las abiertas (confirmar el correo, términos) se ven con o sin sesión. La tarea diaria
 // (/api/cron) no tiene sesión: la protege su propia clave (CRON_SECRET).
 const RUTAS_DE_INGRESO = ["/login", "/registro", "/recuperar"];
-const RUTAS_ABIERTAS = ["/auth/confirmar", "/terminos", "/api/cron"];
+const RUTAS_ABIERTAS = ["/auth/confirmar", "/auth/continuar", "/terminos", "/api/cron"];
 
 const coincide = (ruta: string, r: string) => ruta === r || ruta.startsWith(`${r}/`);
 

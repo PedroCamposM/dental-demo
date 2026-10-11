@@ -43,25 +43,53 @@ export async function invitar(previo: EstadoInvitacion, form: FormData): Promise
   const servicio = clienteServicio();
   if (!servicio) return fallo({ general: "Las invitaciones aún no están disponibles en este entorno." });
 
+  // Antes de enviar nada: ¿ese correo ya tiene cuenta? (no se invita ni se toca una cuenta existente)
+  const { data: estadoCorreo, error: errorEstado } = await servicio.rpc("estado_correo", {
+    correo: r.datos.correo, id_clinica: sesion.clinicaId,
+  });
+  if (errorEstado) {
+    registrarError("equipo.estado_correo", errorEstado);
+    return fallo({ general: "No se pudo enviar la invitación. Vuelve a intentarlo." });
+  }
+  if (estadoCorreo === "en_tu_equipo") return fallo({ correo: "Esa persona ya está en tu equipo. Si no entró, usa «Reenviar invitación»." });
+  if (estadoCorreo !== "libre") return fallo({ correo: "Ese correo ya tiene una cuenta en Dental Demo. Usa otro correo de la persona." });
+
   const { data, error } = await servicio.auth.admin.inviteUserByEmail(r.datos.correo, {
     redirectTo: `${await origenApp()}/auth/confirmar`,
-    data: { invitado_clinica: sesion.clinicaId, nombre: r.datos.nombre },
+    data: { nombre: r.datos.nombre },
   });
   if (error || !data.user) {
-    if (error?.code === "email_exists" || error?.code === "user_already_exists" || error?.status === 422) {
+    if (error?.code === "email_exists" || error?.code === "user_already_exists") {
       return fallo({ correo: "Ese correo ya tiene una cuenta en Dental Demo. Usa otro correo de la persona." });
     }
     if (error?.status === 429) return fallo({ general: "Demasiadas invitaciones seguidas. Espera unos minutos." });
     registrarError("equipo.invitar", error ?? "sin usuario");
     return fallo({ general: "No se pudo enviar la invitación. Vuelve a intentarlo." });
   }
+  const invitado = data.user;
+  // Solo se deshace una cuenta creada por esta invitación (nunca una que ya existía).
+  const recienCreada = Date.now() - Date.parse(invitado.created_at) < 5 * 60_000 && !invitado.email_confirmed_at;
+  const deshacer = async () => {
+    if (!recienCreada) return;
+    const { error: errorBorrar } = await servicio.auth.admin.deleteUser(invitado.id);
+    if (errorBorrar) registrarError("equipo.deshacer_invitacion", errorBorrar);
+  };
+  // La marca de la invitación va en app_metadata: solo la service role la escribe.
+  const { error: errorMarca } = await servicio.auth.admin.updateUserById(invitado.id, {
+    app_metadata: { invitado_clinica: sesion.clinicaId },
+  });
+  if (errorMarca) {
+    registrarError("equipo.marcar_invitacion", errorMarca);
+    await deshacer();
+    return fallo({ general: "No se pudo enviar la invitación. Vuelve a intentarlo." });
+  }
   const supabase = await createClient();
   const { error: errorAlta } = await supabase.rpc("incorporar_usuario", {
-    id_usuario: data.user.id, nombre_usuario: r.datos.nombre, rol_usuario: r.datos.rol, cop_usuario: r.datos.cop,
+    id_usuario: invitado.id, nombre_usuario: r.datos.nombre, rol_usuario: r.datos.rol, cop_usuario: r.datos.cop,
   });
   if (errorAlta) {
     // Sin clínica la cuenta invitada no sirve: se quita (no es un dato clínico).
-    await servicio.auth.admin.deleteUser(data.user.id);
+    await deshacer();
     if (esSoloLectura(errorAlta)) return fallo({ general: `${errorAlta.message}.` });
     if (errorAlta.code === "P0001" && MENSAJES_BASE.test(errorAlta.message)) return fallo({ general: `${errorAlta.message}.` });
     registrarError("equipo.incorporar", errorAlta);
@@ -94,7 +122,8 @@ export async function cambiarEstado(_previo: EstadoAccion, form: FormData): Prom
   if (!/^[0-9a-f-]{36}$/.test(id)) return { error: "Usuario inválido.", mensaje: null };
   const { error } = await (await createClient()).rpc("cambiar_estado_usuario", { id_usuario: id, activar });
   if (error) {
-    if (esSoloLectura(error) || (error.code === "P0001" && /^(No puedes|Usuario no encontrado)/.test(error.message))) {
+    if (esSoloLectura(error)
+        || (error.code === "P0001" && /^(No puedes|Usuario no encontrado|La clínica debe conservar)/.test(error.message))) {
       return { error: `${error.message}.`, mensaje: null };
     }
     registrarError("equipo.estado", error);

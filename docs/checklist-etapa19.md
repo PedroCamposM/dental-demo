@@ -8,17 +8,19 @@ Las invitaciones usan `SUPABASE_SERVICE_ROLE_KEY` (solo en Production).
 ## Equipo (Configuración → Equipo, solo administrador)
 - [ ] Invitar sin correo válido o a un odontólogo sin COP: avisa y no envía nada.
 - [ ] Invitar a una asistente: llega el correo «Te invitaron a Dental Demo»; el enlace (también
-      desde el celular) lleva a «Tu contraseña»; al guardarla entra como Asistente.
+      desde el celular) muestra «Continuar» y luego «Tu contraseña»; al guardarla entra como Asistente.
+- [ ] Invitar un correo que ya tiene cuenta en Dental Demo: avisa y no envía nada.
 - [ ] En la lista aparece con «Invitación pendiente» hasta que entra; luego con su último ingreso.
 - [ ] «Reenviar invitación» le manda un nuevo enlace para crear su contraseña.
 - [ ] Desactivar: pide confirmar; esa persona ya no entra («Sin acceso a una clínica»); nada se borra.
       Reactivar: vuelve a entrar.
 - [ ] No puedes desactivarte a ti mismo. Odontólogo, asistente y recepción no ven «Equipo».
 - [ ] Si con la invitación la clínica supera su plan, el mensaje lo dice (no lo impide).
-- [ ] Con la clínica vencida no se puede invitar (mensaje de solo lectura).
+- [ ] Con la clínica vencida no se puede invitar (mensaje de solo lectura), pero sí desactivar a alguien.
 
 ## Contraseña
-- [ ] Login → «¿Olvidaste tu contraseña?» → correo → enlace → «Tu contraseña» → entra con la nueva.
+- [ ] Login → «¿Olvidaste tu contraseña?» → correo → enlace → «Continuar» → «Tu contraseña» → entra con la nueva.
+- [ ] Con sesión abierta, `/cuenta/clave` pide la contraseña actual; con la pantalla bloqueada no abre.
 - [ ] Un correo que no existe muestra el mismo mensaje (no revela si hay cuenta).
 
 ## Registro y planes

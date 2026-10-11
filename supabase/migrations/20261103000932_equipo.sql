@@ -3,9 +3,11 @@
 -- usuarios. Nada se borra: un usuario desactivado deja de entrar y queda en el historial.
 --
 -- Aditiva: solo funciones. La invitación la crea el servidor con la service role
--- (auth.admin.inviteUserByEmail, con la clínica en los metadatos); el administrador, con su
--- sesión, incorpora a la persona invitada (incorporar_usuario verifica que la invitación sea
--- de su clínica). Con la clínica vencida, el disparador de solo lectura de `usuario` lo impide.
+-- (auth.admin.inviteUserByEmail) y marca la clínica en `app_metadata` (solo la service role la
+-- escribe; el usuario no puede editarla); el administrador, con su sesión, incorpora a la
+-- persona invitada (incorporar_usuario verifica que la invitación sea de su clínica). Con la
+-- clínica vencida, el disparador de solo lectura de `usuario` lo impide (pero sí se puede
+-- desactivar a alguien: quitar el acceso a un exempleado no espera al pago).
 
 -- Equipo de la clínica (solo el administrador: incluye correos y últimos ingresos).
 create function public.equipo_clinica()
@@ -38,7 +40,7 @@ begin
   if v_clinica is null or privado.rol_actual() is distinct from 'admin' then
     raise exception 'Solo el administrador';
   end if;
-  select raw_user_meta_data into v_meta from auth.users where id = id_usuario;
+  select raw_app_meta_data into v_meta from auth.users where id = id_usuario;
   if v_meta is null or v_meta ->> 'invitado_clinica' is distinct from v_clinica::text then
     raise exception 'Invitación no encontrada';
   end if;
@@ -82,8 +84,55 @@ begin
   if v_rol is null then
     raise exception 'Usuario no encontrado';
   end if;
+  -- Desactivar se permite aunque la clínica esté vencida (ver solo_lectura_si_vencida).
+  if not activar then
+    perform set_config('dental.desactivar_usuario', id_usuario::text, true);
+  end if;
   update public.usuario set activo = activar where id = id_usuario;
+  perform set_config('dental.desactivar_usuario', '', true);
 end $$;
 revoke all on function public.cambiar_estado_usuario(uuid, boolean) from public, anon;
 grant execute on function public.cambiar_estado_usuario(uuid, boolean) to authenticated;
 
+
+-- Solo lectura al vencer: la única escritura permitida es desactivar a un usuario desde
+-- cambiar_estado_usuario (que marca a quién en la transacción); todo lo demás sigue bloqueado.
+create or replace function privado.solo_lectura_si_vencida() returns trigger
+language plpgsql set search_path = '' as $$
+declare v_clinica uuid;
+begin
+  if coalesce(current_setting('role', true), '') <> 'authenticated' then
+    return case when tg_op = 'DELETE' then old else new end;
+  end if;
+  v_clinica := case when tg_op = 'DELETE' then old.clinica_id else new.clinica_id end;
+  if privado.clinica_escribible(v_clinica) then
+    return case when tg_op = 'DELETE' then old else new end;
+  end if;
+  -- Única excepción: desactivar a un usuario (y nada más de esa fila).
+  if tg_table_name = 'usuario' and tg_op = 'UPDATE'
+     and to_jsonb(new) - 'activo' = to_jsonb(old) - 'activo'
+     and (to_jsonb(old) ->> 'activo')::boolean and not (to_jsonb(new) ->> 'activo')::boolean
+     and to_jsonb(new) ->> 'id' = current_setting('dental.desactivar_usuario', true) then
+    return new;
+  end if;
+  perform privado.error_solo_lectura(v_clinica);
+  return null;
+end $$;
+
+-- ¿Ese correo ya tiene cuenta? Solo para el servidor (service role), antes de invitar: así no se
+-- envía una invitación a una cuenta existente ni se borra nada por error.
+create function public.estado_correo(correo text, id_clinica uuid) returns text
+language sql stable security definer set search_path = '' as $$
+  select case
+    when a.id is null then 'libre'
+    when u.clinica_id = id_clinica then 'en_tu_equipo'
+    when u.id is not null then 'en_otra_clinica'
+    else 'con_cuenta'
+  end
+  from (select lower(btrim(correo)) as c) x
+  left join auth.users a on lower(a.email) = x.c
+  left join public.usuario u on u.id = a.id
+  limit 1
+$$;
+revoke all on function public.estado_correo(text, uuid) from public, anon, authenticated;
+grant execute on function public.estado_correo(text, uuid) to service_role;

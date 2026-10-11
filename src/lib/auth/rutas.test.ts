@@ -6,6 +6,7 @@ describe("esRutaPublica", () => {
     expect(esRutaPublica("/login")).toBe(true);
     expect(esRutaPublica("/registro")).toBe(true);
     expect(esRutaPublica("/auth/confirmar")).toBe(true);
+    expect(esRutaPublica("/auth/continuar")).toBe(true);
     expect(esRutaPublica("/terminos")).toBe(true);
     expect(esRutaPublica("/api/cron/correos")).toBe(true);
     expect(esRutaPublica("/api/otra")).toBe(false);

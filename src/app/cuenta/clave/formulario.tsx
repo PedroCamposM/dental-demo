@@ -6,10 +6,16 @@ import { guardarClave, type EstadoClave } from "./acciones";
 const ENTRADA =
   "rounded-md border border-gray-300 px-3 py-2 text-base font-normal focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600/30";
 
-export function FormularioClave() {
+export function FormularioClave({ pedirActual }: { pedirActual: boolean }) {
   const [estado, accion, enviando] = useActionState<EstadoClave, FormData>(guardarClave, { error: null });
   return (
     <form action={accion} className="flex flex-col gap-4" noValidate>
+      {pedirActual && (
+        <label className="flex flex-col gap-1 text-sm font-medium">
+          Contraseña actual
+          <input name="actual" type="password" autoComplete="current-password" maxLength={72} className={ENTRADA} />
+        </label>
+      )}
       <label className="flex flex-col gap-1 text-sm font-medium">
         Contraseña nueva
         <input name="clave" type="password" autoComplete="new-password" maxLength={72} className={ENTRADA} />

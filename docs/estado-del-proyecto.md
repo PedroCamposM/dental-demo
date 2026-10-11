@@ -764,6 +764,16 @@ ocasional atendido en una sesión. El alta del paciente se hace antes por la ví
 - Bandera `HABILITAR_ETAPA19`. Pruebas: `supabase/tests/equipo.test.sql`, Vitest
   (`src/lib/equipo.test.ts`, prueba y rutas), `e2e/equipo.spec.ts` (lee los correos de Mailpit
   del Supabase local). Checklist: `docs/checklist-etapa19.md`.
+- Revisión independiente (11-oct). Corregido: `/cuenta/clave` no funciona con la pantalla
+  bloqueada y pide la contraseña actual salvo durante 15 minutos tras un enlace del correo
+  (cookie httpOnly); los enlaces con token pasan por `/auth/continuar` con botón «Continuar»
+  (los antivirus del correo no gastan el token); antes de invitar se consulta `estado_correo`
+  (solo service role): no se invita ni se borra una cuenta existente, y solo se deshace una
+  cuenta recién creada; la marca de invitación va en `app_metadata` (el usuario no la edita);
+  una clínica vencida sí puede desactivar a alguien (excepción acotada en el disparador de solo
+  lectura); `/recuperar` responde igual ante el límite de envíos (no revela si hay cuenta);
+  mensaje de «al menos un administrador activo». Queda anotado: activar
+  `secure_password_change` en Supabase (la app ya exige la contraseña actual).
 
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 

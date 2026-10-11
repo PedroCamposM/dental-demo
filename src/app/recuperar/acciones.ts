@@ -17,8 +17,8 @@ export async function recuperar(_previo: EstadoRecuperar, form: FormData): Promi
     ?? h.get("origin") ?? `${h.get("x-forwarded-proto") ?? "https"}://${h.get("host")}`;
   const { error } = await (await createClient()).auth.resetPasswordForEmail(correo, { redirectTo: `${origen}/auth/confirmar` });
   if (error) {
-    if (error.status === 429) return { enviado: false, error: "Demasiados intentos. Espera unos minutos.", correo };
-    registrarError("recuperar", error);
+    // 429 solo aparece para cuentas que existen: se responde igual que siempre para no revelarlo.
+    if (error.status !== 429) registrarError("recuperar", error);
   }
   return { enviado: true, error: null, correo };
 }

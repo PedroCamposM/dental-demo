@@ -37,7 +37,11 @@ test("el administrador invita a una asistente y ella crea su contraseña", async
   const contexto = await browser.newContext();
   const ella = await contexto.newPage();
   await ella.goto(enlace);
+  // El token se usa solo al pulsar «Continuar» (los antivirus del correo no lo gastan)
+  await expect(ella.getByRole("heading", { name: "Bienvenida a tu clínica" })).toBeVisible();
+  await ella.getByRole("button", { name: "Continuar" }).click();
   await expect(ella).toHaveURL(/\/cuenta\/clave$/);
+  await expect(ella.getByLabel("Contraseña actual")).toHaveCount(0);
   await ella.getByLabel("Contraseña nueva").fill("corta");
   await ella.getByLabel("Repite la contraseña").fill("corta");
   await ella.getByRole("button", { name: "Guardar contraseña" }).click();
@@ -52,7 +56,7 @@ test("el administrador invita a una asistente y ella crea su contraseña", async
   await page.reload();
   page.once("dialog", (d) => d.accept());
   await fila.getByRole("button", { name: "Desactivar a Milagros Invitada" }).click();
-  await expect(fila.getByText(/Desactivado/).first()).toBeVisible();
+  await expect(fila.getByRole("button", { name: "Reactivar a Milagros Invitada" })).toBeVisible();
   await ella.reload();
   await expect(ella.getByRole("heading", { name: "Sin acceso a una clínica" })).toBeVisible();
   await contexto.close();
@@ -65,11 +69,20 @@ test("quien olvidó su contraseña la recupera por correo", async ({ page }) => 
   await page.getByRole("button", { name: "Enviar enlace" }).click();
   await expect(page.getByRole("status")).toContainText("te enviamos un enlace");
   await page.goto(await enlaceDelCorreo(ADMIN, /nueva contraseña/));
+  await page.getByRole("button", { name: "Continuar" }).click();
   await expect(page).toHaveURL(/\/cuenta\/clave$/);
   await page.getByLabel("Contraseña nueva").fill("NuevaClave2026");
   await page.getByLabel("Repite la contraseña").fill("NuevaClave2026");
   await page.getByRole("button", { name: "Guardar contraseña" }).click();
   await expect(page).toHaveURL(/\/pacientes/);
+  // Fuera del enlace del correo, cambiarla pide la contraseña actual
+  await page.goto("/cuenta/clave");
+  await page.getByLabel("Contraseña actual").fill("equivocada1");
+  await page.getByLabel("Contraseña nueva").fill("OtraClave2026");
+  await page.getByLabel("Repite la contraseña").fill("OtraClave2026");
+  await page.getByRole("button", { name: "Guardar contraseña" }).click();
+  await expect(page.getByText("La contraseña actual no es correcta.")).toBeVisible();
+  await page.goto("/pacientes");
   await page.getByRole("button", { name: "Cerrar sesión" }).click();
   await ingresar(page, ADMIN, "NuevaClave2026");
 });
