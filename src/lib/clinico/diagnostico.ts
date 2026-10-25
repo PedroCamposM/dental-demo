@@ -138,3 +138,47 @@ export function validarDiagnostico(
     datos: { cie10: codigo, tipo, pieza: Number.isNaN(pieza) ? null : pieza, superficies: sup.length > 0 ? sup : null, observacion },
   };
 }
+
+/** Etapa 21: códigos por envío (pedido del odontólogo piloto: varios diagnósticos a la vez). */
+export const MAX_CODIGOS = 10;
+/** Tope de diagnósticos que crea un envío (códigos × piezas). */
+export const MAX_DIAGNOSTICOS = 40;
+
+/**
+ * Varios diagnósticos de una vez: cada código CIE-10 elegido (`cie10`, repetido) en cada pieza
+ * escrita («16, 26»), con el mismo tipo y observación. Sin piezas, uno por código. Las
+ * superficies solo valen con una pieza (son de esa pieza).
+ */
+export function validarDiagnosticos(
+  e: { texto: (c: string) => string; lista: (c: string) => string[] }, elegibles: ReadonlySet<string>,
+): { ok: true; datos: DiagnosticoValidado[] } | { ok: false; errores: Partial<Record<CampoDiagnostico, string>> } {
+  const textos = [...new Set(e.lista("cie10").map((x) => x.trim()).filter(Boolean))];
+  if (textos.length > MAX_CODIGOS) return { ok: false, errores: { cie10: `Máximo ${MAX_CODIGOS} códigos a la vez.` } };
+  const piezas = leerListaPiezasDx(e.texto("pieza"));
+  if (piezas.length > 1 && e.lista("superficies").length > 0) {
+    return { ok: false, errores: { superficies: "Con varias piezas no se marcan superficies: regístralas pieza por pieza." } };
+  }
+  const combinaciones = Math.max(textos.length, 1) * Math.max(piezas.length, 1);
+  if (combinaciones > MAX_DIAGNOSTICOS) {
+    return { ok: false, errores: { pieza: `Son ${combinaciones} diagnósticos: máximo ${MAX_DIAGNOSTICOS} por registro.` } };
+  }
+  const datos: DiagnosticoValidado[] = [];
+  for (const cie of textos.length > 0 ? textos : [""]) {
+    for (const pieza of piezas.length > 0 ? piezas : [""]) {
+      const r = validarDiagnostico({ texto: (c) => (c === "cie10" ? cie : c === "pieza" ? pieza : e.texto(c)), lista: e.lista }, elegibles);
+      if (!r.ok) {
+        const pref = textos.length > 1 && r.errores.cie10 ? `${cie.split(" ")[0]}: ` : "";
+        const pp = piezas.length > 1 && r.errores.pieza ? `Pieza ${pieza}: ` : "";
+        return { ok: false, errores: { ...r.errores, ...(r.errores.cie10 ? { cie10: pref + r.errores.cie10 } : {}),
+          ...(r.errores.pieza ? { pieza: pp + r.errores.pieza } : {}) } };
+      }
+      if (!datos.some((d) => d.cie10 === r.datos.cie10 && d.pieza === r.datos.pieza)) datos.push(r.datos);
+    }
+  }
+  return { ok: true, datos };
+}
+
+/** «16, 26 36» → ["16", "26", "36"] (sin repetir). */
+function leerListaPiezasDx(texto: string): string[] {
+  return [...new Set(texto.split(/[\s,;]+/).filter(Boolean))];
+}

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  codigosElegibles, esPiezaFdi, leerCodigoCie10, superficiesImposibles, validarDiagnostico, validarExamen,
+  codigosElegibles, esPiezaFdi, leerCodigoCie10, superficiesImposibles, validarDiagnostico, validarDiagnosticos, validarExamen,
   type CodigoCie10,
 } from "./diagnostico";
 
@@ -69,5 +69,31 @@ describe("validarExamen", () => {
     expect(mala.ok === false && mala.errores.higiene).toBe("Elige buena, regular o mala.");
     const ok = validarExamen((c) => ({ atm: " Sin alteraciones ", higiene: "regular" } as Record<string, string>)[c] ?? "");
     expect(ok.ok && ok.datos).toMatchObject({ atm: "Sin alteraciones", higiene: "regular", encia: null });
+  });
+});
+
+describe("validarDiagnosticos (varios a la vez, Etapa 21)", () => {
+  const elegibles = new Set(["K02.1", "K05.1", "K04.0"]);
+  const e = (v: { cie10: string[]; pieza?: string; tipo?: string; superficies?: string[] }) => ({
+    texto: (c: string) => (c === "pieza" ? v.pieza ?? "" : c === "tipo" ? v.tipo ?? "definitivo" : ""),
+    lista: (c: string) => (c === "cie10" ? v.cie10 : c === "superficies" ? v.superficies ?? [] : []),
+  });
+  it("un diagnóstico por código y por pieza", () => {
+    const r = validarDiagnosticos(e({ cie10: ["K02.1 — Caries de la dentina", "K04.0"], pieza: "16, 26" }), elegibles);
+    expect(r.ok && r.datos.map((d) => `${d.cie10}/${d.pieza}`)).toEqual(["K02.1/16", "K02.1/26", "K04.0/16", "K04.0/26"]);
+  });
+  it("sin piezas, uno por código; repetidos se cuentan una vez", () => {
+    const r = validarDiagnosticos(e({ cie10: ["K05.1", "K05.1", "K02.1"] }), elegibles);
+    expect(r.ok && r.datos.map((d) => d.cie10)).toEqual(["K05.1", "K02.1"]);
+  });
+  it("avisa qué código no vale y no deja superficies con varias piezas", () => {
+    const malo = validarDiagnosticos(e({ cie10: ["K02.1", "Z99.9"] }), elegibles);
+    expect(!malo.ok && malo.errores.cie10).toMatch(/^Z99\.9: /);
+    const sup = validarDiagnosticos(e({ cie10: ["K02.1"], pieza: "16 26", superficies: ["oclusal"] }), elegibles);
+    expect(!sup.ok && sup.errores.superficies).toMatch(/varias piezas/);
+  });
+  it("sin código pide elegir uno", () => {
+    const r = validarDiagnosticos(e({ cie10: [] }), elegibles);
+    expect(!r.ok && r.errores.cie10).toBe("Busca y elige el código CIE-10.");
   });
 });

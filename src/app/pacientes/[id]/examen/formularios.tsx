@@ -1,8 +1,9 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import {
-  CAMPOS_EXTRAORAL, CAMPOS_INTRAORAL, HIGIENE, SUPERFICIES, TIPOS_DIAGNOSTICO, type CampoDiagnostico,
+  CAMPOS_EXTRAORAL, CAMPOS_INTRAORAL, HIGIENE, leerCodigoCie10, MAX_CODIGOS, SUPERFICIES, TIPOS_DIAGNOSTICO,
+  type CampoDiagnostico,
 } from "@/lib/clinico/diagnostico";
 import {
   agregarAdenda, anularRegistro, registrarDiagnostico, registrarExamen,
@@ -86,12 +87,15 @@ export function FormularioDiagnostico({ pacienteId, opciones, inicial }: {
     errores: {}, mensaje: null, valores: vacio,
   });
   // Tras guardar, el formulario vuelve a quedar vacío (sin el origen).
-  const v = estado.mensaje ? { textos: {}, superficies: [] } : estado.valores;
+  const v: { textos: Record<string, string>; superficies: string[]; codigos?: string[] } =
+    estado.mensaje ? { textos: {}, superficies: [], codigos: [] } : estado.valores;
   const t = (c: string) => (v.textos as Record<string, string>)[c] ?? "";
   const e = estado.errores;
   const error = (c: CampoDiagnostico) =>
     e[c] ? <span id={`d-${c}-error`} className="text-xs font-normal text-red-700">{e[c]}</span> : null;
   const confirmando = !!t("confirma_id");
+  // Desde un hallazgo o al confirmar: un solo diagnóstico. Si no, varios códigos y piezas a la vez.
+  const unico = !!t("hallazgo_id") || confirmando;
   return (
     <form key={JSON.stringify(v) + String(estado.mensaje)} action={accion} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="paciente_id" value={pacienteId} />
@@ -100,19 +104,23 @@ export function FormularioDiagnostico({ pacienteId, opciones, inicial }: {
       {inicial.origen && !estado.mensaje && (
         <p className="rounded-md bg-teal-50 px-3 py-2 text-sm text-teal-900">{inicial.origen}</p>
       )}
+      {unico ? (
       <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-        <label htmlFor="d-cie10">Código CIE-10 *</label>
-        <input id="d-cie10" name="cie10" list="cie10-opciones" defaultValue={t("cie10")} autoComplete="off"
-          placeholder="Escribe el código o una palabra: K02.1, caries, pulpitis…" aria-invalid={!!e.cie10}
-          aria-describedby={e.cie10 ? "d-cie10-error" : "d-cie10-ayuda"} className={ENTRADA} />
-        <datalist id="cie10-opciones">
-          {opciones.map((o) => <option key={o.codigo} value={`${o.codigo} — ${o.descripcion}`} />)}
-        </datalist>
-        {!e.cie10 && <span id="d-cie10-ayuda" className="text-xs font-normal text-gray-500">
-          Capítulo K00–K14 y códigos de uso odontológico. El sistema no sugiere diagnósticos.
-        </span>}
-        {error("cie10")}
-      </div>
+          <label htmlFor="d-cie10">Código CIE-10 *</label>
+          <input id="d-cie10" name="cie10" list="cie10-opciones" defaultValue={t("cie10")} autoComplete="off"
+            placeholder="Escribe el código o una palabra: K02.1, caries, pulpitis…" aria-invalid={!!e.cie10}
+            aria-describedby={e.cie10 ? "d-cie10-error" : "d-cie10-ayuda"} className={ENTRADA} />
+          <datalist id="cie10-opciones">
+            {opciones.map((o) => <option key={o.codigo} value={`${o.codigo} — ${o.descripcion}`} />)}
+          </datalist>
+          {!e.cie10 && <span id="d-cie10-ayuda" className="text-xs font-normal text-gray-500">
+            Capítulo K00–K14 y códigos de uso odontológico. El sistema no sugiere diagnósticos.
+          </span>}
+          {error("cie10")}
+        </div>
+        ) : (
+        <SelectorCie10 opciones={opciones} iniciales={v.codigos ?? []} error={e.cie10} />
+      )}
       <fieldset className="flex flex-col gap-2 text-sm font-medium text-gray-700">
         <legend>Tipo *</legend>
         <div className="flex flex-wrap gap-4 pt-1">
@@ -126,10 +134,11 @@ export function FormularioDiagnostico({ pacienteId, opciones, inicial }: {
         </div>
         {error("tipo")}
       </fieldset>
-      <div className="grid gap-4 sm:grid-cols-[8rem_1fr]">
+      <div className={`grid gap-4 ${unico ? "sm:grid-cols-[8rem_1fr]" : "sm:grid-cols-[12rem_1fr]"}`}>
         <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
-          <label htmlFor="d-pieza">Pieza (FDI)</label>
-          <input id="d-pieza" name="pieza" inputMode="numeric" maxLength={2} defaultValue={t("pieza")} placeholder="p. ej. 36"
+          <label htmlFor="d-pieza">{unico ? "Pieza (FDI)" : "Piezas (FDI)"}</label>
+          <input id="d-pieza" name="pieza" inputMode="numeric" maxLength={unico ? 2 : 120} defaultValue={t("pieza")}
+            placeholder={unico ? "p. ej. 36" : "p. ej. 16, 26"}
             aria-invalid={!!e.pieza} aria-describedby={e.pieza ? "d-pieza-error" : undefined} className={ENTRADA} />
           {error("pieza")}
         </div>
@@ -160,6 +169,58 @@ export function FormularioDiagnostico({ pacienteId, opciones, inicial }: {
         {estado.mensaje && <p role="status" className="text-sm text-teal-700">{estado.mensaje}</p>}
       </div>
     </form>
+  );
+}
+
+/** Etapa 21: varios códigos CIE-10 a la vez (se buscan y quedan como etiquetas que se pueden quitar). */
+function SelectorCie10({ opciones, iniciales, error }: {
+  opciones: { codigo: string; descripcion: string }[]; iniciales: string[]; error?: string;
+}) {
+  const descripcion = new Map(opciones.map((o) => [o.codigo, o.descripcion]));
+  // Tras un error vuelven los códigos válidos (lo escrito sin agregar también se envía).
+  const [codigos, setCodigos] = useState<string[]>(() => [...new Set(iniciales.map((x) => leerCodigoCie10(x) ?? "")
+    .filter((x) => descripcion.has(x)))]);
+  const [texto, setTexto] = useState("");
+  const [aviso, setAviso] = useState<string | null>(null);
+  const agregar = () => {
+    const codigo = leerCodigoCie10(texto);
+    if (!codigo || !descripcion.has(codigo)) { setAviso("Elige un código de la lista."); return; }
+    setAviso(null);
+    setTexto("");
+    setCodigos((c) => (c.includes(codigo) ? c : [...c, codigo].slice(0, MAX_CODIGOS)));
+  };
+  return (
+    <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+      <label htmlFor="d-cie10">Códigos CIE-10 *</label>
+      {codigos.map((c) => <input key={c} type="hidden" name="cie10" value={c} />)}
+      {codigos.length > 0 && (
+        <ul aria-label="Códigos elegidos" className="flex flex-wrap gap-2 pb-1">
+          {codigos.map((c) => (
+            <li key={c} className="flex items-center gap-1 rounded-full bg-teal-50 py-1 pl-3 pr-1 text-sm font-normal text-teal-900">
+              <span>{c} · {descripcion.get(c) ?? ""}</span>
+              <button type="button" onClick={() => setCodigos((x) => x.filter((y) => y !== c))} aria-label={`Quitar ${c}`}
+                className="flex h-8 w-8 items-center justify-center rounded-full hover:bg-teal-100">×</button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <div className="flex flex-wrap gap-2">
+        {/* También se envía: si se escribe un código y se guarda sin «Agregar», cuenta igual. */}
+        <input id="d-cie10" name="cie10" list="cie10-opciones" value={texto} autoComplete="off" onChange={(ev) => setTexto(ev.target.value)}
+          onKeyDown={(ev) => { if (ev.key === "Enter") { ev.preventDefault(); agregar(); } }}
+          placeholder="Escribe el código o una palabra: K02.1, caries, pulpitis…" aria-invalid={!!error || !!aviso}
+          aria-describedby="d-cie10-ayuda" className={`${ENTRADA} min-w-0 flex-1`} />
+        <button type="button" onClick={agregar} className="min-h-10 rounded-md border border-teal-700 px-3 text-sm font-medium text-teal-800 hover:bg-teal-50">
+          Agregar código
+        </button>
+      </div>
+      <datalist id="cie10-opciones">
+        {opciones.map((o) => <option key={o.codigo} value={`${o.codigo} — ${o.descripcion}`} />)}
+      </datalist>
+      <span id="d-cie10-ayuda" className={`text-xs font-normal ${error || aviso ? "text-red-700" : "text-gray-500"}`}>
+        {error ?? aviso ?? "Agrega uno o varios códigos (hasta 10). Con varias piezas se registra cada código en cada pieza. El sistema no sugiere diagnósticos."}
+      </span>
+    </div>
   );
 }
 
