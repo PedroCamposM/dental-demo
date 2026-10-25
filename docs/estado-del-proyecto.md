@@ -886,6 +886,11 @@ emergencia. Se hizo antes una auditoría de experiencia (21.0, solo lectura).
 
   Queda para decidir con Pedro: el precio sugerido de una zona parcial con un procedimiento «por
   boca» (hoy, el precio completo; se puede editar).
+- 25-oct: con el OK de Pedro, «Aplicar migraciones» run 40154363345 (respaldo previo), antes de
+  fusionar. El primer intento falló porque Supabase había pausado el proyecto por inactividad:
+  Pedro lo restauró. Verificado en el remoto: 0935 registrada, `item_plan.zona` y
+  `procedimiento.cobro_por`, PRE-01 por boca y PER-01 por cuadrante, `crear_clinica_prueba` y el
+  congelamiento con la zona. Luego, PR #11 fusionado con CI verde.
 
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 
