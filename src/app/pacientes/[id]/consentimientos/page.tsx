@@ -8,6 +8,7 @@ import {
 } from "@/lib/clinico/consentimientos";
 import { fechaLima, formatearFecha, horaLima } from "@/lib/fechas";
 import { modulos } from "@/lib/funciones";
+import { ubicacionItem } from "@/lib/plan/plan";
 import { registrarError } from "@/lib/registro";
 import { createClient } from "@/lib/supabase/server";
 import { abrirHistoria } from "../datos-clinicos";
@@ -26,7 +27,7 @@ type Consentimiento = {
   anulado_at: string | null; motivo_anulacion: string | null; archivo_clinico: { ruta: string } | null;
 };
 type Item = {
-  id: string; plan_id: string; procedimiento: string; pieza: number | null; estado: string; procedimiento_id: string | null;
+  id: string; plan_id: string; procedimiento: string; pieza: number | null; zona: string | null; estado: string; procedimiento_id: string | null;
   item_origen_id: string | null;
 };
 
@@ -59,7 +60,7 @@ export default async function Consentimientos({ params, searchParams }: {
   ]);
   const idsPlanes = (planes.data ?? []).map((p) => p.id);
   const items = idsPlanes.length > 0
-    ? await supabase.from("item_plan").select("id, plan_id, procedimiento, pieza, estado, procedimiento_id, item_origen_id")
+    ? await supabase.from("item_plan").select("id, plan_id, procedimiento, pieza, zona, estado, procedimiento_id, item_origen_id")
         .in("plan_id", idsPlanes).order("orden").returns<Item[]>()
     : { data: [] as Item[], error: null };
   const idsProc = [...new Set((items.data ?? []).flatMap((i) => (i.procedimiento_id ? [i.procedimiento_id] : [])))];
@@ -88,7 +89,7 @@ export default async function Consentimientos({ params, searchParams }: {
   const opciones: OpcionItem[] = pendientes.filter((i) => !cubiertos.has(i.id)).map((i) => {
     const p = i.procedimiento_id ? proc.get(i.procedimiento_id) : undefined;
     return {
-      id: i.id, texto: `${i.procedimiento}${i.pieza ? ` (pieza ${i.pieza})` : ""} · ${plan.get(i.plan_id) ?? "Plan"}`,
+      id: i.id, texto: `${i.procedimiento}${i.pieza || i.zona ? ` (${ubicacionItem(i)})` : ""} · ${plan.get(i.plan_id) ?? "Plan"}`,
       plantillaId: p?.consentimiento_plantilla_id ?? null, requiere: p?.requiere_consentimiento ?? false,
     };
   }).sort((a, b) => Number(b.requiere) - Number(a.requiere));

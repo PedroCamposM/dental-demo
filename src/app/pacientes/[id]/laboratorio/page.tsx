@@ -5,6 +5,7 @@ import { AlertasPaciente } from "@/components/alertas-paciente";
 import { Encabezado } from "@/components/encabezado";
 import { fechaLima } from "@/lib/fechas";
 import { modulos } from "@/lib/funciones";
+import { ubicacionItem } from "@/lib/plan/plan";
 import { registrarError } from "@/lib/registro";
 import { createClient } from "@/lib/supabase/server";
 import { NuevaOrden } from "@/app/laboratorio/componentes";
@@ -14,7 +15,7 @@ import { PestanasPaciente } from "../pestanas";
 
 export const metadata: Metadata = { title: "Laboratorio – Dental Demo" };
 
-type Item = { id: string; procedimiento: string; pieza: number | null; estado: string };
+type Item = { id: string; procedimiento: string; pieza: number | null; zona: string | null; estado: string };
 
 /** Órdenes de laboratorio del paciente, vinculadas a los ítems de su plan. */
 export default async function LaboratorioPaciente({ params }: { params: Promise<{ id: string }> }) {
@@ -31,13 +32,13 @@ export default async function LaboratorioPaciente({ params }: { params: Promise<
   ]);
   const ids = (planes.data ?? []).map((p) => p.id);
   const items = ids.length > 0
-    ? await supabase.from("item_plan").select("id, procedimiento, pieza, estado").in("plan_id", ids)
+    ? await supabase.from("item_plan").select("id, procedimiento, pieza, zona, estado").in("plan_id", ids)
         .in("estado", ["aceptado", "programado", "realizado"]).order("orden").returns<Item[]>()
     : { data: [] as Item[], error: null };
   const error = ordenes.error ?? planes.error ?? labs.error ?? items.error;
   if (error) registrarError("laboratorio.paciente", error, { paciente: id });
   const opciones = (items.data ?? []).map((i) => ({
-    id: i.id, descripcion: `${i.procedimiento}${i.pieza ? ` · pieza ${i.pieza}` : ""}${i.estado === "realizado" ? " (realizado)" : ""}`,
+    id: i.id, descripcion: `${i.procedimiento}${i.pieza || i.zona ? ` · ${ubicacionItem(i)}` : ""}${i.estado === "realizado" ? " (realizado)" : ""}`,
   }));
 
   return (

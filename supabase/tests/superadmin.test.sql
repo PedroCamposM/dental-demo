@@ -34,9 +34,9 @@ select pruebas.debe_fallar($$select public.cambiar_nombre_clinica('cbcbcbcb-0000
 -- La clínica no ve ni usa nada del superadministrador
 select pruebas.debe_fallar($$select public.suspender_clinica('cbcbcbcb-0000-0000-0000-000000000000', true, 'Prueba')$$, 'superadministrador');
 select pruebas.debe_fallar($$select public.guardar_descuento('cbcbcbcb-0000-0000-0000-000000000000', 10, null, 'Prueba')$$, 'superadministrador');
-select pruebas.debe_fallar($$select public.publicar_aviso(null, 'Hola', 'info', current_date)$$, 'superadministrador');
+select pruebas.debe_fallar($$select public.publicar_aviso(null, 'Hola', 'info', (now() at time zone 'America/Lima')::date)$$, 'superadministrador');
 select pruebas.debe_fallar($$select * from public.bitacora_plataforma()$$, 'superadministrador');
-select pruebas.debe_fallar($$select * from public.ingresos_plataforma(current_date - 30, current_date)$$, 'superadministrador');
+select pruebas.debe_fallar($$select * from public.ingresos_plataforma((now() at time zone 'America/Lima')::date - 30, (now() at time zone 'America/Lima')::date)$$, 'superadministrador');
 select pruebas.debe_fallar($$select * from privado.bitacora_plataforma$$, 'permission denied');
 select pruebas.debe_fallar($$select * from privado.aviso_plataforma$$, 'permission denied');
 select pruebas.igual((select count(*) from public.mi_descuento()), 0, 'recepción no ve descuentos');
@@ -52,11 +52,11 @@ select pruebas.debe_fallar($$select public.cambiar_nombre_clinica('ebebebeb-0000
 select public.guardar_descuento('dbdbdbdb-0000-0000-0000-000000000000', 0, null, 'Nada que quitar');
 -- Descuento del 20 %: se aplica solo al reportar el pago
 select pruebas.debe_fallar($$select public.guardar_descuento('cbcbcbcb-0000-0000-0000-000000000000', 95, null, 'Mucho')$$, '90');
-select pruebas.debe_fallar($$select public.guardar_descuento('cbcbcbcb-0000-0000-0000-000000000000', 20, current_date - 1, 'Pasado')$$,
+select pruebas.debe_fallar($$select public.guardar_descuento('cbcbcbcb-0000-0000-0000-000000000000', 20, (now() at time zone 'America/Lima')::date - 1, 'Pasado')$$,
                            'hoy o posterior');
 select public.guardar_descuento('cbcbcbcb-0000-0000-0000-000000000000', 20, null, 'Clínica fundadora');
 -- Aviso a todas y a una sola clínica
-select pruebas.debe_fallar($$select public.publicar_aviso(null, 'Largo', 'info', current_date + 120)$$, '90 días');
+select pruebas.debe_fallar($$select public.publicar_aviso(null, 'Largo', 'info', (now() at time zone 'America/Lima')::date + 120)$$, '90 días');
 select public.publicar_aviso(null, 'Mantenimiento el domingo de 6 a 7 a. m.', 'info', (now() at time zone 'America/Lima')::date + 3);
 select public.publicar_aviso('dbdbdbdb-0000-0000-0000-000000000000', 'Solo para la Tercera', 'importante',
                              (now() at time zone 'America/Lima')::date + 3);
@@ -83,7 +83,7 @@ select pruebas.igual((select activacion from public.clinicas_plataforma('cbcbcbc
 select pruebas.igual((select count(*) from public.ingresos_plataforma((now() at time zone 'America/Lima')::date,
                         (now() at time zone 'America/Lima')::date) where operacion = 'SUP-1' and descuento_pct = 20), 1,
                      'el pago confirmado está en los ingresos');
-select pruebas.debe_fallar($$select * from public.ingresos_plataforma(current_date, current_date - 1)$$, 'rango');
+select pruebas.debe_fallar($$select * from public.ingresos_plataforma((now() at time zone 'America/Lima')::date, (now() at time zone 'America/Lima')::date - 1)$$, 'rango');
 select pruebas.debe_fallar($$select public.suspender_clinica('dbdbdbdb-0000-0000-0000-000000000000', true, '')$$, 'motivo');
 select pruebas.debe_fallar($$select public.suspender_clinica('ebebebeb-0000-0000-0000-000000000000', true, 'Demo')$$, 'demostración');
 select public.suspender_clinica('dbdbdbdb-0000-0000-0000-000000000000', true, 'Pidió pausar la cuenta');

@@ -12,6 +12,7 @@ import { CAMPOS_EVOLUCION, LISTA_CAMPOS_EVOLUCION, type CampoEvolucion } from "@
 import { formatearSoles } from "@/lib/dinero";
 import { fechaLima, formatearFecha, horaLima } from "@/lib/fechas";
 import { modulos } from "@/lib/funciones";
+import { ubicacionItem } from "@/lib/plan/plan";
 import { EMBARAZO, ENFERMEDADES, FORMA_INICIO, HABITOS } from "@/lib/historia/cuestionario";
 import { DENTICIONES, ubicacion, type Denticion } from "@/lib/odontograma/hallazgo";
 import {
@@ -44,7 +45,7 @@ type Diagnostico = {
 type Plan = {
   id: string; titulo: string; version: number; alternativa: string; estado: EstadoPlan; presentado_at: string;
   aceptado_at: string | null; odontologo_id: string | null;
-  item_plan: { id: string; procedimiento: string; pieza: number | null; estado: EstadoItem; precio_centimos: number; fase: number | null; orden: number }[];
+  item_plan: { id: string; procedimiento: string; pieza: number | null; zona: string | null; estado: EstadoItem; precio_centimos: number; fase: number | null; orden: number }[];
 };
 type Nota = Record<Exclude<CampoEvolucion, "texto">, string | null> & {
   id: string; texto: string; fecha: string; odontologo_id: string; firmada_at: string | null; anulado_at: string | null;
@@ -107,7 +108,7 @@ export default async function DocumentoHistoria({ params }: { params: Promise<{ 
       .eq("paciente_id", id).order("registrado_at").returns<Diagnostico[]>(),
     supabase.from("plan_tratamiento")
       .select("id, titulo, version, alternativa, estado, presentado_at, aceptado_at, odontologo_id, "
-        + "item_plan(id, procedimiento, pieza, estado, precio_centimos, fase, orden)")
+        + "item_plan(id, procedimiento, pieza, zona, estado, precio_centimos, fase, orden)")
       .eq("paciente_id", id).order("presentado_at").returns<Plan[]>(),
     supabase.from("nota_evolucion")
       .select("id, texto, fecha, odontologo_id, firmada_at, anulado_at, motivo_anulacion, "
@@ -275,7 +276,7 @@ export default async function DocumentoHistoria({ params }: { params: Promise<{ 
             </p>
             <ul className="list-disc pl-5">
               {[...pl.item_plan].sort((a, b) => (a.fase ?? 0) - (b.fase ?? 0) || a.orden - b.orden).map((i) => (
-                <li key={i.id}>{i.procedimiento}{i.pieza !== null ? ` · pieza ${i.pieza}` : ""} · {ESTADOS_ITEM[i.estado]} · {formatearSoles(i.precio_centimos)}</li>
+                <li key={i.id}>{i.procedimiento}{i.pieza !== null || i.zona ? ` · ${ubicacionItem(i)}` : ""} · {ESTADOS_ITEM[i.estado]} · {formatearSoles(i.precio_centimos)}</li>
               ))}
             </ul>
           </div>

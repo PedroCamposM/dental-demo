@@ -95,3 +95,7 @@ where exists (select 1 from public.usuario where id = 'd0000000-0000-4000-8000-0
   and not exists (select 1 from public.cita c
                   where c.clinica_id = 'c0000000-0000-4000-8000-000000000001' and c.estado in ('programada', 'confirmada')
                     and (c.inicio at time zone 'America/Lima')::date = f.dia);
+
+-- Etapa 21: profilaxis y destartraje se cotizan por boca completa (en el plan se elige la zona).
+update public.procedimiento set cobro_por = 'boca'
+ where clinica_id = 'c0000000-0000-4000-8000-000000000001' and codigo = 'PRE-01' and cobro_por <> 'boca';

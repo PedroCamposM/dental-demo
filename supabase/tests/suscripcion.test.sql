@@ -29,22 +29,22 @@ select pruebas.debe_fallar($$select public.guardar_tarifa('consultorio', 1, 1)$$
 select pruebas.debe_fallar($$select * from privado.tarifa$$, 'permission denied');
 select pruebas.debe_fallar($$insert into public.pago_suscripcion (clinica_id, tarifa, periodo, monto_centimos, metodo, operacion,
   pagado_el, reportado_por) values ('c7c7c7c7-0000-0000-0000-000000000000', 'consultorio', 'mensual', 1, 'yape', '123456',
-  current_date, auth.uid())$$, 'permission denied');
+  (now() at time zone 'America/Lima')::date, auth.uid())$$, 'permission denied');
 
 -- Vencida (solo lectura): no registra pacientes, pero sí reporta su pago, con validaciones en la base
 select pruebas.debe_fallar($$insert into public.paciente (clinica_id, nombres, apellidos, fecha_nacimiento, telefono, consentimiento_datos_at)
   values ('c7c7c7c7-0000-0000-0000-000000000000', 'No', 'Entra', '1980-01-01', '51911111111', now())$$, 'solo lectura');
-select pruebas.debe_fallar($$select public.reportar_pago_suscripcion('oro', 'mensual', 'yape', '123456', current_date, null)$$, 'plan');
-select pruebas.debe_fallar($$select public.reportar_pago_suscripcion('consultorio', 'mensual', 'yape', '12', current_date, null)$$,
+select pruebas.debe_fallar($$select public.reportar_pago_suscripcion('oro', 'mensual', 'yape', '123456', (now() at time zone 'America/Lima')::date, null)$$, 'plan');
+select pruebas.debe_fallar($$select public.reportar_pago_suscripcion('consultorio', 'mensual', 'yape', '12', (now() at time zone 'America/Lima')::date, null)$$,
                            'número de operación');
 select pruebas.debe_fallar($$select public.reportar_pago_suscripcion('consultorio', 'mensual', 'yape', '123456',
   (now() at time zone 'America/Lima')::date + 1, null)$$, 'últimos 60 días');
-select pruebas.debe_fallar($$select public.reportar_pago_suscripcion('consultorio', 'mensual', 'yape', '123456', current_date,
+select pruebas.debe_fallar($$select public.reportar_pago_suscripcion('consultorio', 'mensual', 'yape', '123456', (now() at time zone 'America/Lima')::date,
   'd7d7d7d7-0000-0000-0000-000000000000/x.png')$$, 'Constancia inválida');
 select public.reportar_pago_suscripcion('consultorio', 'mensual', 'yape', '123456', (now() at time zone 'America/Lima')::date,
                                         'c7c7c7c7-0000-0000-0000-000000000000/constancia.png');
 select pruebas.igual((select monto_centimos from public.pago_suscripcion), 9900, 'el monto sale de la tarifa (no lo pone la clínica)');
-select pruebas.debe_fallar($$select public.reportar_pago_suscripcion('clinica', 'anual', 'plin', '999999', current_date, null)$$,
+select pruebas.debe_fallar($$select public.reportar_pago_suscripcion('clinica', 'anual', 'plin', '999999', (now() at time zone 'America/Lima')::date, null)$$,
                            'por confirmar');
 -- Constancia: sube a su carpeta, no a la de otra clínica
 insert into storage.objects (bucket_id, name) values ('suscripcion', 'c7c7c7c7-0000-0000-0000-000000000000/constancia.png');
@@ -53,7 +53,7 @@ select pruebas.debe_fallar($$insert into storage.objects (bucket_id, name) value
 -- El odontólogo no ve los pagos ni reporta
 select pruebas.como('c7000000-0000-0000-0000-00000000000b');
 select pruebas.igual((select count(*) from public.pago_suscripcion), 0, 'el odontólogo no ve los pagos');
-select pruebas.debe_fallar($$select public.reportar_pago_suscripcion('consultorio', 'mensual', 'yape', '777777', current_date, null)$$,
+select pruebas.debe_fallar($$select public.reportar_pago_suscripcion('consultorio', 'mensual', 'yape', '777777', (now() at time zone 'America/Lima')::date, null)$$,
                            'administrador');
 -- Otra clínica no ve el pago ni la constancia, ni puede confirmar
 select pruebas.como('d7000000-0000-0000-0000-00000000000a');
@@ -91,7 +91,7 @@ insert into public.paciente (clinica_id, nombres, apellidos, fecha_nacimiento, t
 values ('c7c7c7c7-0000-0000-0000-000000000000', 'Ya', 'Entra', '1980-01-01', '51911111111', now());
 select pruebas.igual((select count(*) from public.datos_cobro() where yape = '999 888 777'), 1, 've el Yape para pagar');
 -- La misma operación no se reporta dos veces en la clínica
-select pruebas.debe_fallar($$select public.reportar_pago_suscripcion('consultorio', 'mensual', 'yape', ' 123456 ', current_date, null)$$,
+select pruebas.debe_fallar($$select public.reportar_pago_suscripcion('consultorio', 'mensual', 'yape', ' 123456 ', (now() at time zone 'America/Lima')::date, null)$$,
                            'ya fue reportado');
 select public.reportar_pago_suscripcion('consultorio', 'anual', 'transferencia', 'OP-2026-1', (now() at time zone 'America/Lima')::date, null);
 select pruebas.igual((select monto_centimos from public.pago_suscripcion where estado = 'pendiente'), 109000, 'precio nuevo');

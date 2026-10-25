@@ -47,7 +47,7 @@ export default async function EditarProcedimiento({ params }: { params: Promise<
             codigo: data.codigo, nombre: data.nombre, especialidad: data.especialidad,
             precio: (data.precio_base_centimos / 100).toFixed(2), duracion_minutos: String(data.duracion_minutos),
             requiere_consentimiento: data.requiere_consentimiento ? "1" : "", control_dias: data.control_dias?.toString() ?? "",
-            activo: data.activo ? "1" : "0",
+            activo: data.activo ? "1" : "0", cobro_por: data.cobro_por,
           }}
         />
         {consentimiento && plantillas && (

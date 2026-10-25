@@ -3,7 +3,7 @@
 import { useActionState, useState } from "react";
 import { SUPERFICIES } from "@/lib/clinico/diagnostico";
 import { formatearSoles } from "@/lib/dinero";
-import type { CampoItem } from "@/lib/plan/plan";
+import { COBRO_POR, unidadesZona, ZONAS, type CampoItem, type CobroPor, type Zona } from "@/lib/plan/plan";
 import {
   aceptarPlan, agregarFase, agregarItem, cancelarItem, copiarPlan, crearPlan, rechazarPlan,
   type EstadoItemForm, type EstadoSimple,
@@ -63,7 +63,8 @@ export function NuevaFase({ pacienteId, planId }: { pacienteId: string; planId: 
 // Ítem nuevo
 // ---------------------------------------------------------------------------
 export type OpcionesItem = {
-  catalogo: { id: string; codigo: string; nombre: string; especialidad: string; precio_base_centimos: number; duracion_minutos: number }[];
+  catalogo: { id: string; codigo: string; nombre: string; especialidad: string; precio_base_centimos: number; duracion_minutos: number;
+    cobro_por?: CobroPor | null }[];
   fases: { numero: number; nombre: string }[];
   diagnosticos: { id: string; texto: string; pieza: number | null }[];
   items: { id: string; texto: string }[];
@@ -91,6 +92,17 @@ function CamposItem({ pacienteId, planId, opciones, estado, accion, guardando }:
   const t = (c: string) => v.textos[c] ?? "";
   const [procId, setProcId] = useState(t("procedimiento_id"));
   const proc = opciones.catalogo.find((p) => p.id === procId);
+  // Etapa 21: piezas o zona (arcada, cuadrante, boca). Lo que se cobra por zona la propone sola.
+  const [zona, setZona] = useState<string>(t("zona"));
+  const [porZona, setPorZona] = useState<boolean>(!!t("zona"));
+  const elegirProcedimiento = (id: string) => {
+    setProcId(id);
+    const p = opciones.catalogo.find((x) => x.id === id);
+    const cobro = p?.cobro_por ?? "pieza";
+    setPorZona(cobro !== "pieza");
+    setZona(cobro === "pieza" ? "" : cobro === "cuadrante" ? "cuadrante_1" : "boca");
+  };
+  const precioSugerido = proc ? proc.precio_base_centimos * unidadesZona(porZona && zona ? (zona as Zona) : null, proc.cobro_por) : null;
   const error = (c: CampoItem) => e[c] ? <span className="text-xs font-normal text-red-700">{e[c]}</span> : null;
   // Sin Object.groupBy: las tablets con navegadores algo antiguos no lo tienen.
   const porEspecialidad = [...new Set(opciones.catalogo.map((p) => p.especialidad))]
@@ -104,7 +116,7 @@ function CamposItem({ pacienteId, planId, opciones, estado, accion, guardando }:
         <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
           <label htmlFor="i-procedimiento">Procedimiento (catálogo)</label>
           {/* No controlado: React 19 reinicia el formulario tras cada envío. */}
-          <select id="i-procedimiento" name="procedimiento_id" defaultValue={procId} onChange={(ev) => setProcId(ev.target.value)}
+          <select id="i-procedimiento" name="procedimiento_id" defaultValue={procId} onChange={(ev) => elegirProcedimiento(ev.target.value)}
             aria-invalid={!!e.procedimiento_id} className={ENTRADA}>
             <option value="">Elegir…</option>
             {porEspecialidad.map(([esp, lista]) => (
@@ -118,8 +130,12 @@ function CamposItem({ pacienteId, planId, opciones, estado, accion, guardando }:
         <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
           <label htmlFor="i-precio">Precio (S/)</label>
           <input id="i-precio" name="precio" inputMode="decimal" defaultValue={t("precio")} aria-invalid={!!e.precio}
-            placeholder={proc ? formatearSoles(proc.precio_base_centimos).replace("S/ ", "") : "del catálogo"} className={ENTRADA} />
-          <span className="text-xs font-normal text-gray-500">Vacío: precio del catálogo. Con varias piezas, es el precio de cada una.</span>
+            placeholder={precioSugerido !== null ? formatearSoles(precioSugerido).replace("S/ ", "") : "del catálogo"} className={ENTRADA} />
+          <span className="text-xs font-normal text-gray-500">
+            {proc?.cobro_por && proc.cobro_por !== "pieza"
+              ? `Vacío: precio del catálogo (${COBRO_POR[proc.cobro_por].toLowerCase()}) según la zona elegida.`
+              : "Vacío: precio del catálogo. Con varias piezas, es el precio de cada una."}
+          </span>
           {error("precio")}
         </div>
         <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
@@ -129,6 +145,34 @@ function CamposItem({ pacienteId, planId, opciones, estado, accion, guardando }:
           {error("duracion_minutos")}
         </div>
       </div>
+      <fieldset className="flex flex-col gap-2 text-sm font-medium text-gray-700">
+        <legend>Dónde se trabaja</legend>
+        <div className="flex flex-wrap gap-2 pt-1">
+          {([[false, "Piezas"], [true, "Una zona (cuadrante, arcada o boca)"]] as const).map(([valor, texto]) => (
+            <label key={texto} className={`flex min-h-10 cursor-pointer items-center gap-2 rounded-md border px-3 py-2 font-normal ${
+              porZona === valor ? "border-teal-700 bg-teal-50 text-teal-900" : "border-gray-300"}`}>
+              <input type="radio" name="modo_ubicacion" checked={porZona === valor}
+                onChange={() => { setPorZona(valor); if (valor && !zona) setZona("boca"); }} /> {texto}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      {porZona ? (
+        <fieldset className="flex flex-col gap-2 text-sm font-medium text-gray-700">
+          <legend>Zona</legend>
+          <input type="hidden" name="zona" value={zona} />
+          <div className="flex flex-wrap gap-2 pt-1">
+            {(Object.entries(ZONAS) as [Zona, string][]).map(([k, texto]) => (
+              <button key={k} type="button" onClick={() => setZona(k)} aria-pressed={zona === k}
+                className={`min-h-10 rounded-md border px-3 py-2 text-sm font-normal ${
+                  zona === k ? "border-teal-700 bg-teal-700 text-white" : "border-gray-300 hover:bg-gray-50"}`}>
+                {texto}
+              </button>
+            ))}
+          </div>
+          {error("zona")}
+        </fieldset>
+      ) : (
       <div className="grid gap-4 sm:grid-cols-[14rem_1fr]">
         <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
           <label htmlFor="i-pieza">Piezas (FDI)</label>
@@ -151,6 +195,7 @@ function CamposItem({ pacienteId, planId, opciones, estado, accion, guardando }:
           {error("superficies")}
         </fieldset>
       </div>
+      )}
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
           <label htmlFor="i-fase">Fase</label>

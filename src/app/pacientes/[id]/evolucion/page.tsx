@@ -3,11 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlertasPaciente } from "@/components/alertas-paciente";
 import { Encabezado } from "@/components/encabezado";
-import { SUPERFICIES, type Superficie } from "@/lib/clinico/diagnostico";
+import type { Superficie } from "@/lib/clinico/diagnostico";
 import { itemsConConsentimiento, type ItemConOrigen } from "@/lib/clinico/consentimientos";
 import { CAMPOS_EVOLUCION, LISTA_CAMPOS_EVOLUCION, type CampoEvolucion } from "@/lib/clinico/evolucion";
 import { fechaLima, formatearFecha, horaLima } from "@/lib/fechas";
 import { modulos } from "@/lib/funciones";
+import { ubicacionItem } from "@/lib/plan/plan";
 import { nombreVersion } from "@/lib/plan/plan";
 import { registrarError } from "@/lib/registro";
 import { createClient } from "@/lib/supabase/server";
@@ -28,16 +29,15 @@ type Nota = Record<Exclude<CampoEvolucion, "texto">, string | null> & {
   evolucion_item: { item_id: string; trabajado: boolean; terminado: boolean }[];
 };
 type Item = {
-  id: string; plan_id: string; procedimiento: string; pieza: number | null; superficies: Superficie[] | null;
+  id: string; plan_id: string; procedimiento: string; pieza: number | null; superficies: Superficie[] | null; zona: string | null;
   estado: string; nota_evolucion_id: string | null; fase: number | null; orden: number; procedimiento_id: string | null;
   item_origen_id?: string | null;
 };
 type Plan = { id: string; titulo: string; version: number; alternativa: string; estado: string };
 
 const fechaHora = (iso: string) => `${formatearFecha(fechaLima(iso))}, ${horaLima(iso)}`;
-const describir = (i: Pick<Item, "procedimiento" | "pieza" | "superficies">) =>
-  `${i.procedimiento}${i.pieza === null ? "" : ` · pieza ${i.pieza}`}${
-    i.superficies?.length ? ` (${i.superficies.map((s) => SUPERFICIES[s].toLowerCase()).join(", ")})` : ""}`;
+const describir = (i: Pick<Item, "procedimiento" | "pieza" | "superficies" | "zona">) =>
+  `${i.procedimiento}${i.pieza === null && !i.zona ? "" : ` · ${ubicacionItem(i)}`}`;
 
 export default async function Evolucion({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -58,7 +58,7 @@ export default async function Evolucion({ params }: { params: Promise<{ id: stri
   const idsPlanes = (planes.data ?? []).map((p) => p.id);
   const items = idsPlanes.length > 0
     ? await supabase.from("item_plan")
-        .select("id, plan_id, procedimiento, pieza, superficies, estado, nota_evolucion_id, fase, orden, procedimiento_id")
+        .select("id, plan_id, procedimiento, pieza, superficies, zona, estado, nota_evolucion_id, fase, orden, procedimiento_id")
         .in("plan_id", idsPlanes).order("fase", { nullsFirst: true }).order("orden").returns<Item[]>()
     : { data: [] as Item[], error: null };
   // Etapa 7: ítems que requieren consentimiento firmado y aún no lo tienen (la firma fallaría).
