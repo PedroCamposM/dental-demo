@@ -27,6 +27,7 @@ async function dentista(pacienteId: string): Promise<{ error: string } | { error
 function mensaje(error: { code?: string; message: string }, contexto: string, que: string): string {
   if (esSoloLectura(error)) return `${error.message}.`;
   if (error.code === "P0001") return error.message;
+  if (error.code === "42501") return "Tu rol no puede hacer este cambio.";
   registrarError(contexto, error);
   return `No se pudo ${que}. Inténtalo de nuevo.`;
 }
@@ -103,6 +104,13 @@ export async function crearPlanFicha(previo: EstadoCrear, form: FormData): Promi
   if (d.error !== null) return fallo(d.error);
   if (!modulos.etapa5) return fallo("El plan de tratamiento aún no está habilitado.");
   const supabase = await createClient();
+  // Otra pestaña (o un doble clic) ya lo creó: no se duplica, solo se muestra.
+  const { count: vigentes } = await supabase.from("plan_tratamiento").select("id", { count: "exact", head: true })
+    .eq("paciente_id", pacienteId).in("estado", ["propuesto", "aceptado", "en_curso", "detenido"]);
+  if ((vigentes ?? 0) > 0) {
+    revalidatePath(ruta(pacienteId));
+    return { error: null, intento: previo.intento + 1, valores: {} };
+  }
   const { data: plan, error } = await supabase.from("plan_tratamiento").insert({
     clinica_id: d.sesion.clinicaId, paciente_id: pacienteId, odontologo_id: d.sesion.usuarioId, titulo: "Plan de tratamiento",
   }).select("id").single<{ id: string }>();
@@ -126,6 +134,13 @@ export async function abrirLaborHoy(previo: EstadoCrear, form: FormData): Promis
   if (d.error !== null) return fallo(d.error);
   if (!modulos.etapa6) return fallo("La evolución aún no está habilitada.");
   const supabase = await createClient();
+  // Si ya tiene un borrador abierto de este paciente, se usa ese (no se abre otro).
+  const { count: abiertos } = await supabase.from("nota_evolucion").select("id", { count: "exact", head: true })
+    .eq("paciente_id", pacienteId).eq("odontologo_id", d.sesion.usuarioId).is("firmada_at", null).is("anulado_at", null);
+  if ((abiertos ?? 0) > 0) {
+    revalidatePath(ruta(pacienteId));
+    return { error: null, intento: previo.intento + 1, valores: {} };
+  }
   const { error } = await supabase.from("nota_evolucion").insert({
     clinica_id: d.sesion.clinicaId, paciente_id: pacienteId, odontologo_id: d.sesion.usuarioId, texto: "",
   });

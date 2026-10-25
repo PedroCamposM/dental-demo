@@ -19,6 +19,7 @@ import { createClient } from "@/lib/supabase/server";
 import { abrirHistoria, COLUMNAS_VERSION, puedeGestar, type Version } from "../datos-clinicos";
 import { FormularioDiagnostico } from "../examen/formularios";
 import { EditorEvolucion, type ItemPendiente } from "../evolucion/formularios";
+import { itemsSinConsentimiento } from "../evolucion/sin-consentimiento";
 import { EditorOdontograma } from "../odontograma/formularios";
 import { DecisionPlan, NuevoItem, type OpcionesItem } from "../plan/formularios";
 import { AbrirLabor, CrearOdontograma, CrearPlan, FormAnamnesis } from "./formulario";
@@ -42,7 +43,7 @@ type Diagnostico = { id: string; cie10: string; tipo: string; pieza: number | nu
 type Plan = { id: string; titulo: string; estado: string; presentado_at: string };
 type Item = {
   id: string; plan_id: string; procedimiento: string; pieza: number | null; superficies: string[] | null; zona: string | null;
-  precio_centimos: number; estado: EstadoItem; nota_evolucion_id: string | null; orden: number;
+  precio_centimos: number; estado: EstadoItem; nota_evolucion_id: string | null; orden: number; procedimiento_id: string | null;
 };
 type Nota = Record<Exclude<CampoEvolucion, "texto">, string | null> & {
   id: string; texto: string; fecha: string; odontologo_id: string; firmada_at: string | null; anulado_at: string | null;
@@ -126,7 +127,7 @@ export default async function AtencionRapida({ params }: { params: Promise<{ id:
   const planes = planesR.data ?? [];
   const plan = planes[0] ?? null;
   const itemsR = planes.length > 0
-    ? await supabase.from("item_plan").select("id, plan_id, procedimiento, pieza, superficies, zona, precio_centimos, estado, nota_evolucion_id, orden")
+    ? await supabase.from("item_plan").select("id, plan_id, procedimiento, pieza, superficies, zona, precio_centimos, estado, nota_evolucion_id, orden, procedimiento_id")
         .in("plan_id", planes.map((x) => x.id)).order("orden").returns<Item[]>()
     : { data: [] as Item[], error: null };
   const items = itemsR.data ?? [];
@@ -151,8 +152,16 @@ export default async function AtencionRapida({ params }: { params: Promise<{ id:
   const control = notas.filter((n) => n.firmada_at || n.anulado_at);
   const borradores = notas.filter((n) => !n.firmada_at && !n.anulado_at && n.odontologo_id === sesion.usuarioId);
   const porId = new Map(items.map((i) => [i.id, i]));
+  // Lo mismo que avisa la pestaña Evolución: sin consentimiento firmado, la firma fallaría.
+  // (todas las versiones del plan: el consentimiento puede venir de una anterior)
+  const todosPlanes = borradores.length > 0 && modulos.etapa7
+    ? (await supabase.from("plan_tratamiento").select("id").eq("paciente_id", id).returns<{ id: string }[]>()).data ?? [] : [];
+  const sinConsentimiento = await itemsSinConsentimiento(supabase, id, items, todosPlanes.map((x) => x.id));
   const pendientes: ItemPendiente[] = items.filter((i) => i.estado === "aceptado" || i.estado === "programado")
-    .map((i) => ({ id: i.id, descripcion: `${i.procedimiento}${i.pieza !== null || i.zona ? ` · ${ubicacionItem(i)}` : ""}`, plan: "Plan" }));
+    .map((i) => ({
+      id: i.id, descripcion: `${i.procedimiento}${i.pieza !== null || i.zona ? ` · ${ubicacionItem(i)}` : ""}`, plan: "Plan",
+      sinConsentimiento: sinConsentimiento.has(i.id),
+    }));
 
   const filiacion: [string, string | null][] = [
     ["Edad", e === null ? null : `${e} años`], ["Sexo", p.sexo ? p.sexo.charAt(0).toUpperCase() + p.sexo.slice(1) : null],
@@ -251,7 +260,7 @@ export default async function AtencionRapida({ params }: { params: Promise<{ id:
               </div>
             ) : esAutorOdontograma ? (
               <EditorOdontograma key={odontograma.id} pacienteId={id} odontogramaId={odontograma.id} catalogo={catalogoHallazgos}
-                piezaInicial={null} hallazgos={hallazgos} titulo={tituloOdontograma}
+                piezaInicial={null} hallazgos={hallazgos} titulo={tituloOdontograma} idTitulo="t-odontograma-ficha"
                 antes={<h2 id="t-odontograma-ficha" className={TITULO}>
                   Odontograma · {formatearFecha(fechaLima(odontograma.fecha))} · dentición {DENTICIONES[odontograma.denticion].toLowerCase()}
                 </h2>}

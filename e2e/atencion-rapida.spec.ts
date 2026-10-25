@@ -53,7 +53,8 @@ test("la odontóloga llena la ficha rápida de una página, de la anamnesis a la
   await expect(page.getByRole("button", { name: "Ambas arcadas (boca completa)" })).toHaveAttribute("aria-pressed", "true");
   await page.getByRole("button", { name: "Agregar al plan" }).click();
   await expect(page.getByText(/Agregado: Profilaxis y destartraje \(ambas arcadas/)).toBeVisible();
-  await expect(page.getByRole("region", { name: "Plan de tratamiento" })).toContainText("Ambas arcadas (boca completa)");
+  await expect(page.getByRole("region", { name: "Plan de tratamiento" }).locator("ol > li").filter({ hasText: "Profilaxis y destartraje" }))
+    .toContainText("Ambas arcadas (boca completa)");
   await page.getByRole("button", { name: "Registrar aceptación" }).click();
   await expect(page.getByRole("region", { name: "Plan de tratamiento" })).toContainText("aceptado");
 

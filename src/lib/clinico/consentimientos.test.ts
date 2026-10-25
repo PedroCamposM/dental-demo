@@ -76,4 +76,11 @@ describe("itemsConConsentimiento", () => {
     const r = itemsConConsentimiento(items, new Set([A]));
     expect([...r].sort()).toEqual([A, B]);
   });
+  it("no hereda el consentimiento si la versión cambió la zona", () => {
+    const items = [
+      { id: A, item_origen_id: null, procedimiento_id: "p", pieza: null, zona: "cuadrante_1" },
+      { id: B, item_origen_id: A, procedimiento_id: "p", pieza: null, zona: "boca" },
+    ];
+    expect([...itemsConConsentimiento(items, new Set([A]))]).toEqual([A]);
+  });
 });

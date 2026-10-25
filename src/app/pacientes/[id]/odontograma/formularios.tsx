@@ -81,13 +81,15 @@ type PropsEditor = {
   hallazgos: HallazgoDibujo[]; titulo: string;
   /** Lo que va en la tarjeta del odontograma antes y después del dibujo (encabezado, leyenda). */
   antes: ReactNode; despues: ReactNode;
+  /** id del encabezado (en `antes`) que nombra la tarjeta. */
+  idTitulo?: string;
 };
 
 /**
  * Odontograma editable: se tocan una o varias piezas en el dibujo (sin recargar la página) y
  * se registra el mismo hallazgo en todas de una vez; cada pieza queda con su propio registro.
  */
-export function EditorOdontograma({ pacienteId, odontogramaId, catalogo, piezaInicial, hallazgos, titulo, antes, despues }: PropsEditor) {
+export function EditorOdontograma({ pacienteId, odontogramaId, catalogo, piezaInicial, hallazgos, titulo, antes, despues, idTitulo }: PropsEditor) {
   const [estado, accion, guardando] = useActionState<EstadoHallazgo, FormData>(agregarHallazgo, {
     errores: {}, mensaje: null, intento: 0,
     valores: { textos: { pieza: piezaInicial ? String(piezaInicial) : "" }, superficies: [], siglas: [] },
@@ -97,11 +99,11 @@ export function EditorOdontograma({ pacienteId, odontogramaId, catalogo, piezaIn
   return (
     <CuerpoEditor key={estado.intento} estado={estado} accion={accion} guardando={guardando} codigo={codigo} setCodigo={setCodigo}
       pacienteId={pacienteId} odontogramaId={odontogramaId} catalogo={catalogo} hallazgos={hallazgos} titulo={titulo}
-      antes={antes} despues={despues} />
+      antes={antes} despues={despues} idTitulo={idTitulo} />
   );
 }
 
-function CuerpoEditor({ estado, accion, guardando, codigo, setCodigo, pacienteId, odontogramaId, catalogo, hallazgos, titulo, antes, despues }:
+function CuerpoEditor({ estado, accion, guardando, codigo, setCodigo, pacienteId, odontogramaId, catalogo, hallazgos, titulo, antes, despues, idTitulo = "t-odontograma" }:
   Omit<PropsEditor, "piezaInicial"> & {
     estado: EstadoHallazgo; accion: (f: FormData) => void; guardando: boolean; codigo: string; setCodigo: (c: string) => void;
   }) {
@@ -135,7 +137,7 @@ function CuerpoEditor({ estado, accion, guardando, codigo, setCodigo, pacienteId
 
   return (
     <>
-      <section aria-labelledby="t-odontograma" className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
+      <section aria-labelledby={idTitulo} className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
         {antes}
         <div className="mt-4 overflow-x-auto">
           <div className="min-w-[44rem]">

@@ -870,6 +870,22 @@ emergencia. Se hizo antes una auditoría de experiencia (21.0, solo lectura).
 - Pruebas SQL con fecha de Lima: `suscripcion`, `superadmin` y `gestion_clientes` usaban
   `current_date` (UTC) y fallaban entre las 19:00 y las 24:00 de Lima.
 - Checklist: `docs/checklist-etapa21.md`.
+- Revisión independiente (25-oct). Corregido:
+  - El seed no fijaba cómo se cotiza (los seeds van después de las migraciones):
+    `seed_etapa21.sql` (PRE-01 por boca, PER-01 por cuadrante) y su verificación en `seed.check`.
+    0935 también deja «por cuadrante» lo que lo dice en el nombre.
+  - Las clínicas de prueba nuevas copian `cobro_por` del catálogo de la demo
+    (`crear_clinica_prueba` recreada en 0935).
+  - La zona queda fija, como la pieza, en un ítem aceptado o con consentimiento, y el
+    consentimiento de una versión anterior solo vale para la misma zona (base y pantalla).
+  - La labor de hoy en la ficha avisa del consentimiento faltante, como la pestaña Evolución
+    (`itemsSinConsentimiento`, compartida).
+  - «Empezar plan» y «Registrar labor de hoy» no duplican el plan ni el borrador.
+  - Un mensaje claro para un rol sin permiso, el nombre accesible del odontograma en la ficha y
+    aserciones e2e más precisas.
+
+  Queda para decidir con Pedro: el precio sugerido de una zona parcial con un procedimiento «por
+  boca» (hoy, el precio completo; se puede editar).
 
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 

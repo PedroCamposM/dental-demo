@@ -50,6 +50,12 @@ create temp table v2 as select public.copiar_plan('edededed-0000-0000-0000-00000
 grant select on v2 to authenticated;
 select pruebas.igual((select count(*) from public.item_plan where plan_id = (select id from v2) and zona = 'boca' and pieza is null), 1,
                      'la versión copia la zona');
+-- Aceptado, la zona ya no cambia (es lo que el paciente aceptó, como la pieza)
+select public.aceptar_plan((select id from v2));
+select pruebas.debe_fallar($$update public.item_plan set zona = 'cuadrante_1' where plan_id = (select id from v2)$$,
+                           'no cambian');
+select pruebas.igual((select count(*) from public.item_plan where plan_id = (select id from v2) and zona = 'boca'), 1,
+                     'la zona aceptada sigue igual');
 reset role;
 select pruebas.como(null);
 \echo 'plan_zona: todas las aserciones pasaron'

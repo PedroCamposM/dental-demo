@@ -51,7 +51,7 @@ export default async function TableroClinico() {
       .returns<{ plan_id: string; paciente_id: string; valor_pendiente_centimos: number }[]>(),
     // Ítems por hacer cuyo procedimiento requiere consentimiento
     supabase.from("item_plan")
-      .select("id, item_origen_id, procedimiento_id, pieza, procedimiento, estado, plan_tratamiento!inner(id, estado, paciente(id, nombres, apellidos)), procedimiento_cat:procedimiento!item_plan_procedimiento_fk!inner(requiere_consentimiento)")
+      .select("id, item_origen_id, procedimiento_id, pieza, zona, procedimiento, estado, plan_tratamiento!inner(id, estado, paciente(id, nombres, apellidos)), procedimiento_cat:procedimiento!item_plan_procedimiento_fk!inner(requiere_consentimiento)")
       .eq("procedimiento_cat.requiere_consentimiento", true).in("estado", ["aceptado", "programado"])
       .in("plan_tratamiento.estado", ["aceptado", "en_curso", "detenido"]).limit(300)
       .returns<(ItemConOrigen & { procedimiento: string; plan_tratamiento: { id: string; paciente: Paciente } })[]>(),
