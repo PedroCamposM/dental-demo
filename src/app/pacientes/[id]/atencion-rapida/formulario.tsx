@@ -1,180 +1,182 @@
 "use client";
 
 import { useActionState } from "react";
-import { FILAS_PROCEDIMIENTO, type CampoAtencion } from "@/lib/clinico/atencion-rapida";
-import { registrarAtencion, type EstadoAtencion } from "./acciones";
+import { EMBARAZO, ENFERMEDADES } from "@/lib/historia/cuestionario";
+import { DENTICIONES } from "@/lib/odontograma/hallazgo";
+import {
+  abrirLaborHoy, crearOdontogramaFicha, crearPlanFicha, guardarAnamnesis, type EstadoAnamnesis, type EstadoCrear,
+} from "./acciones";
 
 const ENTRADA =
   "w-full rounded-md border border-gray-300 px-3 py-2 text-base font-normal focus:border-teal-600 focus:outline-none focus:ring-2 focus:ring-teal-600/30 aria-[invalid=true]:border-red-500";
+const BOTON = "min-h-10 rounded-md bg-teal-700 px-4 py-2 font-medium text-white hover:bg-teal-800 disabled:opacity-60";
 const ETIQUETA = "flex flex-col gap-1 text-sm font-medium text-gray-700";
 
-export type Previo = {
-  alergias: string[]; anticoagulado: boolean; anticoagulante: string | null; medicacion: string | null; embarazo: string;
+// ---------------------------------------------------------------------------
+// Anamnesis: motivo, enfermedad actual, alergias y antecedentes (como en la hoja de papel)
+// ---------------------------------------------------------------------------
+export type InicialAnamnesis = {
+  motivo_consulta: string; enfermedad_actual: string; alergias: string; alergias_ninguna: boolean; enfermedades: string[];
+  enfermedades_otras: string; antecedentes_familiares: string; medicacion: string; anticoagulado: boolean; anticoagulante: string;
+  embarazo: string; semanas_gestacion: string;
 };
 
-export function FormularioAtencionRapida({ pacienteId, previo, preguntarEmbarazo, procedimientos, conConsentimiento }: {
-  pacienteId: string; previo: Previo | null; preguntarEmbarazo: boolean;
-  procedimientos: { id: string; codigo: string; nombre: string }[]; conConsentimiento: string[];
+export function FormAnamnesis({ pacienteId, inicial, preguntarEmbarazo }: {
+  pacienteId: string; inicial: InicialAnamnesis; preguntarEmbarazo: boolean;
 }) {
-  // Lo ya registrado en la historia se trae para confirmarlo con el paciente (no se adivina nada).
-  const inicial: Record<string, string> = previo ? {
-    alergias: previo.alergias.join(", "), alergias_ninguna: "",
-    anticoagulado: previo.anticoagulado ? "si" : "no", anticoagulante: previo.anticoagulante ?? "",
-    medicacion: previo.medicacion ?? "", embarazo: preguntarEmbarazo ? "" : "no_aplica",
-  } : { embarazo: preguntarEmbarazo ? "" : "no_aplica" };
-  const [estado, accion, enviando] = useActionState<EstadoAtencion, FormData>(registrarAtencion, {
-    errores: {}, valores: inicial, intento: 0,
+  const [estado, accion, guardando] = useActionState<EstadoAnamnesis, FormData>(guardarAnamnesis, {
+    errores: {}, mensaje: null, intento: 0, valores: null,
   });
-  const v = estado.valores;
+  const t = estado.valores?.textos;
+  const v = (c: keyof InicialAnamnesis): string => (t ? t[c] ?? "" : String(inicial[c] ?? ""));
+  const marcado = (c: "alergias_ninguna" | "anticoagulado") => (t ? t[c] === "1" : inicial[c]);
+  const enfermedades = estado.valores?.enfermedades ?? inicial.enfermedades;
   const e = estado.errores;
-  const t = (c: string) => v[c] ?? "";
-  const error = (c: CampoAtencion) => e[c] ? <span className="text-xs font-normal text-red-700">{e[c]}</span> : null;
-  const campo = (c: CampoAtencion, etiqueta: string, props: React.InputHTMLAttributes<HTMLInputElement> = {}) => (
-    <div className={ETIQUETA}>
-      <label htmlFor={`ar-${c}`}>{etiqueta}</label>
-      <input {...props} id={`ar-${c}`} name={c} defaultValue={t(c)} aria-invalid={!!e[c]} className={ENTRADA} />
-      {error(c)}
-    </div>
-  );
-  const area = (c: CampoAtencion, etiqueta: string, filas = 2) => (
-    <div className={ETIQUETA}>
-      <label htmlFor={`ar-${c}`}>{etiqueta}</label>
-      <textarea id={`ar-${c}`} name={c} rows={filas} defaultValue={t(c)} aria-invalid={!!e[c]} className={ENTRADA} />
-      {error(c)}
-    </div>
-  );
-  const seccion = "mt-6 rounded-xl border border-gray-200 bg-white p-5";
-
+  const error = (c: string) => e[c] ? <span id={`fa-${c}-error`} className="text-xs font-normal text-red-700">{e[c]}</span> : null;
   return (
-    <form key={estado.intento} action={accion} className="flex flex-col" noValidate>
+    <form key={estado.intento} action={accion} className="flex flex-col gap-4" noValidate aria-label="Anamnesis">
       <input type="hidden" name="paciente_id" value={pacienteId} />
-
-      <section aria-labelledby="ar-t-historia" className={seccion}>
-        <h2 id="ar-t-historia" className="mb-3 text-lg font-semibold">1. Anamnesis</h2>
-        <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
-          {area("motivo_consulta", "Motivo de consulta")}
-          {campo("tiempo_enfermedad", "Tiempo de enfermedad", { placeholder: "p. ej. 3 días", maxLength: 100 })}
-        </div>
-        <fieldset className="mt-4 flex flex-col gap-2 text-sm font-medium text-gray-700">
-          <legend>Alergias</legend>
-          <input id="ar-alergias" name="alergias" defaultValue={t("alergias")} aria-label="Alergias (separadas por comas)"
-            placeholder="p. ej. Penicilina, látex" aria-invalid={!!e.alergias} className={ENTRADA} />
-          <label className="flex items-center gap-2 font-normal">
-            <input type="checkbox" name="alergias_ninguna" value="1" defaultChecked={t("alergias_ninguna") === "1"} /> Ninguna conocida
+      <div className="grid gap-4 md:grid-cols-2">
+        <label className={ETIQUETA}>
+          Motivo de consulta *
+          <textarea name="motivo_consulta" rows={2} maxLength={500} defaultValue={v("motivo_consulta")} aria-required
+            aria-invalid={!!e.motivo_consulta} className={ENTRADA} />
+          {error("motivo_consulta")}
+        </label>
+        <label className={ETIQUETA}>
+          Enfermedad actual
+          <textarea name="enfermedad_actual" rows={2} maxLength={2000} defaultValue={v("enfermedad_actual")}
+            aria-invalid={!!e.enfermedad_actual} className={ENTRADA} />
+          {error("enfermedad_actual")}
+        </label>
+      </div>
+      <fieldset className="flex flex-col gap-2">
+        <legend className="text-sm font-medium text-gray-700">Alergias *</legend>
+        <div className="flex flex-wrap items-center gap-3">
+          <input name="alergias" aria-label="Alergias" maxLength={600} defaultValue={v("alergias")} placeholder="p. ej. penicilina, látex"
+            aria-invalid={!!e.alergias} className={`${ENTRADA} max-w-md`} />
+          <label className="flex min-h-10 items-center gap-2 text-sm">
+            <input type="checkbox" name="alergias_ninguna" value="1" defaultChecked={marcado("alergias_ninguna")} /> Ninguna conocida
           </label>
-          {error("alergias")}
-        </fieldset>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <fieldset className="flex flex-col gap-2 text-sm font-medium text-gray-700">
-            <legend>¿Toma anticoagulantes?</legend>
-            <div className="flex gap-4 pt-1">
-              {(["no", "si"] as const).map((x) => (
-                <label key={x} className="flex items-center gap-2 font-normal">
-                  <input type="radio" name="anticoagulado" value={x} defaultChecked={t("anticoagulado") === x} /> {x === "si" ? "Sí" : "No"}
-                </label>
-              ))}
-            </div>
-            {error("anticoagulado")}
-          </fieldset>
-          {campo("anticoagulante", "¿Cuál? (si toma)", { maxLength: 200 })}
         </div>
-        {preguntarEmbarazo ? (
-          <fieldset className="mt-4 flex flex-col gap-2 text-sm font-medium text-gray-700">
-            <legend>¿Embarazo?</legend>
-            <div className="flex flex-wrap gap-4 pt-1">
-              {([["no", "No"], ["si", "Sí"], ["no_sabe", "No sabe"]] as const).map(([x, texto]) => (
-                <label key={x} className="flex items-center gap-2 font-normal">
-                  <input type="radio" name="embarazo" value={x} defaultChecked={t("embarazo") === x} /> {texto}
-                </label>
-              ))}
-            </div>
-            {error("embarazo")}
-            <div className="mt-1 flex flex-wrap items-end gap-4">
-              <label className="flex flex-col gap-1 font-medium">
-                Semanas de gestación (si está embarazada)
-                <input name="semanas_gestacion" inputMode="numeric" maxLength={2} defaultValue={t("semanas_gestacion")}
-                  aria-invalid={!!e.semanas_gestacion} className={`${ENTRADA} w-28`} />
-              </label>
-              <label className="flex items-center gap-2 pb-2 font-normal">
-                <input type="checkbox" name="lactancia" value="1" defaultChecked={t("lactancia") === "1"} /> En lactancia
-              </label>
-            </div>
-            {error("semanas_gestacion")}
-          </fieldset>
-        ) : <input type="hidden" name="embarazo" value="no_aplica" />}
-        <div className="mt-4">{area("medicacion", "Medicación actual (opcional)")}</div>
-      </section>
-
-      <section aria-labelledby="ar-t-examen" className={seccion}>
-        <h2 id="ar-t-examen" className="mb-3 text-lg font-semibold">2. Examen y diagnóstico</h2>
-        <div className="grid gap-4 sm:grid-cols-[2fr_1fr]">
-          {area("examen", "Examen (lo encontrado)", 3)}
-          <div className={ETIQUETA}>
-            <label htmlFor="ar-higiene">Higiene (opcional)</label>
-            <select id="ar-higiene" name="higiene" defaultValue={t("higiene")} className={ENTRADA}>
-              <option value="">—</option><option value="buena">Buena</option><option value="regular">Regular</option><option value="mala">Mala</option>
-            </select>
-          </div>
-        </div>
-        <div className="mt-4 grid gap-4 sm:grid-cols-3">
-          {campo("cie10", "Diagnóstico CIE-10", { placeholder: "p. ej. K02.1", maxLength: 10 })}
-          <fieldset className="flex flex-col gap-2 text-sm font-medium text-gray-700">
-            <legend>Tipo</legend>
-            <div className="flex gap-4 pt-1">
-              {(["definitivo", "presuntivo"] as const).map((x) => (
-                <label key={x} className="flex items-center gap-2 font-normal">
-                  <input type="radio" name="tipo_dx" value={x} defaultChecked={(t("tipo_dx") || "definitivo") === x} />
-                  {x === "definitivo" ? "Definitivo" : "Presuntivo"}
-                </label>
-              ))}
-            </div>
-          </fieldset>
-          {campo("pieza_dx", "Pieza (opcional)", { inputMode: "numeric", maxLength: 2 })}
-        </div>
-      </section>
-
-      <section aria-labelledby="ar-t-tratamiento" className={seccion}>
-        <h2 id="ar-t-tratamiento" className="mb-3 text-lg font-semibold">3. Tratamiento realizado</h2>
-        <div className="flex flex-col gap-3">
-          {Array.from({ length: FILAS_PROCEDIMIENTO }, (_, n) => (
-            <div key={n} className="grid gap-3 sm:grid-cols-[2fr_1fr]">
-              <select name={`procedimiento_${n}`} defaultValue={t(`procedimiento_${n}`)} aria-label={`Procedimiento ${n + 1}`}
-                className={ENTRADA}>
-                <option value="">{n === 0 ? "Elegir procedimiento…" : "(otro procedimiento, opcional)"}</option>
-                {procedimientos.map((p) => <option key={p.id} value={p.id}>{p.codigo} · {p.nombre}</option>)}
-              </select>
-              <input name={`piezas_${n}`} defaultValue={t(`piezas_${n}`)} aria-label={`Piezas del procedimiento ${n + 1}`}
-                placeholder="Piezas (p. ej. 36 o 16, 26)" inputMode="numeric" className={ENTRADA} />
-            </div>
+        {error("alergias")}
+      </fieldset>
+      <fieldset className="flex flex-col gap-2">
+        <legend className="text-sm font-medium text-gray-700">Antecedentes</legend>
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(ENFERMEDADES).map(([k, texto]) => (
+            <label key={k} className="flex min-h-10 items-center gap-2 rounded-md border border-gray-200 px-3 text-sm">
+              <input type="checkbox" name="enfermedades" value={k} defaultChecked={enfermedades.includes(k)} /> {texto}
+            </label>
           ))}
-          {error("procedimientos")}
-          {conConsentimiento.length > 0 && (
-            <p className="text-xs text-gray-500">
-              No aparecen porque requieren consentimiento informado firmado (flujo completo): {conConsentimiento.join(", ")}.
-            </p>
-          )}
         </div>
-        <div className="mt-4">{area("descripcion", "Descripción de lo realizado", 3)}</div>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          {campo("anestesia_tipo", "Anestesia (opcional)", { placeholder: "p. ej. infiltrativa, lidocaína 2 %", maxLength: 100 })}
-          {campo("anestesia_cantidad", "Cantidad (opcional)", { placeholder: "p. ej. 1 cartucho", maxLength: 100 })}
+        <div className="grid gap-4 md:grid-cols-2">
+          <label className={ETIQUETA}>
+            Otros antecedentes personales
+            <input name="enfermedades_otras" maxLength={500} defaultValue={v("enfermedades_otras")} className={ENTRADA} />
+            {error("enfermedades_otras")}
+          </label>
+          <label className={ETIQUETA}>
+            Medicación actual
+            <input name="medicacion" maxLength={1000} defaultValue={v("medicacion")} className={ENTRADA} />
+            {error("medicacion")}
+          </label>
         </div>
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          {area("indicaciones", "Indicaciones (opcional)")}
-          {campo("proxima_cita", "Próxima cita sugerida (opcional)", { maxLength: 200 })}
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex min-h-10 items-center gap-2 text-sm">
+            <input type="checkbox" name="anticoagulado" value="1" defaultChecked={marcado("anticoagulado")} /> Toma anticoagulantes
+          </label>
+          <label className={`${ETIQUETA} min-w-56 flex-1`}>
+            ¿Cuál?
+            <input name="anticoagulante" maxLength={200} defaultValue={v("anticoagulante")} aria-invalid={!!e.anticoagulante} className={ENTRADA} />
+            {error("anticoagulante")}
+          </label>
         </div>
-      </section>
-
-      <div className="mt-6 flex flex-wrap items-center gap-3">
-        <button type="submit" disabled={enviando}
-          onClick={(ev) => { if (!window.confirm("¿Firmar la atención? Después no se edita: solo admite adendas.")) ev.preventDefault(); }}
-          className="rounded-md bg-teal-700 px-5 py-2.5 font-medium text-white hover:bg-teal-800 disabled:opacity-60">
-          {enviando ? "Registrando…" : "Firmar atención"}
-        </button>
+        {preguntarEmbarazo && (
+          <div className="flex flex-wrap items-end gap-3">
+            <label className={ETIQUETA}>
+              Embarazo
+              <select name="embarazo" defaultValue={v("embarazo") || "no"} className={ENTRADA}>
+                {Object.entries(EMBARAZO).filter(([k]) => k !== "no_aplica").map(([k, texto]) => <option key={k} value={k}>{texto}</option>)}
+              </select>
+            </label>
+            <label className={ETIQUETA}>
+              Semanas de gestación
+              <input name="semanas_gestacion" inputMode="numeric" maxLength={2} defaultValue={v("semanas_gestacion")}
+                aria-invalid={!!e.semanas_gestacion} className={`${ENTRADA} w-28`} />
+              {error("semanas_gestacion")}
+            </label>
+          </div>
+        )}
+        <details className="text-sm">
+          <summary className="inline-flex min-h-10 cursor-pointer items-center text-teal-700">Antecedentes familiares</summary>
+          <textarea name="antecedentes_familiares" aria-label="Antecedentes familiares" rows={2} maxLength={1000}
+            defaultValue={v("antecedentes_familiares")} className={`${ENTRADA} mt-1`} />
+        </details>
+      </fieldset>
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="submit" disabled={guardando} className={BOTON}>{guardando ? "Guardando…" : "Guardar anamnesis"}</button>
         {(e.general || Object.keys(e).length > 0) && (
           <p role="alert" className="text-sm text-red-700">{e.general ?? "Revisa los campos marcados."}</p>
         )}
+        {estado.mensaje && <p role="status" className="text-sm text-teal-700">{estado.mensaje}</p>}
       </div>
+    </form>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Crear lo que falta: odontograma, plan, labor de hoy
+// ---------------------------------------------------------------------------
+const INICIAL: EstadoCrear = { error: null, intento: 0, valores: {} };
+
+export function CrearOdontograma({ pacienteId, denticionSugerida }: { pacienteId: string; denticionSugerida: string }) {
+  const [estado, accion, enviando] = useActionState(crearOdontogramaFicha, INICIAL);
+  return (
+    <form key={estado.intento} action={accion} aria-label="Crear odontograma" className="flex flex-col gap-3" noValidate>
+      <input type="hidden" name="paciente_id" value={pacienteId} />
+      <fieldset className="flex flex-col gap-2">
+        <legend className="text-sm font-medium text-gray-700">Dentición</legend>
+        <div className="flex flex-wrap gap-2">
+          {Object.entries(DENTICIONES).map(([k, texto]) => (
+            <label key={k} className="flex min-h-10 items-center gap-2 rounded-md border border-gray-200 px-3 text-sm">
+              <input type="radio" name="denticion" value={k} defaultChecked={(estado.valores.denticion || denticionSugerida) === k} /> {texto}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+      <label className={ETIQUETA}>
+        Especificaciones (opcional)
+        <textarea name="especificaciones" rows={2} maxLength={1000} defaultValue={estado.valores.especificaciones ?? ""}
+          placeholder="p. ej. fluorosis, color del metal" className={ENTRADA} />
+        <span className="text-xs font-normal text-gray-500">Las especificaciones quedan con el odontograma (no se editan después).</span>
+      </label>
+      <div className="flex flex-wrap items-center gap-3">
+        <button type="submit" disabled={enviando} className={BOTON}>{enviando ? "Creando…" : "Empezar odontograma"}</button>
+        {estado.error && <p role="alert" className="text-sm text-red-700">{estado.error}</p>}
+      </div>
+    </form>
+  );
+}
+
+export function CrearPlan({ pacienteId }: { pacienteId: string }) {
+  const [estado, accion, enviando] = useActionState(crearPlanFicha, INICIAL);
+  return (
+    <form action={accion} className="flex flex-wrap items-center gap-3">
+      <input type="hidden" name="paciente_id" value={pacienteId} />
+      <button type="submit" disabled={enviando} className={BOTON}>{enviando ? "Creando…" : "Empezar plan de tratamiento"}</button>
+      {estado.error && <p role="alert" className="text-sm text-red-700">{estado.error}</p>}
+    </form>
+  );
+}
+
+export function AbrirLabor({ pacienteId }: { pacienteId: string }) {
+  const [estado, accion, enviando] = useActionState(abrirLaborHoy, INICIAL);
+  return (
+    <form action={accion} className="flex flex-wrap items-center gap-3">
+      <input type="hidden" name="paciente_id" value={pacienteId} />
+      <button type="submit" disabled={enviando} className={BOTON}>{enviando ? "Abriendo…" : "Registrar labor de hoy"}</button>
+      {estado.error && <p role="alert" className="text-sm text-red-700">{estado.error}</p>}
     </form>
   );
 }
