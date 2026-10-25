@@ -1,6 +1,6 @@
 import "server-only";
 import { notFound, redirect } from "next/navigation";
-import type { Especialidad } from "@/lib/catalogo/validacion";
+import type { CobroPor, Especialidad } from "@/lib/catalogo/validacion";
 import { modulos } from "@/lib/funciones";
 import { obtenerSesion, type Sesion } from "@/lib/sesion";
 
@@ -14,10 +14,11 @@ export type Procedimiento = {
   requiere_consentimiento: boolean;
   control_dias: number | null;
   activo: boolean;
+  cobro_por: CobroPor;
 };
 
 export const COLUMNAS_PROCEDIMIENTO =
-  "id, codigo, nombre, especialidad, precio_base_centimos, duracion_minutos, requiere_consentimiento, control_dias, activo";
+  "id, codigo, nombre, especialidad, precio_base_centimos, duracion_minutos, requiere_consentimiento, control_dias, activo, cobro_por";
 
 /** Páginas del catálogo: módulo encendido y solo administrador. */
 export async function sesionAdminCatalogo(): Promise<Sesion> {

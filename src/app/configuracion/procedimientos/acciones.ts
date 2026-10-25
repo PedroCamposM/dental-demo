@@ -16,7 +16,7 @@ export type EstadoProcedimiento = {
 };
 
 const CAMPOS: CampoProcedimiento[] = [
-  "codigo", "nombre", "especialidad", "precio", "duracion_minutos", "requiere_consentimiento", "control_dias", "activo",
+  "codigo", "nombre", "especialidad", "precio", "duracion_minutos", "requiere_consentimiento", "control_dias", "activo", "cobro_por",
 ];
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

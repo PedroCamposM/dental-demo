@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
-import { ESPECIALIDADES, type CampoProcedimiento, type EntradaProcedimiento } from "@/lib/catalogo/validacion";
+import { COBRO_POR, ESPECIALIDADES, type CampoProcedimiento, type EntradaProcedimiento } from "@/lib/catalogo/validacion";
 import { guardarProcedimiento, type EstadoProcedimiento } from "./acciones";
 
 const ENTRADA =
@@ -84,6 +84,18 @@ export function FormularioProcedimiento({ id, inicial }: Props) {
             {duraciones.map((m) => <option key={m} value={m}>{m} min</option>)}
           </select>
           <MensajeError campo="duracion_minutos" error={e.duracion_minutos} />
+        </div>
+        <div className="flex flex-col gap-1 text-sm font-medium text-gray-700">
+          <Etiqueta campo="cobro_por">Se cotiza</Etiqueta>
+          <select id="campo-cobro_por" name="cobro_por" defaultValue={v.cobro_por || "pieza"} key={`c${clave}`}
+            aria-invalid={!!e.cobro_por} aria-describedby={e.cobro_por ? "campo-cobro_por-error" : "campo-cobro_por-ayuda"}
+            className={ENTRADA}>
+            {Object.entries(COBRO_POR).map(([k, texto]) => <option key={k} value={k}>{texto}</option>)}
+          </select>
+          {e.cobro_por ? <MensajeError campo="cobro_por" error={e.cobro_por} />
+            : <span id="campo-cobro_por-ayuda" className="text-xs font-normal text-gray-500">
+                Profilaxis o destartraje: por arcada o boca completa. En el plan se elige la zona y el precio se calcula solo.
+              </span>}
         </div>
       </div>
 

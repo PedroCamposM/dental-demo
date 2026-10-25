@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { modulos } from "@/lib/funciones";
-import { validarItems, type CampoItem, type DiagnosticoVigente, type ProcedimientoCatalogo } from "@/lib/plan/plan";
+import { validarItems, ZONAS, type CampoItem, type DiagnosticoVigente, type ProcedimientoCatalogo } from "@/lib/plan/plan";
 import { esSoloLectura } from "@/lib/prueba";
 import { registrarError } from "@/lib/registro";
 import { obtenerSesion, type Sesion } from "@/lib/sesion";
@@ -102,7 +102,7 @@ export type EstadoItemForm = {
 export async function agregarItem(previo: EstadoItemForm, form: FormData): Promise<EstadoItemForm> {
   const intento = previo.intento + 1;
   const valores = {
-    textos: Object.fromEntries(["procedimiento_id", "precio", "duracion_minutos", "pieza", "fase", "diagnostico_id"]
+    textos: Object.fromEntries(["procedimiento_id", "precio", "duracion_minutos", "pieza", "zona", "fase", "diagnostico_id"]
       .map((c) => [c, String(form.get(c) ?? "")])),
     superficies: form.getAll("superficies").map(String),
     requiere: form.getAll("requiere").map(String),
@@ -118,7 +118,7 @@ export async function agregarItem(previo: EstadoItemForm, form: FormData): Promi
 
   const supabase = await createClient();
   const [catalogo, fases, diagnosticos, items] = await Promise.all([
-    supabase.from("procedimiento").select("id, codigo, nombre, precio_base_centimos, duracion_minutos").eq("activo", true)
+    supabase.from("procedimiento").select("id, codigo, nombre, precio_base_centimos, duracion_minutos, cobro_por").eq("activo", true)
       .returns<ProcedimientoCatalogo[]>(),
     supabase.from("plan_fase").select("numero").eq("plan_id", planId).returns<{ numero: number }[]>(),
     supabase.from("diagnostico").select("id, pieza, cie10").eq("paciente_id", pacienteId).is("anulado_at", null)
@@ -163,7 +163,7 @@ export async function agregarItem(previo: EstadoItemForm, form: FormData): Promi
   const nombre = r.datos[0]?.procedimiento ?? "";
   let texto = r.datos.length > 1
     ? `Agregados ${r.datos.length} ítems: ${nombre} en las piezas ${r.datos.map((d) => d.pieza).join(", ")}.`
-    : `Agregado: ${nombre}.`;
+    : `Agregado: ${nombre}${r.datos[0]?.zona ? ` (${ZONAS[r.datos[0].zona].toLowerCase()})` : ""}.`;
   const sinDx = valores.textos.diagnostico_id ? r.datos.filter((d) => d.diagnostico_id === null) : [];
   if (sinDx.length > 0) {
     texto += ` Sin diagnóstico de origen (no hay uno con ese CIE-10 en la pieza): ${sinDx.map((d) => d.pieza ?? "—").join(", ")}.`;

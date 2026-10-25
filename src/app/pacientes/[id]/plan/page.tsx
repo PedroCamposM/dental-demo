@@ -3,12 +3,12 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { AlertasPaciente } from "@/components/alertas-paciente";
 import { Encabezado } from "@/components/encabezado";
-import { SUPERFICIES, type Superficie } from "@/lib/clinico/diagnostico";
+import type { Superficie } from "@/lib/clinico/diagnostico";
 import { formatearSoles } from "@/lib/dinero";
 import { fechaLima, formatearFecha } from "@/lib/fechas";
 import { modulos } from "@/lib/funciones";
 import {
-  ESTADOS_COBRO, ESTADOS_ITEM, ESTADOS_PLAN, nombreVersion, totales,
+  ESTADOS_COBRO, ESTADOS_ITEM, ESTADOS_PLAN, nombreVersion, totales, ubicacionItem,
   type EstadoCobro, type EstadoItem, type EstadoPlan,
 } from "@/lib/plan/plan";
 import { ESPECIALIDADES, type Especialidad } from "@/lib/catalogo/validacion";
@@ -29,7 +29,7 @@ type Plan = {
   presentado_at: string; aceptado_at: string | null; motivo_rechazo: string | null; odontologo_id: string;
 };
 type Item = {
-  id: string; plan_id: string; pieza: number | null; superficies: Superficie[] | null; procedimiento: string;
+  id: string; plan_id: string; pieza: number | null; superficies: Superficie[] | null; zona: string | null; procedimiento: string;
   cie10: string | null; precio_centimos: number; duracion_minutos: number | null; estado: EstadoItem; fase: number;
   orden: number; motivo_cancelacion: string | null;
 };
@@ -43,8 +43,7 @@ const COLOR_ITEM: Record<EstadoItem, string> = {
   propuesto: "bg-amber-50 text-amber-900", aceptado: "bg-sky-50 text-sky-800", programado: "bg-indigo-50 text-indigo-800",
   realizado: "bg-teal-50 text-teal-800", cancelado: "bg-gray-100 text-gray-500",
 };
-const ubicacion = (i: Pick<Item, "pieza" | "superficies">) =>
-  i.pieza === null ? "—" : `${i.pieza}${i.superficies ? ` (${i.superficies.map((s) => SUPERFICIES[s].toLowerCase()).join(", ")})` : ""}`;
+const ubicacion = (i: Pick<Item, "pieza" | "superficies" | "zona">) => ubicacionItem(i);
 
 export default async function PlanTratamiento({ params, searchParams }: {
   params: Promise<{ id: string }>; searchParams: Promise<{ p?: string; diagnostico?: string; atendido?: string }>;
@@ -70,7 +69,7 @@ export default async function PlanTratamiento({ params, searchParams }: {
   const idsPlanes = planes.map((x) => x.id);
   const [itemsR, cobrosR] = idsPlanes.length > 0 ? await Promise.all([
     supabase.from("item_plan")
-      .select("id, plan_id, pieza, superficies, procedimiento, cie10, precio_centimos, duracion_minutos, estado, fase, orden, motivo_cancelacion")
+      .select("id, plan_id, pieza, superficies, zona, procedimiento, cie10, precio_centimos, duracion_minutos, estado, fase, orden, motivo_cancelacion")
       .in("plan_id", idsPlanes).order("orden").returns<Item[]>(),
     supabase.from("v_item_cobro").select("item_plan_id, cobrado_centimos, estado_cobro").in("plan_id", idsPlanes)
       .returns<{ item_plan_id: string; cobrado_centimos: number; estado_cobro: EstadoCobro }[]>(),
@@ -96,7 +95,7 @@ export default async function PlanTratamiento({ params, searchParams }: {
       .in("item_id", items.filter((i) => i.plan_id === actual.id).map((i) => i.id))
       .returns<{ item_id: string; requiere_id: string }[]>(),
     esDentista && actual.estado === "propuesto"
-      ? supabase.from("procedimiento").select("id, codigo, nombre, especialidad, precio_base_centimos, duracion_minutos")
+      ? supabase.from("procedimiento").select("id, codigo, nombre, especialidad, precio_base_centimos, duracion_minutos, cobro_por")
           .eq("activo", true).order("especialidad").order("nombre")
           .returns<(OpcionesItem["catalogo"][number] & { especialidad: Especialidad })[]>()
       : Promise.resolve({ data: [], error: null }),
@@ -247,7 +246,7 @@ export default async function PlanTratamiento({ params, searchParams }: {
                                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                                   <p className={i.estado === "cancelado" ? "line-through" : ""}>
                                     <span className="text-gray-500">{numero.get(i.id)}.</span> <span className="font-medium">{i.procedimiento}</span>
-                                    {i.pieza !== null && <> · pieza {ubicacion(i)}</>}
+                                    {(i.pieza !== null || i.zona) && <> · {ubicacion(i)}</>}
                                   </p>
                                   <span className="flex flex-wrap items-center gap-2 text-sm">
                                     <span className="tabular-nums">{formatearSoles(i.precio_centimos)}</span>

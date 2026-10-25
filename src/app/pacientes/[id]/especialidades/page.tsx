@@ -6,6 +6,7 @@ import { Encabezado } from "@/components/encabezado";
 import { FASES_IMPLANTE, type TipoRegistro } from "@/lib/clinico/especialidades";
 import { fechaLima, formatearFecha } from "@/lib/fechas";
 import { modulos } from "@/lib/funciones";
+import { ubicacionItem } from "@/lib/plan/plan";
 import { registrarError } from "@/lib/registro";
 import { createClient } from "@/lib/supabase/server";
 import { abrirHistoria } from "../datos-clinicos";
@@ -14,7 +15,7 @@ import { PestanasPaciente } from "../pestanas";
 
 export const metadata: Metadata = { title: "Especialidades – Dental Demo" };
 
-type Item = { id: string; procedimiento: string; pieza: number | null; estado: string };
+type Item = { id: string; procedimiento: string; pieza: number | null; zona: string | null; estado: string };
 type Nota = { id: string; fecha: string; firmada_at: string | null; anulado_at: string | null };
 
 /** Historial por especialidad: lo registrado en cada sesión, agrupado por ítem del plan. */
@@ -30,7 +31,7 @@ export default async function Especialidades({ params }: { params: Promise<{ id:
   ]);
   const idsPlanes = (planes.data ?? []).map((p) => p.id);
   const items = idsPlanes.length > 0
-    ? await supabase.from("item_plan").select("id, procedimiento, pieza, estado").in("plan_id", idsPlanes).returns<Item[]>()
+    ? await supabase.from("item_plan").select("id, procedimiento, pieza, zona, estado").in("plan_id", idsPlanes).returns<Item[]>()
     : { data: [] as Item[], error: null };
   const error = errorRegistros || !!notas.error || !!planes.error || !!items.error;
   if (notas.error ?? planes.error ?? items.error) registrarError("especialidades.ver", notas.error ?? planes.error ?? items.error, { paciente: id });
@@ -45,7 +46,7 @@ export default async function Especialidades({ params }: { params: Promise<{ id:
   };
   const nombreItem = (itemId: string | null) => {
     const i = itemId ? item.get(itemId) : undefined;
-    return i ? `${i.procedimiento}${i.pieza ? ` · pieza ${i.pieza}` : ""}` : "Sin ítem";
+    return i ? `${i.procedimiento}${i.pieza || i.zona ? ` · ${ubicacionItem(i)}` : ""}` : "Sin ítem";
   };
   const porItem = <T extends { item_plan_id: string | null }>(lista: T[]) => {
     const m = new Map<string, T[]>();

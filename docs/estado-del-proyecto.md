@@ -832,6 +832,60 @@ Aprobada por Pedro el 11-oct («Apruebo la etapa»). Migraciones aditivas:
   Queda anotado: un turno que no se cierra antes de la medianoche sigue sumando los pagos del
   día siguiente. Se ve como «Turno abierto» en la caja de cualquier día y el cierre de ese
   día lo exige cerrar antes.
+- 11-oct: PR #10 fusionado con CI verde (Playwright 112 pruebas). Con el OK de Pedro,
+  «Aplicar migraciones» run 38173223553 (respaldo previo): 0933 y 0934 aplicadas. Verificado
+  en el remoto: las 2 migraciones registradas, `clinica.suspendida_at`, tabla `turno_caja`
+  con RLS y las 8 funciones nuevas. Falta `HABILITAR_ETAPA20=1` en Vercel.
+
+## v2 — Etapa 21 (experiencia de uso: ficha en una página, plan por zona y varios diagnósticos)
+
+Nace del comentario del odontólogo piloto («muy tediosa y poco amigable») y de sus fichas de
+papel (`docs/clinica-piloto/`). Pedro aclaró que la ficha en una página **no reemplaza** la
+historia completa: es la referencia de la atención rápida. «Emergencias» es el contacto de
+emergencia. Se hizo antes una auditoría de experiencia (21.0, solo lectura).
+- **21.1 Plan por zona** (migración aditiva **0935**):
+  - `procedimiento.cobro_por` (pieza, cuadrante, arcada o boca; por defecto pieza), que edita el
+    admin. La migración deja profilaxis y destartraje «por boca».
+  - `item_plan.zona` (un cuadrante, una arcada o la boca completa), que excluye pieza y
+    superficies (`item_zona_sin_pieza`). El precio sugerido es base × unidades de la zona.
+  - `copiar_plan` copia la zona. Todas las vistas del ítem muestran la zona (`ubicacionItem`).
+- **21.2 Varios diagnósticos CIE-10 a la vez**: varios códigos × varias piezas en un envío (hasta
+  10 códigos y 40 diagnósticos). Las superficies solo con una pieza. El paso desde un hallazgo
+  sigue siendo de un código.
+- **21.3 Atención rápida como ficha en una página**, en el orden de la hoja de papel: datos del
+  paciente, anamnesis, odontograma, diagnósticos, plan y ficha de control. Cada sección se
+  guarda por separado sin salir de la página.
+  - La anamnesis crea una versión nueva del cuestionario. Lo que la ficha no pregunta se copia
+    de la versión anterior, y las alergias se preguntan siempre («Ninguna conocida»).
+  - Se retiró el formulario de un solo paso (`src/lib/clinico/atencion-rapida.ts` y su
+    prueba). La función SQL `registrar_atencion_rapida` y su prueba se conservan.
+  - Se actualizó a propósito el primer caso de `e2e/atencion-rapida.spec.ts` al nuevo flujo.
+  - Límite anotado: las especificaciones del odontograma se fijan al crearlo (la tabla no
+    admite editarlas después).
+- Pruebas:
+  - SQL: `supabase/tests/plan_zona.test.sql`.
+  - Vitest: `src/lib/plan/zona.test.ts`, `src/lib/clinico/ficha-rapida.test.ts` y casos en
+    diagnóstico y catálogo.
+  - Playwright: varios códigos en `e2e/examen.spec.ts` y la ficha en `e2e/atencion-rapida.spec.ts`.
+- Pruebas SQL con fecha de Lima: `suscripcion`, `superadmin` y `gestion_clientes` usaban
+  `current_date` (UTC) y fallaban entre las 19:00 y las 24:00 de Lima.
+- Checklist: `docs/checklist-etapa21.md`.
+- Revisión independiente (25-oct). Corregido:
+  - El seed no fijaba cómo se cotiza (los seeds van después de las migraciones):
+    `seed_etapa21.sql` (PRE-01 por boca, PER-01 por cuadrante) y su verificación en `seed.check`.
+    0935 también deja «por cuadrante» lo que lo dice en el nombre.
+  - Las clínicas de prueba nuevas copian `cobro_por` del catálogo de la demo
+    (`crear_clinica_prueba` recreada en 0935).
+  - La zona queda fija, como la pieza, en un ítem aceptado o con consentimiento, y el
+    consentimiento de una versión anterior solo vale para la misma zona (base y pantalla).
+  - La labor de hoy en la ficha avisa del consentimiento faltante, como la pestaña Evolución
+    (`itemsSinConsentimiento`, compartida).
+  - «Empezar plan» y «Registrar labor de hoy» no duplican el plan ni el borrador.
+  - Un mensaje claro para un rol sin permiso, el nombre accesible del odontograma en la ficha y
+    aserciones e2e más precisas.
+
+  Queda para decidir con Pedro: el precio sugerido de una zona parcial con un procedimiento «por
+  boca» (hoy, el precio completo; se puede editar).
 
 ## Revisión independiente de las etapas 10 a 12 (11-oct)
 
@@ -875,7 +929,7 @@ Queda anotado, sin cambio de código:
 
 ## Próximas etapas (CLAUDE.md)
 
-Etapas 0 a 19 terminadas (v2 en producción desde el 10-oct); Etapa 20 en revisión. Sigue: actualización de dependencias (Next 16, Vitest 4). Opcional, por decidir: enlace para que los pacientes soliciten cita (el portal del paciente está fuera de alcance en CLAUDE.md).
+Etapas 0 a 19 terminadas (v2 en producción desde el 10-oct); Etapa 20 aplicada (falta la bandera en Vercel). Sigue: actualización de dependencias (Next 16, Vitest 4). Opcional, por decidir: enlace para que los pacientes soliciten cita (el portal del paciente está fuera de alcance en CLAUDE.md).
 Falta en `/docs`: formatos de la clínica piloto (historia y consentimientos),
 necesarios antes de la Etapa 7. La Etapa 4 incluye además lo de las fichas
 odonto-estomatológicas de la NTS 139 (índice CPOD/ceod, IHO-S, riesgo estomatológico

@@ -14,7 +14,7 @@ describe("validarProcedimiento", () => {
       datos: {
         codigo: "END-01", nombre: "Endodoncia unirradicular", especialidad: "endodoncia",
         precio_base_centimos: 45000, duracion_minutos: 60, requiere_consentimiento: true,
-        control_dias: null, activo: true,
+        control_dias: null, activo: true, cobro_por: "pieza",
       },
     });
   });
@@ -54,5 +54,15 @@ describe("formatearDuracion", () => {
     expect(formatearDuracion(45)).toBe("45 min");
     expect(formatearDuracion(60)).toBe("1 h");
     expect(formatearDuracion(90)).toBe("1 h 30 min");
+  });
+});
+
+describe("cobro por zona (Etapa 21)", () => {
+  const base = { codigo: "PRV-01", nombre: "Destartraje", especialidad: "preventiva", precio: "120", duracion_minutos: "45" };
+  it("acepta arcada o boca y rechaza otro valor", () => {
+    const r = validarProcedimiento({ ...base, cobro_por: "arcada" });
+    expect(r.ok && r.datos.cobro_por).toBe("arcada");
+    const malo = validarProcedimiento({ ...base, cobro_por: "diente" });
+    expect(!malo.ok && malo.errores.cobro_por).toBe("Elige cómo se cotiza.");
   });
 });

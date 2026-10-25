@@ -85,6 +85,23 @@ test("la odontóloga registra el examen y un diagnóstico, lo confirma y le agre
   await expect(diagnostico(page, "K05.1")).toContainText("Anulado: Registrado por error");
 });
 
+// Etapa 21: pedido del odontólogo piloto, varios diagnósticos a la vez (código × pieza).
+test("la odontóloga registra varios códigos CIE-10 en varias piezas de una vez", async ({ page }) => {
+  expect(pacienteId, "depende de la primera prueba de este archivo").not.toBe("");
+  await entrar(page, "mendoza@clinica-demo.example");
+  await page.goto(`/pacientes/${pacienteId}/examen`);
+  await page.locator("#d-cie10").fill("K02.1 — Caries de la dentina");
+  await page.getByRole("button", { name: "Agregar código" }).click();
+  await page.locator("#d-cie10").fill("K04.0");
+  await page.getByRole("button", { name: "Agregar código" }).click();
+  await expect(page.getByRole("list", { name: "Códigos elegidos" }).getByRole("listitem")).toHaveCount(2);
+  await page.getByRole("radio", { name: "Presuntivo" }).check();
+  await page.locator("#d-pieza").fill("16, 26");
+  await page.getByRole("button", { name: "Registrar diagnóstico" }).click();
+  await expect(page.getByText("4 diagnósticos registrados (K02.1, K04.0).")).toBeVisible();
+  await expect(diagnostico(page, "K04.0").filter({ hasText: "pieza 26" })).toBeVisible();
+});
+
 test("la asistente ve el examen y los diagnósticos, pero no los registra", async ({ page }) => {
   expect(pacienteId, "depende de la primera prueba de este archivo").not.toBe("");
   await entrar(page, "asistente@clinica-demo.example");

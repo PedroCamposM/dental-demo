@@ -1,6 +1,7 @@
 // Plan de tratamiento: estados, validación de ítems y totales. Corre en el servidor;
 // la base vuelve a validar (fases, dependencias, diagnóstico de origen, RLS).
 import { esPiezaFdi, SUPERFICIES, superficiesImposibles, type Superficie } from "@/lib/clinico/diagnostico";
+import type { CobroPor } from "@/lib/catalogo/validacion";
 import { aCentimos } from "@/lib/dinero";
 import { leerListaPiezas, MAX_PIEZAS } from "@/lib/odontograma/hallazgo";
 
@@ -32,14 +33,45 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export type ProcedimientoCatalogo = {
   id: string; codigo: string; nombre: string; precio_base_centimos: number; duracion_minutos: number;
+  /** Etapa 21: cómo se cotiza (null o ausente: por pieza). */
+  cobro_por?: CobroPor | null;
 };
+
+/** Etapa 21: zona trabajada de un ítem que no es de una pieza (profilaxis, destartraje…). */
+export const ZONAS = {
+  cuadrante_1: "Cuadrante 1 (superior derecho)",
+  cuadrante_2: "Cuadrante 2 (superior izquierdo)",
+  cuadrante_3: "Cuadrante 3 (inferior izquierdo)",
+  cuadrante_4: "Cuadrante 4 (inferior derecho)",
+  arcada_superior: "Arcada superior",
+  arcada_inferior: "Arcada inferior",
+  boca: "Ambas arcadas (boca completa)",
+} as const;
+export type Zona = keyof typeof ZONAS;
+
+export { COBRO_POR, type CobroPor } from "@/lib/catalogo/validacion";
+
+/** Cuántas unidades de cobro abarca una zona (p. ej. boca completa = 2 arcadas = 4 cuadrantes). */
+export function unidadesZona(zona: Zona | null, cobro: CobroPor | null | undefined): number {
+  if (!zona || !cobro || cobro === "pieza" || cobro === "boca") return 1;
+  const cuadrantes = zona === "boca" ? 4 : zona.startsWith("arcada_") ? 2 : 1;
+  return cobro === "cuadrante" ? cuadrantes : Math.max(1, cuadrantes / 2);
+}
+
+/** Dónde se trabaja un ítem, en palabras: «pieza 16 (oclusal)», «Arcada superior» o «—». */
+export function ubicacionItem(i: { pieza: number | null; superficies?: string[] | null; zona?: string | null }): string {
+  if (i.zona && Object.hasOwn(ZONAS, i.zona)) return ZONAS[i.zona as Zona];
+  if (i.pieza === null) return "—";
+  const sup = (i.superficies ?? []).filter((x): x is Superficie => Object.hasOwn(SUPERFICIES, x));
+  return `pieza ${i.pieza}${sup.length > 0 ? ` (${sup.map((x) => SUPERFICIES[x].toLowerCase()).join(", ")})` : ""}`;
+}
 
 export type ItemValidado = {
   procedimiento_id: string; procedimiento: string; precio_centimos: number; duracion_minutos: number;
-  pieza: number | null; superficies: Superficie[] | null; fase: number; diagnostico_id: string | null;
+  pieza: number | null; superficies: Superficie[] | null; zona: Zona | null; fase: number; diagnostico_id: string | null;
   requiere: string[];
 };
-export type CampoItem = "procedimiento_id" | "precio" | "duracion_minutos" | "pieza" | "superficies" | "fase"
+export type CampoItem = "procedimiento_id" | "precio" | "duracion_minutos" | "pieza" | "superficies" | "zona" | "fase"
   | "diagnostico_id" | "requiere";
 
 export type DiagnosticoVigente = { id: string; pieza: number | null; cie10: string };
@@ -67,6 +99,12 @@ export function validarItems(
 ): { ok: true; datos: ItemValidado[] } | { ok: false; errores: Partial<Record<CampoItem, string>> } {
   const piezas = leerListaPiezas(e.texto("pieza"));
   const base = { ...contexto, diagnosticos: contexto.diagnosticos.map((d) => d.id) };
+  // Una zona (arcada, cuadrante, boca) es un solo ítem, sin piezas.
+  if (e.texto("zona")) {
+    if (piezas.length > 0) return { ok: false, errores: { pieza: "Elige piezas o una zona, no ambas." } };
+    const r = validarItem(e, base);
+    return r.ok ? { ok: true, datos: [r.datos] } : r;
+  }
   if (piezas.length <= 1) {
     // Con una sola pieza se valida ya limpia («16,» o «16, 16» son la 16).
     const r = validarItem({ texto: (k) => (k === "pieza" ? (piezas[0] ?? "") : e.texto(k)), lista: e.lista }, base);
@@ -102,7 +140,11 @@ export function validarItem(
   const proc = contexto.catalogo.find((p) => p.id === e.texto("procedimiento_id"));
   if (!proc) errores.procedimiento_id = "Elige el procedimiento del catálogo.";
 
-  let precio = proc?.precio_base_centimos ?? 0;
+  const textoZona = e.texto("zona");
+  const zona = textoZona && Object.hasOwn(ZONAS, textoZona) ? (textoZona as Zona) : null;
+  if (textoZona && !zona) errores.zona = "Elige una zona de la lista.";
+  // Sin precio escrito: el del catálogo por cada unidad que abarca la zona (2 arcadas = 2 veces el precio por arcada).
+  let precio = (proc?.precio_base_centimos ?? 0) * unidadesZona(zona, proc?.cobro_por);
   const textoPrecio = e.texto("precio").trim();
   if (textoPrecio) {
     try {
@@ -128,6 +170,7 @@ export function validarItem(
     if (!esPiezaFdi(pieza)) errores.pieza = "Pieza FDI de dos dígitos: 11–48 o 51–85.";
   }
   const superficies = [...new Set(e.lista("superficies"))].filter((s): s is Superficie => Object.hasOwn(SUPERFICIES, s));
+  if (zona && textoPieza) errores.pieza = "Elige piezas o una zona, no ambas.";
   if (superficies.length > 0 && !textoPieza) errores.superficies = "Indica la pieza de esas superficies.";
   else if (superficies.length > 0 && pieza !== null && esPiezaFdi(pieza)) {
     const malas = superficiesImposibles(pieza, superficies);
@@ -152,7 +195,7 @@ export function validarItem(
     ok: true,
     datos: {
       procedimiento_id: proc.id, procedimiento: proc.nombre, precio_centimos: precio, duracion_minutos: duracion,
-      pieza: Number.isNaN(pieza) ? null : pieza, superficies: superficies.length > 0 ? superficies : null, fase,
+      pieza: Number.isNaN(pieza) ? null : pieza, superficies: superficies.length > 0 ? superficies : null, zona, fase,
       diagnostico_id: diagnostico, requiere,
     },
   };

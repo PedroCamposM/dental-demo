@@ -108,11 +108,13 @@ export function validarPlantilla(t: (c: string) => string):
   };
 }
 
-export type ItemConOrigen = { id: string; item_origen_id: string | null; procedimiento_id: string | null; pieza: number | null };
+export type ItemConOrigen = {
+  id: string; item_origen_id: string | null; procedimiento_id: string | null; pieza: number | null; zona?: string | null;
+};
 
 /**
  * Ítems cubiertos por un consentimiento firmado: el propio o el del ítem del que se
- * copió en una versión anterior del plan (mismo procedimiento y pieza). Es lo mismo
+ * copió en una versión anterior del plan (mismo procedimiento, pieza y zona). Es lo mismo
  * que exige la base (privado.tiene_consentimiento) para marcarlo realizado.
  */
 export function itemsConConsentimiento(items: ItemConOrigen[], conFirmado: Set<string>): Set<string> {
@@ -128,7 +130,8 @@ export function itemsConConsentimiento(items: ItemConOrigen[], conFirmado: Set<s
       }
       vistos.add(actual.id);
       const origen: ItemConOrigen | undefined = actual.item_origen_id ? porId.get(actual.item_origen_id) : undefined;
-      actual = origen && origen.procedimiento_id === actual.procedimiento_id && origen.pieza === actual.pieza ? origen : undefined;
+      actual = origen && origen.procedimiento_id === actual.procedimiento_id && origen.pieza === actual.pieza
+        && (origen.zona ?? null) === (actual.zona ?? null) ? origen : undefined;
     }
   }
   return cubiertos;

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import {
-  CAMPOS_TEXTO_EXAMEN, codigosElegibles, validarDiagnostico, validarExamen,
+  CAMPOS_TEXTO_EXAMEN, codigosElegibles, validarDiagnostico, validarDiagnosticos, validarExamen,
   type CampoDiagnostico, type CampoExamen, type CodigoCie10,
 } from "@/lib/clinico/diagnostico";
 import { modulos } from "@/lib/funciones";
@@ -64,7 +64,7 @@ export async function registrarExamen(_previo: EstadoExamen, form: FormData): Pr
 // ---------------------------------------------------------------------------
 export type EstadoDiagnostico = {
   errores: Partial<Record<CampoDiagnostico | "general", string>>; mensaje: string | null;
-  valores: { textos: Record<string, string>; superficies: string[] };
+  valores: { textos: Record<string, string>; superficies: string[]; codigos?: string[] };
 };
 
 export async function registrarDiagnostico(_previo: EstadoDiagnostico, form: FormData): Promise<EstadoDiagnostico> {
@@ -72,7 +72,9 @@ export async function registrarDiagnostico(_previo: EstadoDiagnostico, form: For
     textos: Object.fromEntries(["cie10", "tipo", "pieza", "observacion", "hallazgo_id", "confirma_id"]
       .map((c) => [c, String(form.get(c) ?? "")])),
     superficies: form.getAll("superficies").map(String),
+    codigos: form.getAll("cie10").map(String).filter((x) => x.trim()),
   };
+  const codigos = valores.codigos;
   const fallo = (errores: EstadoDiagnostico["errores"]): EstadoDiagnostico => ({ errores, mensaje: null, valores });
   const pacienteId = String(form.get("paciente_id") ?? "");
   const d = await dentista(pacienteId);
@@ -90,20 +92,29 @@ export async function registrarDiagnostico(_previo: EstadoDiagnostico, form: For
     if (errorCatalogo) registrarError("diagnostico.catalogo", errorCatalogo);
     return fallo({ general: "No se pudo cargar el catálogo CIE-10. Inténtalo de nuevo." });
   }
-  const r = validarDiagnostico(
-    { texto: (c) => valores.textos[c] ?? "", lista: () => valores.superficies },
-    new Set(codigosElegibles(catalogo).map((c) => c.codigo)),
-  );
+  const elegibles = new Set(codigosElegibles(catalogo).map((c) => c.codigo));
+  // Desde un hallazgo o al confirmar un presuntivo: un solo diagnóstico. Si no, varios a la vez
+  // (Etapa 21): cada código elegido en cada pieza escrita, en un solo guardado.
+  const r = hallazgoId || confirmaId
+    ? (() => {
+        const uno = validarDiagnostico({ texto: (c) => valores.textos[c] ?? "", lista: () => valores.superficies }, elegibles);
+        return uno.ok ? { ok: true as const, datos: [uno.datos] } : uno;
+      })()
+    : validarDiagnosticos({ texto: (c) => valores.textos[c] ?? "", lista: (c) => (c === "cie10" ? codigos : valores.superficies) }, elegibles);
   if (!r.ok) return fallo(r.errores);
-  if (confirmaId && r.datos.tipo !== "definitivo") return fallo({ tipo: "Al confirmar, el diagnóstico es definitivo." });
+  if (confirmaId && r.datos[0]?.tipo !== "definitivo") return fallo({ tipo: "Al confirmar, el diagnóstico es definitivo." });
 
-  const { error } = await supabase.from("diagnostico").insert({
-    ...r.datos, clinica_id: d.sesion.clinicaId, paciente_id: pacienteId, registrado_por: d.sesion.usuarioId,
+  const { error } = await supabase.from("diagnostico").insert(r.datos.map((dx) => ({
+    ...dx, clinica_id: d.sesion.clinicaId, paciente_id: pacienteId, registrado_por: d.sesion.usuarioId,
     hallazgo_id: hallazgoId, confirma_id: confirmaId,
-  });
+  })));
   if (error) return fallo({ general: mensajeDeError(error, "diagnostico.registrar", "el diagnóstico") });
   revalidatePath(`/pacientes/${pacienteId}/examen`);
-  return { errores: {}, mensaje: `Diagnóstico ${r.datos.cie10} registrado.`, valores: { textos: {}, superficies: [] } };
+  const lista = [...new Set(r.datos.map((x) => x.cie10))].join(", ");
+  return {
+    errores: {}, valores: { textos: {}, superficies: [], codigos: [] },
+    mensaje: r.datos.length === 1 ? `Diagnóstico ${lista} registrado.` : `${r.datos.length} diagnósticos registrados (${lista}).`,
+  };
 }
 
 // ---------------------------------------------------------------------------

@@ -3,12 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlertasPaciente } from "@/components/alertas-paciente";
 import { Encabezado } from "@/components/encabezado";
-import { SUPERFICIES, type Superficie } from "@/lib/clinico/diagnostico";
-import { itemsConConsentimiento, type ItemConOrigen } from "@/lib/clinico/consentimientos";
+import type { Superficie } from "@/lib/clinico/diagnostico";
 import { CAMPOS_EVOLUCION, LISTA_CAMPOS_EVOLUCION, type CampoEvolucion } from "@/lib/clinico/evolucion";
 import { fechaLima, formatearFecha, horaLima } from "@/lib/fechas";
 import { modulos } from "@/lib/funciones";
-import { nombreVersion } from "@/lib/plan/plan";
+import { nombreVersion, ubicacionItem } from "@/lib/plan/plan";
 import { registrarError } from "@/lib/registro";
 import { createClient } from "@/lib/supabase/server";
 import { abrirHistoria } from "../datos-clinicos";
@@ -17,6 +16,7 @@ import { REGISTROS_POR_ESPECIALIDAD, type TipoRegistro } from "@/lib/clinico/esp
 import { FormRegistro } from "./especialidades";
 import { Adenda, AnularEvolucion, EditorEvolucion, NuevaEvolucion, type ItemPendiente } from "./formularios";
 import { cargarRegistros, RegistrosSesion, type Registros } from "./registros";
+import { itemsSinConsentimiento } from "./sin-consentimiento";
 
 export const metadata: Metadata = { title: "Evolución – Dental Demo" };
 
@@ -28,16 +28,15 @@ type Nota = Record<Exclude<CampoEvolucion, "texto">, string | null> & {
   evolucion_item: { item_id: string; trabajado: boolean; terminado: boolean }[];
 };
 type Item = {
-  id: string; plan_id: string; procedimiento: string; pieza: number | null; superficies: Superficie[] | null;
+  id: string; plan_id: string; procedimiento: string; pieza: number | null; superficies: Superficie[] | null; zona: string | null;
   estado: string; nota_evolucion_id: string | null; fase: number | null; orden: number; procedimiento_id: string | null;
   item_origen_id?: string | null;
 };
 type Plan = { id: string; titulo: string; version: number; alternativa: string; estado: string };
 
 const fechaHora = (iso: string) => `${formatearFecha(fechaLima(iso))}, ${horaLima(iso)}`;
-const describir = (i: Pick<Item, "procedimiento" | "pieza" | "superficies">) =>
-  `${i.procedimiento}${i.pieza === null ? "" : ` · pieza ${i.pieza}`}${
-    i.superficies?.length ? ` (${i.superficies.map((s) => SUPERFICIES[s].toLowerCase()).join(", ")})` : ""}`;
+const describir = (i: Pick<Item, "procedimiento" | "pieza" | "superficies" | "zona">) =>
+  `${i.procedimiento}${i.pieza === null && !i.zona ? "" : ` · ${ubicacionItem(i)}`}`;
 
 export default async function Evolucion({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -58,29 +57,11 @@ export default async function Evolucion({ params }: { params: Promise<{ id: stri
   const idsPlanes = (planes.data ?? []).map((p) => p.id);
   const items = idsPlanes.length > 0
     ? await supabase.from("item_plan")
-        .select("id, plan_id, procedimiento, pieza, superficies, estado, nota_evolucion_id, fase, orden, procedimiento_id")
+        .select("id, plan_id, procedimiento, pieza, superficies, zona, estado, nota_evolucion_id, fase, orden, procedimiento_id")
         .in("plan_id", idsPlanes).order("fase", { nullsFirst: true }).order("orden").returns<Item[]>()
     : { data: [] as Item[], error: null };
   // Etapa 7: ítems que requieren consentimiento firmado y aún no lo tienen (la firma fallaría).
-  const sinConsentimiento = new Set<string>();
-  if (modulos.etapa7) {
-    const pendientesIds = (items.data ?? []).filter((i) => i.estado === "aceptado" || i.estado === "programado");
-    const procs = [...new Set(pendientesIds.flatMap((i) => (i.procedimiento_id ? [i.procedimiento_id] : [])))];
-    if (procs.length > 0 && idsPlanes.length > 0) {
-      const [requieren, firmados, origenes] = await Promise.all([
-        supabase.from("procedimiento").select("id").in("id", procs).eq("requiere_consentimiento", true).returns<{ id: string }[]>(),
-        supabase.from("consentimiento").select("item_plan_id").eq("paciente_id", id).eq("estado", "firmado").is("anulado_at", null)
-          .returns<{ item_plan_id: string | null }[]>(),
-        supabase.from("item_plan").select("id, item_origen_id, procedimiento_id, pieza").in("plan_id", idsPlanes)
-          .returns<ItemConOrigen[]>(),
-      ]);
-      const req = new Set((requieren.data ?? []).map((r) => r.id));
-      // Firmado en este ítem o en el de una versión anterior del plan (lo mismo que exige la base).
-      const ok = itemsConConsentimiento(origenes.data ?? [],
-        new Set((firmados.data ?? []).flatMap((f) => (f.item_plan_id ? [f.item_plan_id] : []))));
-      for (const i of pendientesIds) if (i.procedimiento_id && req.has(i.procedimiento_id) && !ok.has(i.id)) sinConsentimiento.add(i.id);
-    }
-  }
+  const sinConsentimiento = await itemsSinConsentimiento(supabase, id, items.data ?? [], idsPlanes);
   // Etapa 9: registros por especialidad y especialidad de cada procedimiento.
   const vacio: Registros = { endodoncia: [], ortodoncia_caso: [], ortodoncia_control: [], implante: [], implante_fase: [], cirugia: [], odontopediatria: [] };
   const [regs, especialidades] = modulos.etapa9

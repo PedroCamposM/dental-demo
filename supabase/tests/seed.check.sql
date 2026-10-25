@@ -103,6 +103,10 @@ select pg_temp.al_menos((select count(*) from v_item_cobro, pg_temp.c
                          where clinica_id = c.id and estado <> 'realizado' and cobrado_centimos > 0), 3,
                         'adelantos (cobrado sin realizar)');
 
+-- Etapa 21: profilaxis y destartraje se cotizan por boca completa; el raspado, por cuadrante
+select pg_temp.ninguno((select count(*) from procedimiento, pg_temp.c where clinica_id = c.id
+                         and ((codigo = 'PRE-01' and cobro_por <> 'boca') or (codigo = 'PER-01' and cobro_por <> 'cuadrante'))),
+                       'procedimientos de la demo sin su forma de cotizar');
 -- Etapa 2: catálogo de procedimientos coherente con los planes del seed
 select pg_temp.al_menos((select count(*) from procedimiento, pg_temp.c where clinica_id = c.id and activo), 20,
                         'procedimientos activos en el catálogo');

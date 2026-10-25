@@ -22,7 +22,7 @@ export const ESPECIALIDADES: Record<Especialidad, string> = {
 
 export type CampoProcedimiento =
   | "codigo" | "nombre" | "especialidad" | "precio" | "duracion_minutos" | "requiere_consentimiento"
-  | "control_dias" | "activo";
+  | "control_dias" | "activo" | "cobro_por";
 
 export type EntradaProcedimiento = Partial<Record<CampoProcedimiento, string>>;
 
@@ -35,7 +35,12 @@ export type ProcedimientoValidado = {
   requiere_consentimiento: boolean;
   control_dias: number | null;
   activo: boolean;
+  /** Etapa 21: cómo se cotiza (pieza, cuadrante, arcada o boca completa). */
+  cobro_por: CobroPor;
 };
+
+export const COBRO_POR = { pieza: "Por pieza", cuadrante: "Por cuadrante", arcada: "Por arcada", boca: "Por boca completa" } as const;
+export type CobroPor = keyof typeof COBRO_POR;
 
 export type ResultadoProcedimiento =
   | { ok: true; datos: ProcedimientoValidado }
@@ -90,6 +95,9 @@ export function validarProcedimiento(entrada: EntradaProcedimiento): ResultadoPr
     e.control_dias = "Entre 1 y 730 días, o vacío si no genera control.";
   }
 
+  const cobro = t("cobro_por") || "pieza";
+  if (!Object.hasOwn(COBRO_POR, cobro)) e.cobro_por = "Elige cómo se cotiza.";
+
   if (Object.keys(e).length > 0 || !esEspecialidad(especialidad) || duracion === null) return { ok: false, errores: e };
   return {
     ok: true,
@@ -98,6 +106,7 @@ export function validarProcedimiento(entrada: EntradaProcedimiento): ResultadoPr
       requiere_consentimiento: t("requiere_consentimiento") === "1",
       control_dias: control,
       activo: t("activo") !== "0",
+      cobro_por: cobro as CobroPor,
     },
   };
 }

@@ -41,7 +41,8 @@ async function crearPacienteConPlan(page: Page) {
     ["PRE-02 · Aplicación de flúor", "Aplicación de flúor"]] as const) {
     await page.locator("#i-procedimiento").selectOption({ label: opcion });
     await page.getByRole("button", { name: "Agregar al plan" }).click();
-    await expect(page.getByText(`Agregado: ${nombre}.`)).toBeVisible();
+    // (la profilaxis va por zona: «Agregado: Profilaxis y destartraje (ambas arcadas …).»)
+    await expect(page.getByText(new RegExp(`^Agregado: ${nombre}[ .]`))).toBeVisible();
   }
   await page.getByRole("button", { name: "Registrar aceptación" }).click();
   await expect(page.getByRole("navigation", { name: "Planes del paciente" })).toContainText("Aceptado");
